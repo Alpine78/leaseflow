@@ -1,0 +1,14 @@
+aws_region           = "eu-north-1"
+project_name         = "leaseflow"
+environment          = "dev"
+vpc_cidr             = "10.20.0.0/16"
+private_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24"]
+
+db_name           = "leaseflow"
+db_username       = "leaseflow_admin"
+db_password       = "replace-me"
+db_instance_class = "db.t3.micro"
+db_engine_version = "15.7"
+
+lambda_package_file  = "../../../dist/leaseflow-backend.zip"
+db_password_ssm_param = "/leaseflow/dev/db/password"
