@@ -26,6 +26,26 @@ LeaseFlow is a cloud-native, multi-tenant rental management system MVP built as 
 - `infra/`: Terraform modules and environment composition.
 - `docs/`: MVP and architecture docs.
 
+## Current MVP Status
+
+Implemented now:
+
+- Backend Lambda with lightweight routing
+- `GET /health`
+- `POST /properties`
+- `GET /properties`
+- JWT claim extraction with tenant-aware request context
+- Tenant-scoped PostgreSQL access
+- Audit logging for property creation
+- Alembic migrations for initial tables
+- Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
+
+Planned next:
+
+- Expand core rental management flows beyond properties
+- Add more automated backend and tenant-isolation test coverage
+- Refine operational setup for scheduled workflows and monitoring
+
 ## Local Backend Checks
 
 ```bash
