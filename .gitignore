@@ -11,6 +11,8 @@ __pycache__/
 .mypy_cache/
 .venv/
 venv/
+*.egg-info
+backend/pytest-cache-files-*
 
 # Terraform
 **/.terraform/*
@@ -24,3 +26,5 @@ crash.log
 dist/
 build/
 *.zip
+
+docs/reference/raw/
