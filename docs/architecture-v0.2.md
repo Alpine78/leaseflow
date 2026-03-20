@@ -4,6 +4,10 @@
 
 LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The architecture emphasizes clear tenant boundaries, low operational overhead, and realistic production patterns.
 
+## Architecture Diagram
+
+![LeaseFlow architecture](diagrams/leaseflow-architecture.svg)
+
 ## Core Components
 
 - **API Gateway (HTTP API)**: public HTTPS entry point.
@@ -41,3 +45,16 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - One RDS instance in dev with small sizing.
 - No NAT Gateway in dev environment.
 - No extra services unless they deliver clear MVP value.
+
+## Diagram Source
+
+The version-controlled source for the architecture diagram lives in:
+
+- `docs/diagrams/leaseflow-architecture.d2`
+
+Render it locally after installing the D2 CLI:
+
+```bash
+cd docs/diagrams
+d2 leaseflow-architecture.d2 leaseflow-architecture.svg
+```

@@ -1,0 +1,49 @@
+direction: right
+
+internet: Internet {
+  landlord_user: Landlord user
+}
+
+aws: AWS account {
+  public_edge: Public edge {
+    api_gateway: API Gateway HTTP API
+  }
+
+  identity: Identity {
+    cognito: Cognito User Pool
+    jwt_note: JWT contains
+    claims_note: sub + custom:tenant_id
+  }
+
+  operations: Operations {
+    cloudwatch: CloudWatch Logs
+    eventbridge: EventBridge / Scheduler (planned)
+  }
+
+  secrets: Secrets {
+    ssm: SSM Parameter Store
+  }
+
+  vpc: Private VPC {
+    private_subnets: Private subnets (2 AZs)
+    lambda_backend: Lambda backend
+    tenant_note: App-level tenant isolation
+
+    rds_postgres: RDS PostgreSQL (private) {
+      properties_table: properties
+      audit_logs_table: audit_logs
+    }
+  }
+}
+
+internet.landlord_user -> aws.identity.cognito: Sign in
+aws.identity.cognito -> internet.landlord_user: JWT
+internet.landlord_user -> aws.public_edge.api_gateway: HTTPS GET/POST /properties
+aws.public_edge.api_gateway -> aws.identity.cognito: JWT authorizer
+aws.public_edge.api_gateway -> aws.vpc.lambda_backend: Invoke
+aws.vpc.lambda_backend -> aws.vpc.tenant_note: Extract tenant_id from JWT
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.properties_table: Tenant-scoped reads/writes
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.audit_logs_table: Audit log on write
+aws.vpc.lambda_backend -> aws.secrets.ssm: Read DB password
+aws.vpc.lambda_backend -> aws.operations.cloudwatch: Structured JSON logs
+aws.operations.eventbridge -> aws.vpc.lambda_backend: Future reminders/jobs
