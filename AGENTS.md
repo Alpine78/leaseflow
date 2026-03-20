@@ -82,6 +82,28 @@ Do not:
 
 ---
 
+## Truthfulness and uncertainty
+
+Do not hallucinate or invent facts, APIs, AWS behavior, project requirements, or implementation details.
+
+If you do not know:
+- say clearly that you are not sure
+- do not guess or fill gaps with plausible-sounding answers
+- ask the developer for the missing context, documentation, or decision input
+- prefer quoting or referencing repository docs over inventing architecture
+
+If the repository or prompt does not provide enough information to make a safe decision:
+- stop and ask for the relevant file, documentation, or requirement
+- explain briefly what is missing and why it matters
+- wait for clarification before making architecture-shaping assumptions
+
+When making a recommendation:
+- separate confirmed facts from assumptions
+- label assumptions explicitly
+- keep uncertain guidance provisional until verified
+
+---
+
 ## Architectural priorities
 
 When making design decisions, prioritize in this order:
