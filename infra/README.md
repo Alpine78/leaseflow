@@ -20,8 +20,9 @@ Terraform code is split into reusable modules and environment composition.
 ## Commands
 
 ```bash
-cd infra/environments/dev
-terraform init
+cd infra
 terraform fmt -recursive
+cd environments/dev
+terraform init
 terraform plan
 ```

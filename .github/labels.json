@@ -1,0 +1,77 @@
+[
+  {
+    "name": "type:bug",
+    "color": "D73A4A",
+    "description": "Reproducible defect or regression"
+  },
+  {
+    "name": "type:feature",
+    "color": "1D76DB",
+    "description": "New capability or MVP extension"
+  },
+  {
+    "name": "type:docs",
+    "color": "0E8A16",
+    "description": "Documentation improvement or clarification"
+  },
+  {
+    "name": "type:security",
+    "color": "B60205",
+    "description": "Security-related work or hardening"
+  },
+  {
+    "name": "type:chore",
+    "color": "6F42C1",
+    "description": "Maintenance, tooling, or housekeeping"
+  },
+  {
+    "name": "area:backend",
+    "color": "5319E7",
+    "description": "Python backend, tests, or migrations"
+  },
+  {
+    "name": "area:infra",
+    "color": "0052CC",
+    "description": "Terraform or AWS infrastructure"
+  },
+  {
+    "name": "area:docs",
+    "color": "006B75",
+    "description": "Repository or architecture documentation"
+  },
+  {
+    "name": "area:ci",
+    "color": "FBCA04",
+    "description": "GitHub Actions, checks, or automation"
+  },
+  {
+    "name": "priority:p1",
+    "color": "B60205",
+    "description": "High-priority work"
+  },
+  {
+    "name": "priority:p2",
+    "color": "D93F0B",
+    "description": "Medium-priority work"
+  },
+  {
+    "name": "priority:p3",
+    "color": "FBCA04",
+    "description": "Low-priority work"
+  },
+  {
+    "name": "needs-triage",
+    "color": "C2E0C6",
+    "description": "Needs initial review and routing"
+  },
+  {
+    "name": "blocked",
+    "color": "000000",
+    "description": "Blocked by another task or decision"
+  },
+  {
+    "name": "tenant-isolation",
+    "color": "BFD4F2",
+    "description": "Touches tenant boundaries or access isolation"
+  }
+]
