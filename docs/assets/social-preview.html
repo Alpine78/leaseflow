@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeaseFlow Social Preview</title>
+    <style>
+      :root {
+        --ink: #10203a;
+        --ink-soft: #29456d;
+        --sky: #dcecff;
+        --cloud: #f4f8fc;
+        --panel: rgba(255, 255, 255, 0.86);
+        --line: rgba(37, 76, 127, 0.18);
+        --gold: #d88b1d;
+        --gold-soft: #ffe3b5;
+        --blue: #3271d7;
+        --mint: #c8efe4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        font-family: "Segoe UI", "Aptos", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(216, 139, 29, 0.2), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(50, 113, 215, 0.18), transparent 26%),
+          linear-gradient(135deg, #f9efe0 0%, #eef4fb 48%, #dfeeff 100%);
+      }
+
+      body::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 56px 56px;
+        mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.45));
+      }
+
+      .canvas {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 54px 60px;
+      }
+
+      .hero {
+        position: relative;
+        z-index: 1;
+        width: 56%;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(16, 32, 58, 0.08);
+        backdrop-filter: blur(8px);
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, var(--gold), #f2ae49);
+        box-shadow: 0 0 0 6px rgba(216, 139, 29, 0.12);
+      }
+
+      h1 {
+        margin: 26px 0 18px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 86px;
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+        color: #0f1f38;
+      }
+
+      .accent {
+        color: var(--blue);
+      }
+
+      .lede {
+        max-width: 620px;
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.35;
+        color: rgba(16, 32, 58, 0.88);
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 30px;
+        max-width: 620px;
+      }
+
+      .chip {
+        padding: 10px 15px;
+        border-radius: 999px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid rgba(16, 32, 58, 0.08);
+        box-shadow: 0 10px 24px rgba(25, 54, 94, 0.08);
+      }
+
+      .chip.gold {
+        background: var(--gold-soft);
+      }
+
+      .chip.mint {
+        background: var(--mint);
+      }
+
+      .footer-note {
+        margin-top: 28px;
+        font-size: 18px;
+        font-weight: 700;
+        color: rgba(16, 32, 58, 0.76);
+      }
+
+      .diagram-shell {
+        position: absolute;
+        top: 48px;
+        right: 52px;
+        width: 470px;
+        height: 544px;
+        padding: 28px;
+        border-radius: 32px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.92)),
+          rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(37, 76, 127, 0.12);
+        box-shadow:
+          0 30px 70px rgba(30, 60, 99, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.66);
+        backdrop-filter: blur(14px);
+      }
+
+      .shell-title {
+        margin: 0 0 18px;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      .grid {
+        position: relative;
+        height: calc(100% - 40px);
+      }
+
+      .node {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 16px;
+        border-radius: 24px;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--ink);
+        background: #ffffff;
+        border: 1px solid rgba(37, 76, 127, 0.14);
+        box-shadow: 0 16px 34px rgba(25, 54, 94, 0.08);
+      }
+
+      .node small {
+        display: block;
+        margin-top: 4px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(16, 32, 58, 0.56);
+      }
+
+      .node.primary {
+        background: linear-gradient(180deg, #1f4fa4, #183a76);
+        color: #ffffff;
+        border-color: rgba(18, 48, 100, 0.4);
+      }
+
+      .node.primary small {
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .node.gold {
+        background: linear-gradient(180deg, #ffe9bf, #ffd894);
+      }
+
+      .node.mint {
+        background: linear-gradient(180deg, #dcf6ef, #c6eee1);
+      }
+
+      .node.soft {
+        background: linear-gradient(180deg, #f7fbff, #eef5ff);
+      }
+
+      .public-api {
+        top: 22px;
+        left: 18px;
+        width: 170px;
+        height: 92px;
+      }
+
+      .auth {
+        top: 150px;
+        left: 0;
+        width: 132px;
+        height: 82px;
+      }
+
+      .lambda {
+        top: 110px;
+        left: 165px;
+        width: 176px;
+        height: 118px;
+      }
+
+      .db {
+        top: 285px;
+        left: 164px;
+        width: 178px;
+        height: 98px;
+      }
+
+      .ops {
+        top: 294px;
+        left: 18px;
+        width: 130px;
+        height: 88px;
+      }
+
+      .scheduler {
+        top: 176px;
+        right: 0;
+        width: 122px;
+        height: 82px;
+      }
+
+      .tenant {
+        right: 0;
+        bottom: 18px;
+        width: 170px;
+        height: 112px;
+      }
+
+      .connector {
+        position: absolute;
+        background: linear-gradient(180deg, rgba(50, 113, 215, 0.85), rgba(50, 113, 215, 0.45));
+        border-radius: 999px;
+        box-shadow: 0 0 0 6px rgba(50, 113, 215, 0.06);
+      }
+
+      .connector.api-lambda {
+        top: 131px;
+        left: 197px;
+        width: 58px;
+        height: 6px;
+      }
+
+      .connector.auth-lambda {
+        top: 189px;
+        left: 128px;
+        width: 40px;
+        height: 6px;
+      }
+
+      .connector.lambda-db {
+        top: 228px;
+        left: 248px;
+        width: 8px;
+        height: 61px;
+      }
+
+      .connector.ops-db {
+        top: 334px;
+        left: 148px;
+        width: 24px;
+        height: 6px;
+      }
+
+      .connector.lambda-scheduler {
+        top: 192px;
+        left: 342px;
+        width: 33px;
+        height: 6px;
+      }
+
+      .connector.db-tenant {
+        top: 383px;
+        left: 288px;
+        width: 8px;
+        height: 52px;
+      }
+
+    </style>
+  </head>
+  <body>
+    <main class="canvas">
+      <section class="hero">
+        <div class="eyebrow">AWS Architecture Portfolio Project</div>
+        <h1>Lease<span class="accent">Flow</span></h1>
+        <p class="lede">
+          Cloud-native, multi-tenant rental management MVP with a clear serverless backend,
+          private PostgreSQL, and security-first AWS design.
+        </p>
+        <div class="chips">
+          <span class="chip gold">AWS Lambda</span>
+          <span class="chip">API Gateway</span>
+          <span class="chip">Cognito JWT</span>
+          <span class="chip mint">Terraform</span>
+          <span class="chip">PostgreSQL</span>
+          <span class="chip">Tenant Isolation</span>
+        </div>
+        <p class="footer-note">Operationally simple. Cost-aware. Built to feel production-relevant.</p>
+      </section>
+
+      <aside class="diagram-shell" aria-label="Simplified architecture">
+        <p class="shell-title">System Snapshot</p>
+        <div class="grid">
+          <div class="node gold public-api">API Gateway<small>Public HTTPS</small></div>
+          <div class="node soft auth">Cognito<small>JWT auth</small></div>
+          <div class="node primary lambda">Python Lambda<small>Tenant-aware backend</small></div>
+          <div class="node mint db">RDS PostgreSQL<small>Private data store</small></div>
+          <div class="node soft ops">CloudWatch<small>Logs and ops</small></div>
+          <div class="node soft scheduler">Scheduler<small>Next phase</small></div>
+          <div class="node soft tenant">Tenant boundaries<small>JWT -> query scope</small></div>
+
+          <div class="connector api-lambda"></div>
+          <div class="connector auth-lambda"></div>
+          <div class="connector lambda-db"></div>
+          <div class="connector ops-db"></div>
+          <div class="connector lambda-scheduler"></div>
+          <div class="connector db-tenant"></div>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>
