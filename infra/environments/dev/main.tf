@@ -19,6 +19,20 @@ module "network" {
   tags                 = local.common_tags
 }
 
+resource "random_password" "db_master" {
+  length  = 32
+  special = false
+}
+
+resource "aws_ssm_parameter" "db_password" {
+  name        = var.db_password_ssm_param
+  description = "Runtime DB password for ${local.name_prefix}."
+  type        = "SecureString"
+  value       = random_password.db_master.result
+
+  tags = merge(local.common_tags, { Name = "${local.name_prefix}-db-password" })
+}
+
 module "rds_postgres" {
   source = "../../modules/rds_postgres"
 
@@ -27,7 +41,7 @@ module "rds_postgres" {
   rds_security_group_id = module.network.rds_security_group_id
   db_name               = var.db_name
   db_username           = var.db_username
-  db_password           = var.db_password
+  db_password           = random_password.db_master.result
   instance_class        = var.db_instance_class
   allocated_storage     = var.db_allocated_storage
   engine_version        = var.db_engine_version

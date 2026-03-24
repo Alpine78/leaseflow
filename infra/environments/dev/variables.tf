@@ -40,12 +40,6 @@ variable "db_username" {
   default     = "leaseflow_admin"
 }
 
-variable "db_password" {
-  type        = string
-  description = "RDS admin password."
-  sensitive   = true
-}
-
 variable "db_instance_class" {
   type        = string
   description = "RDS instance class."
@@ -72,7 +66,7 @@ variable "lambda_package_file" {
 
 variable "db_password_ssm_param" {
   type        = string
-  description = "SSM parameter path for runtime DB password."
+  description = "SSM parameter path for generated runtime DB password."
   default     = "/leaseflow/dev/db/password"
 }
 
