@@ -28,3 +28,4 @@ build/
 *.zip
 
 docs/reference/raw/
+.tmp-edge-profile/
