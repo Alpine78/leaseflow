@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy
+    url: https://github.com/Alpine78/leaseflow/security/policy
+    about: Report vulnerabilities privately. Do not open public security issues.
+  - name: Project documentation
+    url: https://github.com/Alpine78/leaseflow/tree/main/docs
+    about: Review the MVP, architecture, and security docs before opening an issue.

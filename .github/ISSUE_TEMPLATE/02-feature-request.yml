@@ -1,0 +1,76 @@
+name: Feature request
+description: Suggest a small, reviewable improvement that fits the MVP direction.
+title: "[Feature]: "
+labels:
+  - type:feature
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        LeaseFlow is intentionally a focused learning and portfolio project.
+
+        Please keep requests practical, security-aware, and aligned with the documented MVP unless you are explicitly proposing a later-phase idea.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area would this improve?
+      options:
+        - backend
+        - infra
+        - docs
+        - security
+        - ci/github
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What pain point, gap, or risk does this address?
+      placeholder: Explain the concrete problem first.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change.
+      placeholder: Keep the proposal incremental and reviewable.
+    validations:
+      required: true
+  - type: dropdown
+    id: mvp-fit
+    attributes:
+      label: MVP fit
+      description: How well does this match the current project scope?
+      options:
+        - core MVP fit
+        - useful next step after MVP
+        - exploratory / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: architecture-impact
+    attributes:
+      label: Security, tenant isolation, or cost impact
+      description: Note any effect on tenant isolation, IAM, AWS cost, or operational complexity.
+      placeholder: Mention tradeoffs if you see them.
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: Related docs or references
+      description: Link relevant files, issues, or docs if available.
+      placeholder: README.md, docs/mvp-scope.md, docs/security-baseline.md, etc.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I checked the current MVP and architecture docs before proposing this.
+          required: true

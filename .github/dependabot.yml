@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    labels:
+      - type:chore
+      - area:backend
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: terraform
+    directory: /infra/environments/dev
+    schedule:
+      interval: weekly
+    labels:
+      - type:chore
+      - area:infra
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - type:chore
+      - area:ci
+    open-pull-requests-limit: 5

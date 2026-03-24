@@ -8,12 +8,7 @@ class AuthError(ValueError):
 
 
 def extract_auth_context(event: dict) -> AuthContext:
-    claims = (
-        event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("jwt", {})
-        .get("claims", {})
-    )
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
     if not claims:
         raise AuthError("Missing JWT claims.")
 

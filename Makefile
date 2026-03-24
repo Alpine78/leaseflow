@@ -1,6 +1,6 @@
 PYTHON ?= python
 BACKEND_DIR := backend
-TF_DEV_DIR := infra/environments/dev
+TF_DIR := infra
 
 .PHONY: format lint test migrate tf-fmt
 
@@ -17,4 +17,4 @@ migrate:
 	cd $(BACKEND_DIR) && $(PYTHON) -m alembic upgrade head
 
 tf-fmt:
-	cd $(TF_DEV_DIR) && terraform fmt -recursive
+	cd $(TF_DIR) && terraform fmt -recursive
