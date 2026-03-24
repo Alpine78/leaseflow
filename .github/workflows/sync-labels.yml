@@ -28,6 +28,7 @@ jobs:
 
       - name: Sync repository labels
         env:
+          DELETE_STALE_LABELS: "true"
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python .github/scripts/sync_labels.py

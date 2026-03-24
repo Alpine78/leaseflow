@@ -1,4 +1,4 @@
-"""Create or update GitHub labels from .github/labels.json."""
+"""Sync GitHub labels from .github/labels.json."""
 
 from __future__ import annotations
 
@@ -19,10 +19,16 @@ def gh_api(*args: str) -> str:
     return result.stdout
 
 
+def is_enabled(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def main() -> None:
     repo = os.environ["GITHUB_REPOSITORY"]
     labels_path = Path(".github/labels.json")
     desired_labels = json.loads(labels_path.read_text(encoding="utf-8"))
+    desired_names = {label["name"] for label in desired_labels}
+    delete_stale_labels = is_enabled(os.environ.get("DELETE_STALE_LABELS"))
 
     existing_labels = json.loads(gh_api(f"repos/{repo}/labels?per_page=100"))
     existing_by_name = {label["name"]: label for label in existing_labels}
@@ -66,6 +72,19 @@ def main() -> None:
             f"description={description}",
         )
         print(f"updated {name}")
+
+    if not delete_stale_labels:
+        print("strict mode disabled; stale labels were not deleted")
+        return
+
+    stale_label_names = sorted(set(existing_by_name) - desired_names)
+    for name in stale_label_names:
+        gh_api(
+            "-X",
+            "DELETE",
+            f"repos/{repo}/labels/{quote(name, safe='')}",
+        )
+        print(f"deleted {name}")
 
 
 if __name__ == "__main__":
