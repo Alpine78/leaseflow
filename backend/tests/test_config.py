@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from unittest.mock import Mock
 
 import pytest
@@ -21,6 +23,37 @@ def _settings(**overrides: object) -> config.Settings:
     }
     values.update(overrides)
     return config.Settings(**values)
+
+
+def _set_valid_load_settings_env(
+    monkeypatch: pytest.MonkeyPatch, *, missing: str | None = None
+) -> None:
+    values = {
+        "APP_ENV": "test",
+        "LOG_LEVEL": "DEBUG",
+        "AWS_REGION": "eu-west-1",
+        "DB_HOST": "db.internal",
+        "DB_PORT": "6543",
+        "DB_NAME": "leaseflow",
+        "DB_USER": "leaseflow_app",
+        "DB_PASSWORD_SSM_PARAM": "/leaseflow/dev/db/password",
+    }
+    for name, value in values.items():
+        if name == missing:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+
+
+@contextmanager
+def _fresh_load_settings_cache() -> Iterator[None]:
+    config.load_settings.cache_clear()
+    try:
+        yield
+    finally:
+        config.load_settings.cache_clear()
 
 
 def test_resolve_db_password_returns_direct_password_without_ssm(
@@ -65,17 +98,8 @@ def test_resolve_db_password_raises_when_no_password_source_is_configured() -> N
 def test_load_settings_reads_ssm_password_configuration_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config.load_settings.cache_clear()
-    try:
-        monkeypatch.setenv("APP_ENV", "test")
-        monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-        monkeypatch.setenv("AWS_REGION", "eu-west-1")
-        monkeypatch.setenv("DB_HOST", "db.internal")
-        monkeypatch.setenv("DB_PORT", "6543")
-        monkeypatch.setenv("DB_NAME", "leaseflow")
-        monkeypatch.setenv("DB_USER", "leaseflow_app")
-        monkeypatch.setenv("DB_PASSWORD_SSM_PARAM", "/leaseflow/dev/db/password")
-        monkeypatch.delenv("DB_PASSWORD", raising=False)
+    with _fresh_load_settings_cache():
+        _set_valid_load_settings_env(monkeypatch)
 
         settings = config.load_settings()
 
@@ -88,5 +112,18 @@ def test_load_settings_reads_ssm_password_configuration_from_environment(
         assert settings.db_user == "leaseflow_app"
         assert settings.db_password is None
         assert settings.db_password_ssm_param == "/leaseflow/dev/db/password"
-    finally:
-        config.load_settings.cache_clear()
+
+
+@pytest.mark.parametrize("missing_name", ["DB_HOST", "DB_NAME", "DB_USER"])
+def test_load_settings_raises_for_missing_required_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_name: str,
+) -> None:
+    with _fresh_load_settings_cache():
+        _set_valid_load_settings_env(monkeypatch, missing=missing_name)
+
+        with pytest.raises(
+            config.ConfigError,
+            match=f"Missing required environment variable: {missing_name}",
+        ):
+            config.load_settings()
