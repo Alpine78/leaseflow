@@ -73,7 +73,9 @@ def _event_with_auth(*, tenant_id: str = "tenant-from-token", user_id: str = "us
     }
 
 
-def _get_properties_event(*, tenant_id: str = "tenant-from-token", user_id: str = "user-123") -> dict:
+def _get_properties_event(
+    *, tenant_id: str = "tenant-from-token", user_id: str = "user-123"
+) -> dict:
     event = _event_with_auth(tenant_id=tenant_id, user_id=user_id)
     event["queryStringParameters"] = {"tenant_id": "tenant-from-client-should-be-ignored"}
     return event
