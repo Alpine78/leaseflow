@@ -16,6 +16,8 @@ Terraform code is split into reusable modules and environment composition.
 - Keeps module interfaces clear.
 - Makes dev/prod split straightforward later.
 - Preserves low-cost defaults and avoids NAT Gateway.
+- The Terraform RDS environment is for deployed AWS verification, not for everyday backend development.
+- Normal backend development can use local PostgreSQL in WSL to avoid leaving billable AWS resources running.
 
 ## DB password handling
 
