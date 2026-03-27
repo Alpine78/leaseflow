@@ -113,6 +113,40 @@ terraform plan
 - Remote state is intentionally deferred to a later hardening step.
 - WSL is used here because the Lambda zip needs Linux-compatible dependencies.
 - Use a non-root AWS profile for Terraform work. Do not use the AWS account root profile for preflight or deployment tasks.
+## Dev cost expectation
+
+- Check AWS Billing before the first `terraform apply`.
+- If your account has no Free Tier coverage or credits remaining, treat the dev environment as billable from the start.
+- The primary expected cost driver in the current dev stack is RDS PostgreSQL:
+  - `db.t3.micro`
+  - `20 GB` allocated storage
+  - automated backups
+- API Gateway, Lambda, Cognito, SSM Parameter Store, and CloudWatch are still real AWS resources, but for light learning use they are expected to be smaller cost contributors than RDS.
+
+## Apply and destroy rule
+
+- Use `terraform apply` only when you are ready to test the deployed AWS environment.
+- If you are done testing and do not need the stack running, destroy it the same day.
+- Do not leave the dev stack running "just in case" when the goal is learning or short-lived verification.
+
+## Safe destroy workflow
+
+- Use the same working copy and the same Terraform state that created the resources.
+- Use the same AWS profile and region that were used during `apply`.
+- Do not delete the local Terraform state before destroying the environment.
+- The current dev RDS config uses `skip_final_snapshot = true`, so destroying the stack will permanently delete the dev database contents.
+
+```bash
+cd infra/environments/dev
+terraform plan -destroy -out=tfdestroy
+terraform apply tfdestroy
+```
+
+Quick checks before destroy:
+
+- verify the active AWS account with `aws sts get-caller-identity`
+- verify the intended region
+- review the destroy plan before applying it
 
 ## Commands
 
@@ -122,4 +156,11 @@ terraform fmt -recursive
 cd environments/dev
 terraform init
 terraform plan
+```
+
+For a real dev deployment, prefer saving the plan first:
+
+```bash
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
