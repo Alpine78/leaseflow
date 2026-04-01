@@ -6,6 +6,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 from psycopg.rows import dict_row
+from psycopg.sql import Identifier, Literal, SQL
 
 from app.config import Settings, load_settings
 from app.db import Database
@@ -79,4 +80,69 @@ def test_create_property_writes_property_and_audit_log(integration_settings: Set
         assert audit_rows[0]["entity_id"] == created.property_id
         assert audit_rows[0]["metadata"] == {"source": "api"}
     finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_create_property_rolls_back_when_audit_log_write_fails(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    name = f"Rollback HQ {uuid4().hex[:8]}"
+    address = f"Rollback Street {uuid4().hex[:8]}"
+    constraint_name = f"audit_logs_reject_{uuid4().hex[:12]}"
+
+    try:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        """
+                        ALTER TABLE audit_logs
+                        ADD CONSTRAINT {constraint_name}
+                        CHECK (tenant_id <> {tenant_id})
+                        """
+                    ).format(
+                        constraint_name=Identifier(constraint_name),
+                        tenant_id=Literal(tenant_id),
+                    )
+                )
+
+        with pytest.raises(psycopg.Error):
+            db.create_property(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                name=name,
+                address=address,
+            )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            property_rows = conn.execute(
+                """
+                SELECT property_id
+                FROM properties
+                WHERE tenant_id = %s
+                """,
+                (tenant_id,),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s
+                """,
+                (tenant_id,),
+            ).fetchall()
+
+        assert property_rows == []
+        assert audit_rows == []
+    finally:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS {constraint_name}"
+                    ).format(constraint_name=Identifier(constraint_name))
+                )
         _cleanup_test_tenant(integration_settings, tenant_id)
