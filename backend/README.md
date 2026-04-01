@@ -56,6 +56,7 @@ If you are working from the repo root in WSL with the backend virtual environmen
 make migrate-local
 make db-check-local
 make test-local
+make test-integration-local
 make invoke-local-health
 make invoke-local-list-properties
 make invoke-local-create-property
@@ -69,6 +70,8 @@ python -m alembic upgrade head
 ```
 
 This local database is for development data only. Do not copy production or tenant-sensitive data into WSL.
+
+The local DB integration test proves that `Database.create_property()` writes both the `properties` row and the matching `audit_logs` row against the real WSL PostgreSQL database. It is intentionally opt-in and runs separately from the normal fast unit-test flow.
 
 The local invoke helper calls the existing Lambda handler directly with API Gateway v2-style events. That keeps local testing close to the deployed Lambda shape without introducing a separate local web framework.
 

@@ -7,7 +7,7 @@ LOCAL_USER_ID ?= user-local
 PROPERTY_NAME ?= HQ
 PROPERTY_ADDRESS ?= Main Street 1
 
-.PHONY: format lint test migrate check-local-env migrate-local db-check-local test-local invoke-local-health invoke-local-list-properties invoke-local-create-property tf-fmt
+.PHONY: format lint test migrate check-local-env migrate-local db-check-local test-local test-integration-local invoke-local-health invoke-local-list-properties invoke-local-create-property tf-fmt
 
 format:
 	cd $(BACKEND_DIR) && $(PYTHON) -m ruff format src tests migrations
@@ -32,6 +32,9 @@ db-check-local: check-local-env
 
 test-local: check-local-env
 	cd $(BACKEND_DIR) && set -a && . ./$(LOCAL_ENV_FILE) && set +a && $(PYTHON) -m pytest -q
+
+test-integration-local: check-local-env
+	cd $(BACKEND_DIR) && set -a && . ./$(LOCAL_ENV_FILE) && set +a && LEASEFLOW_RUN_DB_INTEGRATION=1 $(PYTHON) -m pytest -q tests/test_db_integration.py
 
 invoke-local-health:
 	cd $(BACKEND_DIR) && $(PYTHON) scripts/invoke_local.py health
