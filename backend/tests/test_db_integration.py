@@ -146,3 +146,40 @@ def test_create_property_rolls_back_when_audit_log_write_fails(
                     ).format(constraint_name=Identifier(constraint_name))
                 )
         _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_list_properties_returns_only_requested_tenant_rows(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    other_actor_user_id = f"user-{uuid4().hex[:12]}"
+    name = f"Tenant HQ {uuid4().hex[:8]}"
+    address = f"Tenant Street {uuid4().hex[:8]}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=name,
+            address=address,
+        )
+        db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=other_actor_user_id,
+            name=f"Other HQ {uuid4().hex[:8]}",
+            address=f"Other Street {uuid4().hex[:8]}",
+        )
+
+        listed = db.list_properties(tenant_id=tenant_id)
+
+        assert len(listed) == 1
+        assert listed[0].property_id == created.property_id
+        assert listed[0].tenant_id == tenant_id
+        assert listed[0].name == name
+        assert listed[0].address == address
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
