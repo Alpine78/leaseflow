@@ -7,7 +7,7 @@ private_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24"]
 db_name           = "leaseflow"
 db_username       = "leaseflow_admin"
 db_instance_class = "db.t3.micro"
-db_engine_version = "15.7"
+db_engine_version = "15.17"
 
 # Terraform generates the DB password and stores it in SSM SecureString at this path.
 lambda_package_file   = "../../../dist/leaseflow-backend.zip"

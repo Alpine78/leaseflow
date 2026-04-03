@@ -55,7 +55,7 @@ variable "db_allocated_storage" {
 variable "db_engine_version" {
   type        = string
   description = "PostgreSQL version."
-  default     = "15.7"
+  default     = "15.17"
 }
 
 variable "lambda_package_file" {

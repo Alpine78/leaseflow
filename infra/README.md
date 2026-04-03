@@ -150,6 +150,17 @@ Quick checks before destroy:
 - verify the intended region
 - review the destroy plan before applying it
 
+## RDS engine version note
+
+- RDS engine-version availability is region-specific and changes over time.
+- The current dev example pins PostgreSQL `15.17` for `eu-north-1`.
+- If `terraform apply` fails with `InvalidParameterCombination` for the DB engine version, query AWS before changing Terraform:
+
+```bash
+aws rds describe-db-engine-versions --engine postgres --region eu-north-1 \
+  --query 'DBEngineVersions[].EngineVersion' --output text
+```
+
 ## Commands
 
 ```bash

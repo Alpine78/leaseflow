@@ -87,7 +87,6 @@ resource "aws_lambda_function" "this" {
       DB_NAME               = var.db_name
       DB_USER               = var.db_user
       DB_PASSWORD_SSM_PARAM = var.db_password_ssm_param
-      AWS_REGION            = data.aws_region.current.region
     }
   }
 
