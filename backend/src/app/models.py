@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 
@@ -22,3 +22,26 @@ class Property:
     name: str
     address: str
     created_at: datetime
+
+
+@dataclass(slots=True)
+class Lease:
+    lease_id: UUID
+    tenant_id: str
+    property_id: UUID
+    resident_name: str
+    rent_due_day_of_month: int | None
+    start_date: date
+    end_date: date
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class LeaseReminderCandidate:
+    lease_id: UUID
+    tenant_id: str
+    property_id: UUID
+    resident_name: str
+    rent_due_day_of_month: int
+    due_date: date
+    days_until_due: int

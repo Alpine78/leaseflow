@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from uuid import uuid4
 
 import psycopg
@@ -31,6 +32,7 @@ def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
     with psycopg.connect(settings.db_dsn(), row_factory=dict_row) as conn:
         with conn.transaction():
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
+            conn.execute("DELETE FROM leases WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM properties WHERE tenant_id = %s", (tenant_id,))
 
 
@@ -180,6 +182,329 @@ def test_list_properties_returns_only_requested_tenant_rows(
         assert listed[0].tenant_id == tenant_id
         assert listed[0].name == name
         assert listed[0].address == address
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_create_lease_writes_lease_and_audit_log(integration_settings: Settings) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    resident_name = f"Alice {uuid4().hex[:8]}"
+    rent_due_day_of_month = 5
+    start_date = date(2026, 5, 1)
+    end_date = date(2027, 4, 30)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Lease HQ {uuid4().hex[:8]}",
+            address=f"Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=resident_name,
+            rent_due_day_of_month=rent_due_day_of_month,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            lease_rows = conn.execute(
+                """
+                SELECT
+                    lease_id,
+                    tenant_id,
+                    property_id,
+                    resident_name,
+                    rent_due_day_of_month,
+                    start_date,
+                    end_date
+                FROM leases
+                WHERE tenant_id = %s AND lease_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+
+        assert len(lease_rows) == 1
+        assert lease_rows[0]["tenant_id"] == tenant_id
+        assert lease_rows[0]["property_id"] == property_record.property_id
+        assert lease_rows[0]["resident_name"] == resident_name
+        assert lease_rows[0]["rent_due_day_of_month"] == rent_due_day_of_month
+        assert lease_rows[0]["start_date"] == start_date
+        assert lease_rows[0]["end_date"] == end_date
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["tenant_id"] == tenant_id
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["action"] == "lease.create"
+        assert audit_rows[0]["entity_type"] == "lease"
+        assert audit_rows[0]["entity_id"] == created.lease_id
+        assert audit_rows[0]["metadata"] == {"source": "api"}
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_create_lease_rejects_cross_tenant_property_reference(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other HQ {uuid4().hex[:8]}",
+            address=f"Other Street {uuid4().hex[:8]}",
+        )
+
+        with pytest.raises(ValueError, match="Property not found for tenant."):
+            db.create_lease(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                property_id=other_property.property_id,
+                resident_name=f"Bob {uuid4().hex[:8]}",
+                rent_due_day_of_month=5,
+                start_date=date(2026, 5, 1),
+                end_date=date(2027, 4, 30),
+            )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            lease_rows = conn.execute(
+                """
+                SELECT lease_id
+                FROM leases
+                WHERE tenant_id IN (%s, %s)
+                """,
+                (tenant_id, other_tenant_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND action = 'lease.create'
+                """,
+                (tenant_id,),
+            ).fetchall()
+
+        assert lease_rows == []
+        assert audit_rows == []
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_create_lease_rolls_back_when_audit_log_write_fails(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    constraint_name = f"audit_logs_reject_{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Rollback HQ {uuid4().hex[:8]}",
+            address=f"Rollback Street {uuid4().hex[:8]}",
+        )
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        """
+                        ALTER TABLE audit_logs
+                        ADD CONSTRAINT {constraint_name}
+                        CHECK (action <> 'lease.create' OR tenant_id <> {tenant_id})
+                        """
+                    ).format(
+                        constraint_name=Identifier(constraint_name),
+                        tenant_id=Literal(tenant_id),
+                    )
+                )
+
+        with pytest.raises(psycopg.Error):
+            db.create_lease(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                property_id=property_record.property_id,
+                resident_name=f"Carol {uuid4().hex[:8]}",
+                rent_due_day_of_month=5,
+                start_date=date(2026, 5, 1),
+                end_date=date(2027, 4, 30),
+            )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            lease_rows = conn.execute(
+                """
+                SELECT lease_id
+                FROM leases
+                WHERE tenant_id = %s
+                """,
+                (tenant_id,),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND action = 'lease.create'
+                """,
+                (tenant_id,),
+            ).fetchall()
+
+        assert lease_rows == []
+        assert audit_rows == []
+    finally:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS {constraint_name}"
+                    ).format(constraint_name=Identifier(constraint_name))
+                )
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_list_leases_returns_only_requested_tenant_rows(integration_settings: Settings) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Lease HQ {uuid4().hex[:8]}",
+            address=f"Lease Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Lease HQ {uuid4().hex[:8]}",
+            address=f"Other Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Dana {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 5, 1),
+            end_date=date(2027, 4, 30),
+        )
+        db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Eve {uuid4().hex[:8]}",
+            rent_due_day_of_month=7,
+            start_date=date(2026, 6, 1),
+            end_date=date(2027, 5, 31),
+        )
+
+        listed = db.list_leases(tenant_id=tenant_id)
+
+        assert len(listed) == 1
+        assert listed[0].lease_id == created.lease_id
+        assert listed[0].tenant_id == tenant_id
+        assert listed[0].property_id == property_record.property_id
+        assert listed[0].rent_due_day_of_month == 5
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_list_due_lease_reminders_returns_only_due_active_tenant_leases(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    as_of_date = date(2026, 4, 3)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Reminder HQ {uuid4().hex[:8]}",
+            address=f"Reminder Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Reminder HQ {uuid4().hex[:8]}",
+            address=f"Other Reminder Street {uuid4().hex[:8]}",
+        )
+
+        due_soon = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Due Soon {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Too Late {uuid4().hex[:8]}",
+            rent_due_day_of_month=20,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Inactive {uuid4().hex[:8]}",
+            rent_due_day_of_month=4,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 4, 2),
+        )
+        db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Tenant {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        listed = db.list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=7,
+        )
+
+        assert len(listed) == 1
+        assert listed[0].lease_id == due_soon.lease_id
+        assert listed[0].tenant_id == tenant_id
+        assert listed[0].property_id == property_record.property_id
+        assert listed[0].resident_name == due_soon.resident_name
+        assert listed[0].rent_due_day_of_month == 5
+        assert listed[0].due_date == date(2026, 4, 5)
+        assert listed[0].days_until_due == 2
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)

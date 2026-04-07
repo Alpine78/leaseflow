@@ -34,15 +34,18 @@ Implemented now:
 - `GET /health`
 - `POST /properties`
 - `GET /properties`
+- `POST /leases`
+- `GET /leases`
 - JWT claim extraction with tenant-aware request context
 - Tenant-scoped PostgreSQL access
-- Audit logging for property creation
-- Alembic migrations for initial tables
+- Explicit `rent_due_day_of_month` on leases to prepare future reminder flows
+- Audit logging for property and lease creation
+- Alembic migrations for initial property and lease tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 
 Planned next:
 
-- Expand core rental management flows beyond properties
+- Prepare reminder and scheduled workflow support on top of leases
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 
