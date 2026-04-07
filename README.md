@@ -16,7 +16,7 @@ LeaseFlow is a cloud-native, multi-tenant rental management system MVP built as 
 - Lambda (Python)
 - Cognito (JWT auth)
 - RDS PostgreSQL (private)
-- EventBridge / Scheduler (planned next phase)
+- EventBridge Scheduler
 - CloudWatch (logs and operations)
 - SSM Parameter Store SecureString (secrets/config)
 
@@ -38,6 +38,7 @@ Implemented now:
 - `GET /leases`
 - `GET /notifications`
 - Internal due reminder scan flow that writes notification records idempotently
+- Daily EventBridge Scheduler invocation for the internal reminder scan
 - JWT claim extraction with tenant-aware request context
 - Tenant-scoped PostgreSQL access
 - Explicit `rent_due_day_of_month` on leases to prepare future reminder flows
@@ -48,7 +49,7 @@ Implemented now:
 
 Planned next:
 
-- Add scheduled invocation for the reminder scan
+- Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 

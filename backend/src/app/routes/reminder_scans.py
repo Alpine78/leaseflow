@@ -8,9 +8,7 @@ from app.db import Database
 
 def scan_due_lease_reminders(event: dict[str, Any], db: Database) -> dict[str, Any]:
     detail = event.get("detail") or {}
-    tenant_id = str(detail.get("tenant_id", "")).strip()
-    if not tenant_id:
-        raise ValueError("Detail field 'tenant_id' is required.")
+    tenant_id = _parse_tenant_id(detail)
 
     days = _parse_days(detail)
     as_of_date = _parse_as_of_date(detail)
@@ -23,10 +21,16 @@ def scan_due_lease_reminders(event: dict[str, Any], db: Database) -> dict[str, A
         "tenant_id": result.tenant_id,
         "as_of_date": result.as_of_date.isoformat(),
         "days": result.days,
+        "tenant_count": result.tenant_count,
         "candidate_count": result.candidate_count,
         "created_count": result.created_count,
         "duplicate_count": result.duplicate_count,
     }
+
+
+def _parse_tenant_id(detail: dict[str, Any]) -> str | None:
+    tenant_id = str(detail.get("tenant_id", "")).strip()
+    return tenant_id or None
 
 
 def _parse_days(detail: dict[str, Any]) -> int:

@@ -8,6 +8,7 @@ Terraform code is split into reusable modules and environment composition.
 - `modules/rds_postgres`: private PostgreSQL instance and subnet group.
 - `modules/cognito`: user pool and app client.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
+- `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
 - `environments/dev`: MVP dev environment composition.
 

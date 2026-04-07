@@ -61,9 +61,10 @@ class Notification:
 
 @dataclass(slots=True)
 class ReminderScanResult:
-    tenant_id: str
+    tenant_id: str | None
     as_of_date: date
     days: int
+    tenant_count: int
     candidate_count: int
     created_count: int
     duplicate_count: int

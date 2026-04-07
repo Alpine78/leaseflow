@@ -19,11 +19,11 @@ class Database:
 
     def create_due_lease_reminder_notifications(
         self,
-        tenant_id: str,
+        tenant_id: str | None,
         as_of_date: date,
         days: int,
     ) -> ReminderScanResult:
-        candidates = self.list_due_lease_reminders(
+        candidates = self._list_due_lease_reminders(
             tenant_id=tenant_id,
             as_of_date=as_of_date,
             days=days,
@@ -49,7 +49,7 @@ class Database:
                     created_row = conn.execute(
                         insert_sql,
                         (
-                            tenant_id,
+                            candidate.tenant_id,
                             candidate.lease_id,
                             "rent_due_soon",
                             "Rent due soon",
@@ -64,6 +64,7 @@ class Database:
             tenant_id=tenant_id,
             as_of_date=as_of_date,
             days=days,
+            tenant_count=1 if tenant_id else len({item.tenant_id for item in candidates}),
             candidate_count=len(candidates),
             created_count=created_count,
             duplicate_count=len(candidates) - created_count,
@@ -94,6 +95,18 @@ class Database:
         as_of_date: date,
         days: int,
     ) -> list[LeaseReminderCandidate]:
+        return self._list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+        )
+
+    def _list_due_lease_reminders(
+        self,
+        tenant_id: str | None,
+        as_of_date: date,
+        days: int,
+    ) -> list[LeaseReminderCandidate]:
         range_end = as_of_date + timedelta(days=days)
         sql = """
             SELECT
@@ -105,14 +118,24 @@ class Database:
                 start_date,
                 end_date
             FROM leases
-            WHERE tenant_id = %s
-              AND rent_due_day_of_month IS NOT NULL
+            WHERE rent_due_day_of_month IS NOT NULL
               AND start_date <= %s
               AND end_date >= %s
-            ORDER BY created_at DESC
         """
+        params: tuple[object, ...]
+        if tenant_id:
+            sql += """
+              AND tenant_id = %s
+            ORDER BY created_at DESC
+            """
+            params = (range_end, as_of_date, tenant_id)
+        else:
+            sql += """
+            ORDER BY tenant_id, created_at DESC
+            """
+            params = (range_end, as_of_date)
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            rows = conn.execute(sql, (tenant_id, range_end, as_of_date)).fetchall()
+            rows = conn.execute(sql, params).fetchall()
 
         candidates: list[LeaseReminderCandidate] = []
         for row in rows:

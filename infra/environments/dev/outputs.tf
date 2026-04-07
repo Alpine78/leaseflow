@@ -17,3 +17,13 @@ output "rds_endpoint" {
   description = "RDS endpoint."
   value       = module.rds_postgres.endpoint
 }
+
+output "reminder_scan_schedule_name" {
+  description = "Reminder scan schedule name."
+  value       = module.reminder_scheduler.schedule_name
+}
+
+output "reminder_scan_schedule_arn" {
+  description = "Reminder scan schedule ARN."
+  value       = module.reminder_scheduler.schedule_arn
+}

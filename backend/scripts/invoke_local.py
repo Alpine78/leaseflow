@@ -30,7 +30,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "scan-due-lease-reminders",
         help="Invoke internal due lease reminder scan.",
     )
-    scan_parser.add_argument("--tenant-id", default="tenant-local")
+    scan_parser.add_argument("--tenant-id")
     scan_parser.add_argument("--days", type=int, default=7)
     scan_parser.add_argument("--as-of-date")
 
@@ -51,10 +51,9 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
         }
 
     if args.command == "scan-due-lease-reminders":
-        detail: dict[str, Any] = {
-            "tenant_id": args.tenant_id,
-            "days": args.days,
-        }
+        detail: dict[str, Any] = {"days": args.days}
+        if args.tenant_id:
+            detail["tenant_id"] = args.tenant_id
         if args.as_of_date:
             detail["as_of_date"] = args.as_of_date
         return {

@@ -13,9 +13,10 @@ def _reminder_scans_module():
 
 @dataclass(slots=True)
 class _ScanResult:
-    tenant_id: str
+    tenant_id: str | None
     as_of_date: date
     days: int
+    tenant_count: int
     candidate_count: int
     created_count: int
     duplicate_count: int
@@ -27,7 +28,7 @@ class _FakeDb:
 
     def create_due_lease_reminder_notifications(
         self,
-        tenant_id: str,
+        tenant_id: str | None,
         as_of_date: date,
         days: int,
     ) -> _ScanResult:
@@ -42,6 +43,7 @@ class _FakeDb:
             tenant_id=tenant_id,
             as_of_date=as_of_date,
             days=days,
+            tenant_count=1 if tenant_id else 2,
             candidate_count=2,
             created_count=1,
             duplicate_count=1,
@@ -71,6 +73,7 @@ def test_scan_due_lease_reminders_uses_detail_and_defaults(monkeypatch) -> None:
         "tenant_id": "tenant-auth",
         "as_of_date": "2026-04-07",
         "days": 7,
+        "tenant_count": 1,
         "candidate_count": 2,
         "created_count": 1,
         "duplicate_count": 1,
@@ -101,21 +104,31 @@ def test_scan_due_lease_reminders_supports_explicit_detail_values() -> None:
     ]
 
 
-def test_scan_due_lease_reminders_requires_tenant_id() -> None:
+def test_scan_due_lease_reminders_defaults_to_all_tenants_when_tenant_id_missing(
+    monkeypatch,
+) -> None:
     reminder_scans = _reminder_scans_module()
     db = _FakeDb()
+    monkeypatch.setattr(reminder_scans, "_today", lambda: date(2026, 4, 7))
 
-    with pytest.raises(ValueError, match="Detail field 'tenant_id' is required."):
-        reminder_scans.scan_due_lease_reminders(
-            {
-                "source": "leaseflow.internal",
-                "detail-type": "scan_due_lease_reminders",
-                "detail": {},
-            },
-            db,
-        )
+    payload = reminder_scans.scan_due_lease_reminders(
+        {
+            "source": "leaseflow.internal",
+            "detail-type": "scan_due_lease_reminders",
+            "detail": {},
+        },
+        db,
+    )
 
-    assert db.calls == []
+    assert db.calls == [
+        {
+            "tenant_id": None,
+            "as_of_date": date(2026, 4, 7),
+            "days": 7,
+        }
+    ]
+    assert payload["tenant_id"] is None
+    assert payload["tenant_count"] == 2
 
 
 def test_scan_due_lease_reminders_rejects_invalid_days() -> None:

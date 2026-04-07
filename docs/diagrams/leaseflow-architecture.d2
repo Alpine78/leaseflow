@@ -17,7 +17,7 @@ aws: AWS account {
 
   operations: Operations {
     cloudwatch: CloudWatch Logs
-    eventbridge: EventBridge / Scheduler (planned)
+    eventbridge: EventBridge Scheduler
   }
 
   secrets: Secrets {
@@ -46,4 +46,4 @@ aws.vpc.lambda_backend -> aws.vpc.rds_postgres.properties_table: Tenant-scoped r
 aws.vpc.lambda_backend -> aws.vpc.rds_postgres.audit_logs_table: Audit log on write
 aws.vpc.lambda_backend -> aws.secrets.ssm: Read DB password
 aws.vpc.lambda_backend -> aws.operations.cloudwatch: Structured JSON logs
-aws.operations.eventbridge -> aws.vpc.lambda_backend: Future reminders/jobs
+aws.operations.eventbridge -> aws.vpc.lambda_backend: Daily reminder scan

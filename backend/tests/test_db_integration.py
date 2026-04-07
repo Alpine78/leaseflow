@@ -658,6 +658,7 @@ def test_create_due_lease_reminder_notifications_is_idempotent(
         assert first_run.tenant_id == tenant_id
         assert first_run.as_of_date == as_of_date
         assert first_run.days == 7
+        assert first_run.tenant_count == 1
         assert first_run.candidate_count == 1
         assert first_run.created_count == 1
         assert first_run.duplicate_count == 0
@@ -675,3 +676,80 @@ def test_create_due_lease_reminder_notifications_is_idempotent(
         assert rows[0]["due_date"] == date(2026, 4, 5)
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_create_due_lease_reminder_notifications_scans_all_tenants_when_unscoped(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    as_of_date = date(2026, 4, 3)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Global Scan HQ {uuid4().hex[:8]}",
+            address=f"Global Scan Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Global Scan HQ {uuid4().hex[:8]}",
+            address=f"Other Global Scan Street {uuid4().hex[:8]}",
+        )
+        lease_record = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Global Scan User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        other_lease = db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Global Scan User {uuid4().hex[:8]}",
+            rent_due_day_of_month=6,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        result = db.create_due_lease_reminder_notifications(
+            tenant_id=None,
+            as_of_date=as_of_date,
+            days=7,
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            rows = conn.execute(
+                """
+                SELECT tenant_id, lease_id, type, due_date
+                FROM notifications
+                WHERE tenant_id IN (%s, %s)
+                ORDER BY tenant_id, due_date
+                """,
+                (tenant_id, other_tenant_id),
+            ).fetchall()
+
+        assert result.tenant_id is None
+        assert result.tenant_count >= 2
+        assert result.candidate_count >= 2
+        assert result.created_count >= 2
+        assert result.duplicate_count >= 0
+
+        assert len(rows) == 2
+        assert {
+            (row["tenant_id"], row["lease_id"], row["type"], row["due_date"])
+            for row in rows
+        } == {
+            (tenant_id, lease_record.lease_id, "rent_due_soon", date(2026, 4, 5)),
+            (other_tenant_id, other_lease.lease_id, "rent_due_soon", date(2026, 4, 6)),
+        }
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)

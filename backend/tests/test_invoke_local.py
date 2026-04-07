@@ -100,8 +100,6 @@ def test_build_event_for_scan_due_lease_reminders_uses_internal_detail() -> None
     args = invoke_local.parse_args(
         [
             "scan-due-lease-reminders",
-            "--tenant-id",
-            "tenant-local",
             "--days",
             "14",
             "--as-of-date",
@@ -115,7 +113,6 @@ def test_build_event_for_scan_due_lease_reminders_uses_internal_detail() -> None
         "source": "leaseflow.internal",
         "detail-type": "scan_due_lease_reminders",
         "detail": {
-            "tenant_id": "tenant-local",
             "days": 14,
             "as_of_date": "2026-04-09",
         },

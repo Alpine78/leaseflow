@@ -13,6 +13,7 @@
 - Cognito JWT-based authentication and tenant claim extraction.
 - PostgreSQL persistence for domain data and audit logs.
 - Internal reminder scan flow for creating due-soon notification records.
+- EventBridge Scheduler for daily invocation of the internal reminder scan.
 - Infrastructure provisioning with Terraform modules.
 - Dev-focused deployment architecture on AWS Lambda + API Gateway.
 
@@ -32,6 +33,7 @@
 - Secrets/config use SSM Parameter Store SecureString design.
 - Structured logs in CloudWatch.
 - Least-privilege baseline IAM.
+- Scheduled reminder jobs invoke Lambda through an internal event payload, not a public endpoint.
 
 ## Out of Scope (Current Phase)
 
