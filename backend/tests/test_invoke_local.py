@@ -64,6 +64,38 @@ def test_build_event_for_create_property_uses_body_and_jwt_claims() -> None:
     }
 
 
+def test_build_event_for_list_due_lease_reminders_uses_query_and_jwt_claims() -> None:
+    args = invoke_local.parse_args(
+        [
+            "list-due-lease-reminders",
+            "--tenant-id",
+            "tenant-local",
+            "--user-id",
+            "user-local",
+            "--days",
+            "14",
+        ]
+    )
+
+    event = invoke_local.build_event(args)
+
+    assert event == {
+        "rawPath": "/lease-reminders/due-soon",
+        "queryStringParameters": {"days": "14"},
+        "requestContext": {
+            "http": {"method": "GET"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-local",
+                        "custom:tenant_id": "tenant-local",
+                    }
+                }
+            },
+        },
+    }
+
+
 def test_main_invokes_lambda_handler_and_prints_response(monkeypatch: Any, capsys: Any) -> None:
     captured: dict[str, Any] = {}
 

@@ -18,6 +18,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     list_parser.add_argument("--tenant-id", default="tenant-local")
     list_parser.add_argument("--user-id", default="user-local")
 
+    reminders_parser = subparsers.add_parser(
+        "list-due-lease-reminders",
+        help="Invoke GET /lease-reminders/due-soon.",
+    )
+    reminders_parser.add_argument("--tenant-id", default="tenant-local")
+    reminders_parser.add_argument("--user-id", default="user-local")
+    reminders_parser.add_argument("--days", type=int, default=7)
+
     create_parser = subparsers.add_parser("create-property", help="Invoke POST /properties.")
     create_parser.add_argument("--tenant-id", default="tenant-local")
     create_parser.add_argument("--user-id", default="user-local")
@@ -34,8 +42,13 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
             "requestContext": {"http": {"method": "GET"}},
         }
 
+    raw_path = (
+        "/lease-reminders/due-soon"
+        if args.command == "list-due-lease-reminders"
+        else "/properties"
+    )
     event = {
-        "rawPath": "/properties",
+        "rawPath": raw_path,
         "requestContext": {
             "http": {"method": "GET" if args.command == "list-properties" else "POST"},
             "authorizer": {
@@ -48,6 +61,11 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
             },
         },
     }
+
+    if args.command == "list-due-lease-reminders":
+        event["requestContext"]["http"]["method"] = "GET"
+        event["queryStringParameters"] = {"days": str(args.days)}
+        return event
 
     if args.command == "create-property":
         event["body"] = json.dumps({"name": args.name, "address": args.address})

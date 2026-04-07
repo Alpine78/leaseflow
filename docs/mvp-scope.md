@@ -7,6 +7,8 @@
   - `GET /health`
   - `POST /properties`
   - `GET /properties`
+  - `POST /leases`
+  - `GET /leases`
 - Cognito JWT-based authentication and tenant claim extraction.
 - PostgreSQL persistence for domain data and audit logs.
 - Infrastructure provisioning with Terraform modules.
@@ -15,6 +17,8 @@
 ## Data Scope (Initial)
 
 - `properties` table for tenant-owned rental units.
+- `leases` table for tenant-owned rental agreements linked to properties.
+- lease contract data includes explicit `rent_due_day_of_month` for future reminder workflows.
 - `audit_logs` table for basic traceability of critical actions.
 - `tenant_id` enforced in all tenant-owned rows.
 
