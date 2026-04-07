@@ -6,7 +6,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 from psycopg.rows import dict_row
-from psycopg.sql import Identifier, Literal, SQL
+from psycopg.sql import SQL, Identifier, Literal
 
 from app.config import Settings, load_settings
 from app.db import Database
