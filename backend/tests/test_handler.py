@@ -171,3 +171,39 @@ def test_list_due_lease_reminders_accepts_stage_prefixed_raw_path(monkeypatch) -
 
     assert response["statusCode"] == 200
     assert json.loads(response["body"]) == {"items": []}
+
+
+def test_list_notifications_accepts_stage_prefixed_raw_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+    monkeypatch.setattr(
+        handler,
+        "list_notifications",
+        lambda event, db: {"items": []},
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/notifications",
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "GET"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"items": []}

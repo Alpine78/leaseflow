@@ -10,12 +10,31 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.config import Settings
-from app.models import Lease, LeaseReminderCandidate, Property
+from app.models import Lease, LeaseReminderCandidate, Notification, Property
 
 
 class Database:
     def __init__(self, settings: Settings) -> None:
         self._dsn = settings.db_dsn()
+
+    def list_notifications(self, tenant_id: str) -> list[Notification]:
+        sql = """
+            SELECT
+                notification_id,
+                tenant_id,
+                lease_id,
+                type,
+                title,
+                message,
+                due_date,
+                created_at
+            FROM notifications
+            WHERE tenant_id = %s
+            ORDER BY created_at DESC
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, (tenant_id,)).fetchall()
+        return [self._row_to_notification(row) for row in rows]
 
     def list_due_lease_reminders(
         self,
@@ -217,6 +236,19 @@ class Database:
             created_at=row["created_at"],
         )
 
+    @staticmethod
+    def _row_to_notification(row: dict[str, Any]) -> Notification:
+        return Notification(
+            notification_id=row["notification_id"],
+            tenant_id=row["tenant_id"],
+            lease_id=row["lease_id"],
+            type=row["type"],
+            title=row["title"],
+            message=row["message"],
+            due_date=row["due_date"],
+            created_at=row["created_at"],
+        )
+
 
 def properties_to_dict(items: Sequence[Property]) -> list[dict[str, Any]]:
     return [
@@ -257,6 +289,22 @@ def lease_reminders_to_dict(items: Sequence[LeaseReminderCandidate]) -> list[dic
             "rent_due_day_of_month": item.rent_due_day_of_month,
             "due_date": item.due_date.isoformat(),
             "days_until_due": item.days_until_due,
+        }
+        for item in items
+    ]
+
+
+def notifications_to_dict(items: Sequence[Notification]) -> list[dict[str, Any]]:
+    return [
+        {
+            "notification_id": str(item.notification_id),
+            "tenant_id": item.tenant_id,
+            "lease_id": str(item.lease_id),
+            "type": item.type,
+            "title": item.title,
+            "message": item.message,
+            "due_date": item.due_date.isoformat(),
+            "created_at": item.created_at.isoformat(),
         }
         for item in items
     ]

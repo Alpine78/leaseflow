@@ -31,6 +31,7 @@ def integration_settings() -> Settings:
 def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
     with psycopg.connect(settings.db_dsn(), row_factory=dict_row) as conn:
         with conn.transaction():
+            conn.execute("DELETE FROM notifications WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM leases WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM properties WHERE tenant_id = %s", (tenant_id,))
@@ -505,6 +506,103 @@ def test_list_due_lease_reminders_returns_only_due_active_tenant_leases(
         assert listed[0].rent_due_day_of_month == 5
         assert listed[0].due_date == date(2026, 4, 5)
         assert listed[0].days_until_due == 2
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_list_notifications_returns_only_requested_tenant_rows(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Notification HQ {uuid4().hex[:8]}",
+            address=f"Notification Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Notification HQ {uuid4().hex[:8]}",
+            address=f"Other Notification Street {uuid4().hex[:8]}",
+        )
+        lease_record = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Reminder User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        other_lease = db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Reminder User {uuid4().hex[:8]}",
+            rent_due_day_of_month=7,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        lease_record.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        "Rent is due in 2 days.",
+                        date(2026, 4, 5),
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        other_tenant_id,
+                        other_lease.lease_id,
+                        "rent_due_soon",
+                        "Other rent due soon",
+                        "Other rent is due in 1 day.",
+                        date(2026, 4, 4),
+                    ),
+                )
+
+        listed = db.list_notifications(tenant_id=tenant_id)
+
+        assert len(listed) == 1
+        assert listed[0].tenant_id == tenant_id
+        assert listed[0].lease_id == lease_record.lease_id
+        assert listed[0].type == "rent_due_soon"
+        assert listed[0].title == "Rent due soon"
+        assert listed[0].message == "Rent is due in 2 days."
+        assert listed[0].due_date == date(2026, 4, 5)
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)
