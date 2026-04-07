@@ -49,7 +49,7 @@ resource "aws_iam_role_policy" "this" {
         Sid      = "ReadDbPasswordParameter"
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
+        Resource = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
       }
     ]
   })
@@ -87,7 +87,6 @@ resource "aws_lambda_function" "this" {
       DB_NAME               = var.db_name
       DB_USER               = var.db_user
       DB_PASSWORD_SSM_PARAM = var.db_password_ssm_param
-      AWS_REGION            = data.aws_region.current.name
     }
   }
 

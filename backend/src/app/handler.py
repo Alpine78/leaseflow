@@ -33,9 +33,23 @@ def _json_body(event: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Invalid JSON request body.") from exc
 
 
+def _route_path(event: dict[str, Any]) -> str:
+    raw_path = event.get("rawPath", "")
+    stage = event.get("requestContext", {}).get("stage")
+    if not stage:
+        return raw_path
+
+    stage_prefix = f"/{stage}"
+    if raw_path == stage_prefix:
+        return "/"
+    if raw_path.startswith(f"{stage_prefix}/"):
+        return raw_path[len(stage_prefix) :]
+    return raw_path
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
-    path = event.get("rawPath", "")
+    path = _route_path(event)
     request_id = getattr(context, "aws_request_id", None)
     LOGGER.info(
         "incoming_request",

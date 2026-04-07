@@ -44,7 +44,7 @@ variable "allocated_storage" {
 variable "engine_version" {
   type        = string
   description = "PostgreSQL engine version."
-  default     = "15.7"
+  default     = "15.17"
 }
 
 variable "tags" {

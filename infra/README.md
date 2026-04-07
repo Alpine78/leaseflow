@@ -16,6 +16,8 @@ Terraform code is split into reusable modules and environment composition.
 - Keeps module interfaces clear.
 - Makes dev/prod split straightforward later.
 - Preserves low-cost defaults and avoids NAT Gateway.
+- The Terraform RDS environment is for deployed AWS verification, not for everyday backend development.
+- Normal backend development can use local PostgreSQL in WSL to avoid leaving billable AWS resources running.
 
 ## DB password handling
 
@@ -24,6 +26,95 @@ Terraform code is split into reusable modules and environment composition.
 - Lambda reads the password from `DB_PASSWORD_SSM_PARAM` at runtime instead of receiving a plaintext password environment variable.
 - The password still exists in Terraform state because both `aws_db_instance.password` and `aws_ssm_parameter.value` are stored there by the current Terraform/provider model.
 
+## First Dev Preflight
+
+Use this manual preflight before the first dev `terraform apply`.
+
+The goal is to:
+
+- build a Linux-compatible Lambda zip in WSL
+- verify AWS credentials work inside WSL
+- run a real `terraform init` / `validate` / `plan` without creating resources yet
+
+This preflight intentionally keeps:
+
+- local artifact packaging
+- local Terraform state
+- no automation script or Make target
+- no `terraform apply`
+
+### Prerequisites
+
+- WSL is available on the Windows machine.
+- Python `3.12` is available in WSL to match the Lambda runtime.
+- `python3.12-full`, `python3.12-venv`, and `rsync` are installed in WSL.
+- Terraform is installed in WSL.
+- AWS credentials already work in WSL via environment variables or a configured profile.
+
+### 1. Prepare a Linux-side working copy
+
+If the repository lives under `/mnt/c/...`, create a working copy inside the Linux filesystem before building. This avoids `venv` and packaging permission problems on the mounted Windows drive.
+
+```bash
+sudo apt update
+sudo apt install -y python3.12-full python3.12-venv rsync
+mkdir -p ~/leaseflow-preflight
+rsync -a --delete /mnt/c/Repos/LeaseFlow/ ~/leaseflow-preflight/ \
+  --exclude '.git/' \
+  --exclude '.venv/' \
+  --exclude '.venv-wsl/' \
+  --exclude 'dist/' \
+  --exclude '__pycache__/'
+```
+
+### 2. Build the Lambda deployment zip in WSL
+
+Run these commands from the Linux-side working copy:
+
+```bash
+cd ~/leaseflow-preflight
+rm -rf dist/lambda-build dist/leaseflow-backend.zip .venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install ./backend -t dist/lambda-build
+find dist/lambda-build -type d -name "__pycache__" -prune -exec rm -rf {} +
+(cd dist/lambda-build && zip -r ../leaseflow-backend.zip .)
+```
+
+Terraform expects the Lambda artifact at `dist/leaseflow-backend.zip`, which matches the current dev variable default.
+
+### 3. Sanity-check the artifact
+
+Before running Terraform, verify that the zip exists and contains the backend package plus vendored dependencies:
+
+```bash
+cd ~/leaseflow-preflight
+test -f dist/leaseflow-backend.zip
+unzip -l dist/leaseflow-backend.zip | grep "app/"
+unzip -l dist/leaseflow-backend.zip | grep "boto3/"
+```
+
+### 4. Run the Terraform preflight in WSL
+
+Run the Terraform checks from the dev environment directory:
+
+```bash
+cd ~/leaseflow-preflight/infra/environments/dev
+cp terraform.tfvars.example terraform.tfvars
+export AWS_PROFILE=terraform
+aws sts get-caller-identity
+terraform init
+terraform validate
+terraform plan
+```
+
+### Notes
+
+- Do not run `terraform apply` as part of this preflight.
+- Remote state is intentionally deferred to a later hardening step.
+- WSL is used here because the Lambda zip needs Linux-compatible dependencies.
+- Use a non-root AWS profile for Terraform work. Do not use the AWS account root profile for preflight or deployment tasks.
 ## Dev cost expectation
 
 - Check AWS Billing before the first `terraform apply`.
@@ -58,6 +149,17 @@ Quick checks before destroy:
 - verify the active AWS account with `aws sts get-caller-identity`
 - verify the intended region
 - review the destroy plan before applying it
+
+## RDS engine version note
+
+- RDS engine-version availability is region-specific and changes over time.
+- The current dev example pins PostgreSQL `15.17` for `eu-north-1`.
+- If `terraform apply` fails with `InvalidParameterCombination` for the DB engine version, query AWS before changing Terraform:
+
+```bash
+aws rds describe-db-engine-versions --engine postgres --region eu-north-1 \
+  --query 'DBEngineVersions[].EngineVersion' --output text
+```
 
 ## Commands
 
