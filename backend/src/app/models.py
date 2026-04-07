@@ -57,3 +57,13 @@ class Notification:
     message: str
     due_date: date
     created_at: datetime
+
+
+@dataclass(slots=True)
+class ReminderScanResult:
+    tenant_id: str
+    as_of_date: date
+    days: int
+    candidate_count: int
+    created_count: int
+    duplicate_count: int

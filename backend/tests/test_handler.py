@@ -207,3 +207,32 @@ def test_list_notifications_accepts_stage_prefixed_raw_path(monkeypatch) -> None
 
     assert response["statusCode"] == 200
     assert json.loads(response["body"]) == {"items": []}
+
+
+def test_scan_due_lease_reminders_accepts_internal_event(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+    monkeypatch.setattr(
+        handler,
+        "scan_due_lease_reminders",
+        lambda event, db: {"created_count": 1, "duplicate_count": 0},
+        raising=False,
+    )
+
+    event = {
+        "source": "leaseflow.internal",
+        "detail-type": "scan_due_lease_reminders",
+        "detail": {"tenant_id": "tenant-123"},
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "created_count": 1,
+        "duplicate_count": 0,
+    }

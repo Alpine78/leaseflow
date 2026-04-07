@@ -96,6 +96,32 @@ def test_build_event_for_list_due_lease_reminders_uses_query_and_jwt_claims() ->
     }
 
 
+def test_build_event_for_scan_due_lease_reminders_uses_internal_detail() -> None:
+    args = invoke_local.parse_args(
+        [
+            "scan-due-lease-reminders",
+            "--tenant-id",
+            "tenant-local",
+            "--days",
+            "14",
+            "--as-of-date",
+            "2026-04-09",
+        ]
+    )
+
+    event = invoke_local.build_event(args)
+
+    assert event == {
+        "source": "leaseflow.internal",
+        "detail-type": "scan_due_lease_reminders",
+        "detail": {
+            "tenant_id": "tenant-local",
+            "days": 14,
+            "as_of_date": "2026-04-09",
+        },
+    }
+
+
 def test_main_invokes_lambda_handler_and_prints_response(monkeypatch: Any, capsys: Any) -> None:
     captured: dict[str, Any] = {}
 

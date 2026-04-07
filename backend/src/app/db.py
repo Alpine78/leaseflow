@@ -10,12 +10,64 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.config import Settings
-from app.models import Lease, LeaseReminderCandidate, Notification, Property
+from app.models import Lease, LeaseReminderCandidate, Notification, Property, ReminderScanResult
 
 
 class Database:
     def __init__(self, settings: Settings) -> None:
         self._dsn = settings.db_dsn()
+
+    def create_due_lease_reminder_notifications(
+        self,
+        tenant_id: str,
+        as_of_date: date,
+        days: int,
+    ) -> ReminderScanResult:
+        candidates = self.list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+        )
+        insert_sql = """
+            INSERT INTO notifications (
+                tenant_id,
+                lease_id,
+                type,
+                title,
+                message,
+                due_date
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_notifications_tenant_lease_type_due_date
+            DO NOTHING
+            RETURNING notification_id
+        """
+
+        created_count = 0
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                for candidate in candidates:
+                    created_row = conn.execute(
+                        insert_sql,
+                        (
+                            tenant_id,
+                            candidate.lease_id,
+                            "rent_due_soon",
+                            "Rent due soon",
+                            _rent_due_soon_message(candidate.days_until_due),
+                            candidate.due_date,
+                        ),
+                    ).fetchone()
+                    if created_row:
+                        created_count += 1
+
+        return ReminderScanResult(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+            candidate_count=len(candidates),
+            created_count=created_count,
+            duplicate_count=len(candidates) - created_count,
+        )
 
     def list_notifications(self, tenant_id: str) -> list[Notification]:
         sql = """
@@ -330,3 +382,9 @@ def _next_due_date(as_of_date: date, due_day_of_month: int) -> date:
 def _month_due_date(year: int, month: int, due_day_of_month: int) -> date:
     last_day = calendar.monthrange(year, month)[1]
     return date(year, month, min(due_day_of_month, last_day))
+
+
+def _rent_due_soon_message(days_until_due: int) -> str:
+    if days_until_due == 1:
+        return "Rent is due in 1 day."
+    return f"Rent is due in {days_until_due} days."

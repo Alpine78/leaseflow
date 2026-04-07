@@ -36,16 +36,19 @@ Implemented now:
 - `GET /properties`
 - `POST /leases`
 - `GET /leases`
+- `GET /notifications`
+- Internal due reminder scan flow that writes notification records idempotently
 - JWT claim extraction with tenant-aware request context
 - Tenant-scoped PostgreSQL access
 - Explicit `rent_due_day_of_month` on leases to prepare future reminder flows
+- Notification persistence for due-soon rent reminders
 - Audit logging for property and lease creation
-- Alembic migrations for initial property and lease tables
+- Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 
 Planned next:
 
-- Prepare reminder and scheduled workflow support on top of leases
+- Add scheduled invocation for the reminder scan
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 

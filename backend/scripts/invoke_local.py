@@ -26,6 +26,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     reminders_parser.add_argument("--user-id", default="user-local")
     reminders_parser.add_argument("--days", type=int, default=7)
 
+    scan_parser = subparsers.add_parser(
+        "scan-due-lease-reminders",
+        help="Invoke internal due lease reminder scan.",
+    )
+    scan_parser.add_argument("--tenant-id", default="tenant-local")
+    scan_parser.add_argument("--days", type=int, default=7)
+    scan_parser.add_argument("--as-of-date")
+
     create_parser = subparsers.add_parser("create-property", help="Invoke POST /properties.")
     create_parser.add_argument("--tenant-id", default="tenant-local")
     create_parser.add_argument("--user-id", default="user-local")
@@ -40,6 +48,19 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
         return {
             "rawPath": "/health",
             "requestContext": {"http": {"method": "GET"}},
+        }
+
+    if args.command == "scan-due-lease-reminders":
+        detail: dict[str, Any] = {
+            "tenant_id": args.tenant_id,
+            "days": args.days,
+        }
+        if args.as_of_date:
+            detail["as_of_date"] = args.as_of_date
+        return {
+            "source": "leaseflow.internal",
+            "detail-type": "scan_due_lease_reminders",
+            "detail": detail,
         }
 
     raw_path = (
