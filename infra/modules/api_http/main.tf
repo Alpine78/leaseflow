@@ -45,6 +45,38 @@ resource "aws_apigatewayv2_route" "create_property" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "list_leases" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /leases"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "create_lease" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "POST /leases"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "list_notifications" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /notifications"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "list_due_lease_reminders" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /lease-reminders/due-soon"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
 resource "aws_apigatewayv2_stage" "this" {
   api_id      = aws_apigatewayv2_api.this.id
   name        = var.stage_name
