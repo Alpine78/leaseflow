@@ -21,7 +21,8 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 ## Multi-Tenant Design
 
 - `tenant_id` is mandatory in tenant-owned domain tables.
-- Backend extracts tenant context from JWT claim `custom:tenant_id`.
+- Backend extracts tenant context from Cognito JWT claim `custom:tenant_id`.
+- Protected HTTP API calls use a Cognito ID token so the tenant custom attribute is available to the backend.
 - Tenant context is never trusted from client-provided payload.
 - Query patterns are tenant-scoped by design.
 
@@ -35,6 +36,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 ## Security Baseline Alignment
 
 - App-level tenant isolation with explicit auth checks.
+- Cognito user pool stores tenant membership in custom attribute `custom:tenant_id`.
 - Private RDS in VPC subnets, not publicly accessible.
 - Least-privilege IAM for Lambda and API integration.
 - Least-privilege IAM for EventBridge Scheduler to invoke the backend Lambda.
