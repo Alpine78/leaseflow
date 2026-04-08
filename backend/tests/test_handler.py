@@ -236,3 +236,36 @@ def test_scan_due_lease_reminders_accepts_internal_event(monkeypatch) -> None:
         "created_count": 1,
         "duplicate_count": 0,
     }
+
+
+def test_run_db_migrations_accepts_internal_event(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(
+        handler,
+        "run_db_migrations",
+        lambda settings: {
+            "target_revision": "head",
+            "previous_revision": None,
+            "current_revision": "20260407_0005",
+        },
+        raising=False,
+    )
+
+    event = {
+        "source": "leaseflow.internal",
+        "detail-type": "run_db_migrations",
+        "detail": {},
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "target_revision": "head",
+        "previous_revision": None,
+        "current_revision": "20260407_0005",
+    }

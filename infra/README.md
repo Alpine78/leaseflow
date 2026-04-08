@@ -79,6 +79,8 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install ./backend -t dist/lambda-build
+cp backend/alembic.ini dist/lambda-build/alembic.ini
+rsync -a backend/migrations/ dist/lambda-build/migrations/
 find dist/lambda-build -type d -name "__pycache__" -prune -exec rm -rf {} +
 (cd dist/lambda-build && zip -r ../leaseflow-backend.zip .)
 ```
@@ -92,6 +94,9 @@ Before running Terraform, verify that the zip exists and contains the backend pa
 ```bash
 cd ~/leaseflow-preflight
 test -f dist/leaseflow-backend.zip
+unzip -l dist/leaseflow-backend.zip | grep "alembic.ini"
+unzip -l dist/leaseflow-backend.zip | grep "migrations/env.py"
+unzip -l dist/leaseflow-backend.zip | grep "migrations/versions/"
 unzip -l dist/leaseflow-backend.zip | grep "app/"
 unzip -l dist/leaseflow-backend.zip | grep "boto3/"
 ```
@@ -178,3 +183,35 @@ For a real dev deployment, prefer saving the plan first:
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
+
+## Run deployed DB migrations
+
+When the dev stack is already deployed but the private RDS schema is missing, use the backend Lambda's internal migration event.
+
+Build and deploy a fresh Lambda artifact first so the zip contains both `alembic.ini` and `migrations/`.
+
+Then invoke the migration path directly:
+
+```bash
+cd ~/leaseflow-preflight
+cat > migration-payload.json <<'JSON'
+{"source":"leaseflow.internal","detail-type":"run_db_migrations","detail":{}}
+JSON
+
+export AWS_PROFILE=terraform
+aws lambda invoke \
+  --region eu-north-1 \
+  --function-name leaseflow-dev-backend \
+  --cli-binary-format raw-in-base64-out \
+  --payload fileb://migration-payload.json \
+  migration-response.json
+
+cat migration-response.json
+aws logs tail /aws/lambda/leaseflow-dev-backend --since 10m --region eu-north-1 --format short
+```
+
+Expected result:
+
+- `statusCode` is `200`
+- response body includes `target_revision`, `previous_revision`, and `current_revision`
+- after a successful migration run, protected API smoke tests should no longer fail with missing table errors such as `relation "properties" does not exist`
