@@ -744,8 +744,7 @@ def test_create_due_lease_reminder_notifications_scans_all_tenants_when_unscoped
 
         assert len(rows) == 2
         assert {
-            (row["tenant_id"], row["lease_id"], row["type"], row["due_date"])
-            for row in rows
+            (row["tenant_id"], row["lease_id"], row["type"], row["due_date"]) for row in rows
         } == {
             (tenant_id, lease_record.lease_id, "rent_due_soon", date(2026, 4, 5)),
             (other_tenant_id, other_lease.lease_id, "rent_due_soon", date(2026, 4, 6)),
