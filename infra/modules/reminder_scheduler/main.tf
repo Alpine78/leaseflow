@@ -2,8 +2,9 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  schedule_name = "${var.name_prefix}-daily-reminder-scan"
-  schedule_arn  = "arn:aws:scheduler:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.schedule_name}"
+  schedule_name       = "${var.name_prefix}-daily-reminder-scan"
+  schedule_group_name = "default"
+  schedule_group_arn  = "arn:aws:scheduler:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:schedule-group/${local.schedule_group_name}"
 }
 
 resource "aws_iam_role" "this" {
@@ -23,7 +24,7 @@ resource "aws_iam_role" "this" {
             "aws:SourceAccount" = data.aws_caller_identity.current.account_id
           }
           ArnEquals = {
-            "aws:SourceArn" = local.schedule_arn
+            "aws:SourceArn" = local.schedule_group_arn
           }
         }
       }
@@ -52,6 +53,7 @@ resource "aws_iam_role_policy" "this" {
 
 resource "aws_scheduler_schedule" "this" {
   name                         = local.schedule_name
+  group_name                   = local.schedule_group_name
   description                  = "Runs the daily due reminder scan for LeaseFlow."
   schedule_expression          = var.schedule_expression
   schedule_expression_timezone = var.schedule_timezone

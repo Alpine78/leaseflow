@@ -59,6 +59,11 @@ run "creates_daily_scheduler_resources" {
   }
 
   assert {
+    condition     = jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.ArnEquals["aws:SourceArn"] == "arn:aws:scheduler:eu-north-1:123456789012:schedule-group/default"
+    error_message = "Scheduler role trust policy should scope SourceArn to the default schedule group."
+  }
+
+  assert {
     condition     = jsondecode(aws_iam_role_policy.this.policy).Statement[0].Action[0] == "lambda:InvokeFunction"
     error_message = "Scheduler role policy should allow Lambda invocation."
   }
