@@ -51,6 +51,7 @@ Mitigations:
 - Use Amazon Cognito for authentication instead of custom password handling.
 - Validate JWT signature, issuer, audience, expiry, and required claims on every protected request.
 - Derive user identity and tenant context from validated token claims, not from client-supplied fields.
+- For tenant-scoped HTTP API calls, use the Cognito ID token so the backend receives `custom:tenant_id`.
 - Require strong password policy and support MFA in Cognito as the account base matures.
 - Use short-lived tokens and avoid long-lived static credentials for workloads.
 
@@ -123,6 +124,7 @@ Mitigations:
 
 - Every tenant-owned table must include `tenant_id`.
 - Tenant context must be extracted from validated JWT claims.
+- `custom:tenant_id` should come from a Cognito custom user attribute that is readable but not client-writable.
 - All queries that access tenant data must be explicitly tenant-scoped.
 - `tenant_id` provided by the client must never be trusted as the authorization source.
 - Service logic must verify that the authenticated user is allowed to act within the resolved tenant.

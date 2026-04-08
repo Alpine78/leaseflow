@@ -8,7 +8,7 @@ Python Lambda backend for LeaseFlow MVP.
 - `GET /health`
 - `POST /properties`
 - `GET /properties`
-- JWT claim extraction (`sub`, `custom:tenant_id`)
+- JWT claim extraction from Cognito ID tokens (`sub`, `custom:tenant_id`)
 - Tenant-scoped data access
 - Audit logging on property creation
 - Alembic migration setup
