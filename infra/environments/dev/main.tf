@@ -72,6 +72,19 @@ module "lambda_backend" {
   tags                     = local.common_tags
 }
 
+module "reminder_scheduler" {
+  source = "../../modules/reminder_scheduler"
+
+  name_prefix          = local.name_prefix
+  lambda_function_name = module.lambda_backend.function_name
+  lambda_function_arn  = module.lambda_backend.function_arn
+  schedule_expression  = var.reminder_scan_schedule_expression
+  schedule_timezone    = var.reminder_scan_schedule_timezone
+  scan_window_days     = var.reminder_scan_window_days
+  enabled              = var.reminder_scan_enabled
+  tags                 = local.common_tags
+}
+
 module "api_http" {
   source = "../../modules/api_http"
 

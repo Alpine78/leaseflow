@@ -16,7 +16,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - **RDS PostgreSQL (private)**: core relational data store.
 - **CloudWatch**: application logs and operational visibility.
 - **Terraform**: infrastructure provisioning and repeatability.
-- **EventBridge / Scheduler**: planned for reminders and scheduled jobs.
+- **EventBridge Scheduler**: daily invocation of the internal reminder scan workflow.
 
 ## Multi-Tenant Design
 
@@ -30,12 +30,14 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - PostgreSQL is chosen over DynamoDB to keep relational queries and schema evolution straightforward for this MVP.
 - Initial schema includes `properties` and `audit_logs`.
 - Audit records are written for critical state changes (property creation).
+- Reminder notifications are persisted in PostgreSQL before any future external delivery step.
 
 ## Security Baseline Alignment
 
 - App-level tenant isolation with explicit auth checks.
 - Private RDS in VPC subnets, not publicly accessible.
 - Least-privilege IAM for Lambda and API integration.
+- Least-privilege IAM for EventBridge Scheduler to invoke the backend Lambda.
 - Secrets via SSM Parameter Store SecureString, not hardcoded values.
 - Structured JSON logging for traceability.
 
@@ -45,6 +47,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - One RDS instance in dev with small sizing.
 - No NAT Gateway in dev environment.
 - No extra services unless they deliver clear MVP value.
+- One daily scheduler is preferred over per-tenant schedules to keep dev-stage operational cost and complexity low.
 
 ## Diagram Source
 

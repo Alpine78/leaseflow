@@ -45,3 +45,26 @@ class LeaseReminderCandidate:
     rent_due_day_of_month: int
     due_date: date
     days_until_due: int
+
+
+@dataclass(slots=True)
+class Notification:
+    notification_id: UUID
+    tenant_id: str
+    lease_id: UUID
+    type: str
+    title: str
+    message: str
+    due_date: date
+    created_at: datetime
+
+
+@dataclass(slots=True)
+class ReminderScanResult:
+    tenant_id: str | None
+    as_of_date: date
+    days: int
+    tenant_count: int
+    candidate_count: int
+    created_count: int
+    duplicate_count: int

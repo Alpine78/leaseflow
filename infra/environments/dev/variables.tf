@@ -70,6 +70,30 @@ variable "db_password_ssm_param" {
   default     = "/leaseflow/dev/db/password"
 }
 
+variable "reminder_scan_schedule_expression" {
+  type        = string
+  description = "EventBridge Scheduler expression for the daily reminder scan."
+  default     = "cron(0 5 * * ? *)"
+}
+
+variable "reminder_scan_schedule_timezone" {
+  type        = string
+  description = "Timezone used by the reminder scan scheduler."
+  default     = "UTC"
+}
+
+variable "reminder_scan_window_days" {
+  type        = number
+  description = "How many days ahead the reminder scan should look."
+  default     = 7
+}
+
+variable "reminder_scan_enabled" {
+  type        = bool
+  description = "Whether the daily reminder scan schedule is enabled."
+  default     = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."

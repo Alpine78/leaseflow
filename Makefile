@@ -7,7 +7,7 @@ LOCAL_USER_ID ?= user-local
 PROPERTY_NAME ?= HQ
 PROPERTY_ADDRESS ?= Main Street 1
 
-.PHONY: format lint test migrate check-local-env migrate-local db-check-local test-local test-integration-local invoke-local-health invoke-local-list-properties invoke-local-list-due-lease-reminders invoke-local-create-property tf-fmt
+.PHONY: format lint test migrate check-local-env migrate-local db-check-local test-local test-integration-local invoke-local-health invoke-local-list-properties invoke-local-list-due-lease-reminders invoke-local-scan-due-lease-reminders invoke-local-create-property tf-fmt
 
 format:
 	cd $(BACKEND_DIR) && $(PYTHON) -m ruff format src tests migrations
@@ -44,6 +44,9 @@ invoke-local-list-properties: check-local-env
 
 invoke-local-list-due-lease-reminders: check-local-env
 	cd $(BACKEND_DIR) && set -a && . ./$(LOCAL_ENV_FILE) && set +a && $(PYTHON) scripts/invoke_local.py list-due-lease-reminders --tenant-id "$(LOCAL_TENANT_ID)" --user-id "$(LOCAL_USER_ID)"
+
+invoke-local-scan-due-lease-reminders: check-local-env
+	cd $(BACKEND_DIR) && set -a && . ./$(LOCAL_ENV_FILE) && set +a && $(PYTHON) scripts/invoke_local.py scan-due-lease-reminders --tenant-id "$(LOCAL_TENANT_ID)"
 
 invoke-local-create-property: check-local-env
 	cd $(BACKEND_DIR) && set -a && . ./$(LOCAL_ENV_FILE) && set +a && $(PYTHON) scripts/invoke_local.py create-property --tenant-id "$(LOCAL_TENANT_ID)" --user-id "$(LOCAL_USER_ID)" --name "$(PROPERTY_NAME)" --address "$(PROPERTY_ADDRESS)"

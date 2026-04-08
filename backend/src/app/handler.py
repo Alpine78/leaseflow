@@ -11,7 +11,9 @@ from app.logging import get_logger, setup_logging
 from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases
+from app.routes.notifications import list_notifications
 from app.routes.properties import create_property, list_properties
+from app.routes.reminder_scans import scan_due_lease_reminders
 
 setup_logging()
 LOGGER = get_logger(__name__)
@@ -65,6 +67,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         settings = load_settings()
         setup_logging(settings.log_level)
         db = Database(settings)
+        if (
+            event.get("source") == "leaseflow.internal"
+            and event.get("detail-type") == "scan_due_lease_reminders"
+        ):
+            return _response(HTTPStatus.OK, scan_due_lease_reminders(event, db))
+        if method == "GET" and path == "/notifications":
+            return _response(HTTPStatus.OK, list_notifications(event, db))
         if method == "GET" and path == "/lease-reminders/due-soon":
             return _response(HTTPStatus.OK, list_due_lease_reminders(event, db))
         if method == "GET" and path == "/leases":

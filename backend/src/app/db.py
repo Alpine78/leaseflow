@@ -10,16 +10,100 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.config import Settings
-from app.models import Lease, LeaseReminderCandidate, Property
+from app.models import Lease, LeaseReminderCandidate, Notification, Property, ReminderScanResult
 
 
 class Database:
     def __init__(self, settings: Settings) -> None:
         self._dsn = settings.db_dsn()
 
+    def create_due_lease_reminder_notifications(
+        self,
+        tenant_id: str | None,
+        as_of_date: date,
+        days: int,
+    ) -> ReminderScanResult:
+        candidates = self._list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+        )
+        insert_sql = """
+            INSERT INTO notifications (
+                tenant_id,
+                lease_id,
+                type,
+                title,
+                message,
+                due_date
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_notifications_tenant_lease_type_due_date
+            DO NOTHING
+            RETURNING notification_id
+        """
+
+        created_count = 0
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                for candidate in candidates:
+                    created_row = conn.execute(
+                        insert_sql,
+                        (
+                            candidate.tenant_id,
+                            candidate.lease_id,
+                            "rent_due_soon",
+                            "Rent due soon",
+                            _rent_due_soon_message(candidate.days_until_due),
+                            candidate.due_date,
+                        ),
+                    ).fetchone()
+                    if created_row:
+                        created_count += 1
+
+        return ReminderScanResult(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+            tenant_count=1 if tenant_id else len({item.tenant_id for item in candidates}),
+            candidate_count=len(candidates),
+            created_count=created_count,
+            duplicate_count=len(candidates) - created_count,
+        )
+
+    def list_notifications(self, tenant_id: str) -> list[Notification]:
+        sql = """
+            SELECT
+                notification_id,
+                tenant_id,
+                lease_id,
+                type,
+                title,
+                message,
+                due_date,
+                created_at
+            FROM notifications
+            WHERE tenant_id = %s
+            ORDER BY created_at DESC
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, (tenant_id,)).fetchall()
+        return [self._row_to_notification(row) for row in rows]
+
     def list_due_lease_reminders(
         self,
         tenant_id: str,
+        as_of_date: date,
+        days: int,
+    ) -> list[LeaseReminderCandidate]:
+        return self._list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=as_of_date,
+            days=days,
+        )
+
+    def _list_due_lease_reminders(
+        self,
+        tenant_id: str | None,
         as_of_date: date,
         days: int,
     ) -> list[LeaseReminderCandidate]:
@@ -34,14 +118,24 @@ class Database:
                 start_date,
                 end_date
             FROM leases
-            WHERE tenant_id = %s
-              AND rent_due_day_of_month IS NOT NULL
+            WHERE rent_due_day_of_month IS NOT NULL
               AND start_date <= %s
               AND end_date >= %s
-            ORDER BY created_at DESC
         """
+        params: tuple[object, ...]
+        if tenant_id:
+            sql += """
+              AND tenant_id = %s
+            ORDER BY created_at DESC
+            """
+            params = (range_end, as_of_date, tenant_id)
+        else:
+            sql += """
+            ORDER BY tenant_id, created_at DESC
+            """
+            params = (range_end, as_of_date)
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            rows = conn.execute(sql, (tenant_id, range_end, as_of_date)).fetchall()
+            rows = conn.execute(sql, params).fetchall()
 
         candidates: list[LeaseReminderCandidate] = []
         for row in rows:
@@ -217,6 +311,19 @@ class Database:
             created_at=row["created_at"],
         )
 
+    @staticmethod
+    def _row_to_notification(row: dict[str, Any]) -> Notification:
+        return Notification(
+            notification_id=row["notification_id"],
+            tenant_id=row["tenant_id"],
+            lease_id=row["lease_id"],
+            type=row["type"],
+            title=row["title"],
+            message=row["message"],
+            due_date=row["due_date"],
+            created_at=row["created_at"],
+        )
+
 
 def properties_to_dict(items: Sequence[Property]) -> list[dict[str, Any]]:
     return [
@@ -262,6 +369,22 @@ def lease_reminders_to_dict(items: Sequence[LeaseReminderCandidate]) -> list[dic
     ]
 
 
+def notifications_to_dict(items: Sequence[Notification]) -> list[dict[str, Any]]:
+    return [
+        {
+            "notification_id": str(item.notification_id),
+            "tenant_id": item.tenant_id,
+            "lease_id": str(item.lease_id),
+            "type": item.type,
+            "title": item.title,
+            "message": item.message,
+            "due_date": item.due_date.isoformat(),
+            "created_at": item.created_at.isoformat(),
+        }
+        for item in items
+    ]
+
+
 def _next_due_date(as_of_date: date, due_day_of_month: int) -> date:
     current_month_due = _month_due_date(
         year=as_of_date.year,
@@ -282,3 +405,9 @@ def _next_due_date(as_of_date: date, due_day_of_month: int) -> date:
 def _month_due_date(year: int, month: int, due_day_of_month: int) -> date:
     last_day = calendar.monthrange(year, month)[1]
     return date(year, month, min(due_day_of_month, last_day))
+
+
+def _rent_due_soon_message(days_until_due: int) -> str:
+    if days_until_due == 1:
+        return "Rent is due in 1 day."
+    return f"Rent is due in {days_until_due} days."
