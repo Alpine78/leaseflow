@@ -8,6 +8,7 @@ from app.auth import AuthError
 from app.config import ConfigError, load_settings
 from app.db import Database
 from app.logging import get_logger, setup_logging
+from app.routes.db_migrations import run_db_migrations
 from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases
@@ -66,6 +67,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         settings = load_settings()
         setup_logging(settings.log_level)
+        if (
+            event.get("source") == "leaseflow.internal"
+            and event.get("detail-type") == "run_db_migrations"
+        ):
+            return _response(HTTPStatus.OK, run_db_migrations(settings))
         db = Database(settings)
         if (
             event.get("source") == "leaseflow.internal"
