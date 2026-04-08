@@ -39,6 +39,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Least-privilege IAM for Lambda and API integration.
 - Least-privilege IAM for EventBridge Scheduler to invoke the backend Lambda.
 - Secrets via SSM Parameter Store SecureString, not hardcoded values.
+- Private Lambda access to SSM and KMS uses interface VPC endpoints instead of a NAT path.
 - Structured JSON logging for traceability.
 
 ## Cost-Aware Decisions
@@ -46,6 +47,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Single backend Lambda for MVP simplicity.
 - One RDS instance in dev with small sizing.
 - No NAT Gateway in dev environment.
+- Private AWS API dependencies are reached through targeted interface endpoints where required.
 - No extra services unless they deliver clear MVP value.
 - One daily scheduler is preferred over per-tenant schedules to keep dev-stage operational cost and complexity low.
 

@@ -134,6 +134,7 @@ Mitigations:
 - No secrets are stored in the Git repository, Terraform variables files committed to source control, or Lambda source code.
 - Runtime secrets are stored in AWS Systems Manager Parameter Store as `SecureString` values.
 - Lambda retrieves required secrets at runtime using IAM-scoped access.
+- When Lambda runs in private subnets without NAT, secret resolution must use private AWS service connectivity such as interface VPC endpoints for SSM and KMS.
 - Secrets must not be printed to logs, returned in API responses, or embedded in error messages.
 - Rotate secrets when exposure is suspected or when credentials change.
 
@@ -165,6 +166,7 @@ Examples of auditable events:
 
 - Amazon RDS PostgreSQL must not be publicly accessible.
 - Security groups must allow only required traffic paths between components.
+- Private runtimes that call AWS control-plane services must have an explicit private network path when no NAT Gateway is present.
 - IAM policies must follow least privilege for Lambda, Terraform execution, and any automation roles.
 - API access must be exposed only through HTTPS endpoints.
 - Infrastructure must be managed through Terraform to reduce drift and make security-relevant changes reviewable.

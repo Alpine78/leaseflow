@@ -1,30 +1,12 @@
 data "aws_caller_identity" "current" {}
+data "aws_kms_alias" "ssm" {
+  name = "alias/aws/ssm"
+}
 data "aws_region" "current" {}
 
-resource "aws_iam_role" "this" {
-  name = "${var.name_prefix}-lambda-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-lambda-role" })
-}
-
-resource "aws_iam_role_policy" "this" {
-  name = "${var.name_prefix}-lambda-policy"
-  role = aws_iam_role.this.id
-
-  policy = jsonencode({
+locals {
+  db_password_parameter_arn = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
+  lambda_policy = {
     Version = "2012-10-17"
     Statement = [
       {
@@ -49,10 +31,47 @@ resource "aws_iam_role_policy" "this" {
         Sid      = "ReadDbPasswordParameter"
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
+        Resource = local.db_password_parameter_arn
+      },
+      {
+        Sid      = "DecryptDbPasswordParameter"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = data.aws_kms_alias.ssm.target_key_arn
+        Condition = {
+          StringEquals = {
+            "kms:EncryptionContext:PARAMETER_ARN" = local.db_password_parameter_arn
+          }
+        }
+      }
+    ]
+  }
+}
+
+resource "aws_iam_role" "this" {
+  name = "${var.name_prefix}-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
       }
     ]
   })
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-lambda-role" })
+}
+
+resource "aws_iam_role_policy" "this" {
+  name = "${var.name_prefix}-lambda-policy"
+  role = aws_iam_role.this.id
+
+  policy = jsonencode(local.lambda_policy)
 }
 
 resource "aws_cloudwatch_log_group" "this" {
