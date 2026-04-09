@@ -103,7 +103,7 @@ Mitigations:
 
 - Enable API Gateway throttling and request validation.
 - Apply application-level input validation to reject obviously invalid or abusive requests early.
-- Use CloudWatch metrics and alarms for latency, error rates, throttles, and unusual invocation spikes.
+- Use CloudWatch metrics and alarms for backend Lambda errors, Lambda throttles, HTTP API 5xx responses, scheduler target failures, and unusual invocation spikes.
 - Keep scheduled and event-driven tasks idempotent to reduce cascading retries.
 - Size the MVP conservatively and prefer simple protective limits over complex resilience features.
 
@@ -154,6 +154,7 @@ Mitigations:
 - Application logs must be structured and written to CloudWatch.
 - Logs should include timestamp, severity, request ID, user ID when available, tenant ID when relevant, action name, and outcome.
 - Audit events should be stored in PostgreSQL for business and security traceability.
+- Baseline CloudWatch alarms should exist for backend Lambda errors, backend Lambda throttles, HTTP API 5xx responses, and reminder scheduler target failures.
 
 Examples of auditable events:
 

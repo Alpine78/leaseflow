@@ -27,3 +27,13 @@ output "reminder_scan_schedule_arn" {
   description = "Reminder scan schedule ARN."
   value       = module.reminder_scheduler.schedule_arn
 }
+
+output "baseline_alarm_names" {
+  description = "Baseline CloudWatch alarm names for the dev stack."
+  value = compact([
+    module.cloudwatch_alarms.lambda_errors_alarm_name,
+    module.cloudwatch_alarms.lambda_throttles_alarm_name,
+    module.cloudwatch_alarms.api_gateway_5xx_alarm_name,
+    module.cloudwatch_alarms.scheduler_target_errors_alarm_name
+  ])
+}

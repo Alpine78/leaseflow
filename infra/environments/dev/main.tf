@@ -85,6 +85,18 @@ module "reminder_scheduler" {
   tags                 = local.common_tags
 }
 
+module "cloudwatch_alarms" {
+  source = "../../modules/cloudwatch_alarms"
+
+  name_prefix          = local.name_prefix
+  lambda_function_name = module.lambda_backend.function_name
+  api_id               = module.api_http.api_id
+  api_stage_name       = var.environment
+  scheduler_group_name = "default"
+  scheduler_enabled    = var.reminder_scan_enabled
+  tags                 = local.common_tags
+}
+
 module "api_http" {
   source = "../../modules/api_http"
 
