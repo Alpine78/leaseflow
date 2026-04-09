@@ -80,7 +80,8 @@ class Database:
                 title,
                 message,
                 due_date,
-                created_at
+                created_at,
+                read_at
             FROM notifications
             WHERE tenant_id = %s
             ORDER BY created_at DESC
@@ -88,6 +89,35 @@ class Database:
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
             rows = conn.execute(sql, (tenant_id,)).fetchall()
         return [self._row_to_notification(row) for row in rows]
+
+    def mark_notification_read(
+        self,
+        tenant_id: str,
+        notification_id: UUID,
+    ) -> Notification:
+        sql = """
+            UPDATE notifications
+            SET read_at = COALESCE(read_at, now())
+            WHERE tenant_id = %s AND notification_id = %s
+            RETURNING
+                notification_id,
+                tenant_id,
+                lease_id,
+                type,
+                title,
+                message,
+                due_date,
+                created_at,
+                read_at
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                row = conn.execute(sql, (tenant_id, notification_id)).fetchone()
+
+        if row is None:
+            raise LookupError("Notification not found for tenant.")
+
+        return self._row_to_notification(row)
 
     def list_due_lease_reminders(
         self,
@@ -322,7 +352,22 @@ class Database:
             message=row["message"],
             due_date=row["due_date"],
             created_at=row["created_at"],
+            read_at=row["read_at"],
         )
+
+
+def notification_to_dict(item: Notification) -> dict[str, Any]:
+    return {
+        "notification_id": str(item.notification_id),
+        "tenant_id": item.tenant_id,
+        "lease_id": str(item.lease_id),
+        "type": item.type,
+        "title": item.title,
+        "message": item.message,
+        "due_date": item.due_date.isoformat(),
+        "created_at": item.created_at.isoformat(),
+        "read_at": item.read_at.isoformat() if item.read_at else None,
+    }
 
 
 def properties_to_dict(items: Sequence[Property]) -> list[dict[str, Any]]:
@@ -370,19 +415,7 @@ def lease_reminders_to_dict(items: Sequence[LeaseReminderCandidate]) -> list[dic
 
 
 def notifications_to_dict(items: Sequence[Notification]) -> list[dict[str, Any]]:
-    return [
-        {
-            "notification_id": str(item.notification_id),
-            "tenant_id": item.tenant_id,
-            "lease_id": str(item.lease_id),
-            "type": item.type,
-            "title": item.title,
-            "message": item.message,
-            "due_date": item.due_date.isoformat(),
-            "created_at": item.created_at.isoformat(),
-        }
-        for item in items
-    ]
+    return [notification_to_dict(item) for item in items]
 
 
 def _next_due_date(as_of_date: date, due_day_of_month: int) -> date:

@@ -603,6 +603,131 @@ def test_list_notifications_returns_only_requested_tenant_rows(
         assert listed[0].title == "Rent due soon"
         assert listed[0].message == "Rent is due in 2 days."
         assert listed[0].due_date == date(2026, 4, 5)
+        assert listed[0].read_at is None
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_mark_notification_read_sets_timestamp_once_and_is_idempotent(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Read HQ {uuid4().hex[:8]}",
+            address=f"Read Street {uuid4().hex[:8]}",
+        )
+        lease_record = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Read User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                notification_id = conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING notification_id
+                    """,
+                    (
+                        tenant_id,
+                        lease_record.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        "Rent is due in 2 days.",
+                        date(2026, 4, 5),
+                    ),
+                ).fetchone()["notification_id"]
+
+        first_read = db.mark_notification_read(
+            tenant_id=tenant_id,
+            notification_id=notification_id,
+        )
+        second_read = db.mark_notification_read(
+            tenant_id=tenant_id,
+            notification_id=notification_id,
+        )
+
+        assert first_read.notification_id == notification_id
+        assert first_read.read_at is not None
+        assert second_read.notification_id == notification_id
+        assert second_read.read_at == first_read.read_at
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_mark_notification_read_rejects_cross_tenant_access(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Read HQ {uuid4().hex[:8]}",
+            address=f"Other Read Street {uuid4().hex[:8]}",
+        )
+        other_lease = db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Read User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                notification_id = conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING notification_id
+                    """,
+                    (
+                        other_tenant_id,
+                        other_lease.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        "Rent is due in 2 days.",
+                        date(2026, 4, 5),
+                    ),
+                ).fetchone()["notification_id"]
+
+        with pytest.raises(LookupError, match="Notification not found for tenant."):
+            db.mark_notification_read(
+                tenant_id=tenant_id,
+                notification_id=notification_id,
+            )
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)

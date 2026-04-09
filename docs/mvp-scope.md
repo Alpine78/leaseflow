@@ -10,6 +10,7 @@
   - `POST /leases`
   - `GET /leases`
   - `GET /notifications`
+  - `PATCH /notifications/{notification_id}/read`
 - Cognito JWT-based authentication and tenant claim extraction.
 - PostgreSQL persistence for domain data and audit logs.
 - Internal reminder scan flow for creating due-soon notification records.
@@ -22,7 +23,7 @@
 - `properties` table for tenant-owned rental units.
 - `leases` table for tenant-owned rental agreements linked to properties.
 - lease contract data includes explicit `rent_due_day_of_month` for future reminder workflows.
-- `notifications` table for tenant-owned reminder records.
+- `notifications` table for tenant-owned reminder records, including nullable `read_at` for read acknowledgment.
 - `audit_logs` table for basic traceability of critical actions.
 - `tenant_id` enforced in all tenant-owned rows.
 
