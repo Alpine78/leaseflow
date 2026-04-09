@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 from http import HTTPStatus
 from typing import Any
+from uuid import UUID
 
 from app.auth import AuthError
 from app.config import ConfigError, load_settings
@@ -12,12 +14,13 @@ from app.routes.db_migrations import run_db_migrations
 from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases
-from app.routes.notifications import list_notifications
+from app.routes.notifications import list_notifications, mark_notification_read
 from app.routes.properties import create_property, list_properties
 from app.routes.reminder_scans import scan_due_lease_reminders
 
 setup_logging()
 LOGGER = get_logger(__name__)
+_NOTIFICATION_READ_PATH = re.compile(r"^/notifications/(?P<notification_id>[^/]+)/read$")
 
 
 def _response(status: HTTPStatus, body: dict[str, Any]) -> dict[str, Any]:
@@ -52,6 +55,17 @@ def _route_path(event: dict[str, Any]) -> str:
     return raw_path
 
 
+def _notification_read_id(path: str) -> UUID | None:
+    match = _NOTIFICATION_READ_PATH.fullmatch(path)
+    if match is None:
+        return None
+
+    try:
+        return UUID(match.group("notification_id"))
+    except ValueError as exc:
+        raise ValueError("Invalid notification ID.") from exc
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     path = _route_path(event)
@@ -65,6 +79,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         if method == "GET" and path == "/health":
             return _response(HTTPStatus.OK, get_health())
 
+        notification_id = _notification_read_id(path) if method == "PATCH" else None
         settings = load_settings()
         setup_logging(settings.log_level)
         if (
@@ -78,6 +93,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             and event.get("detail-type") == "scan_due_lease_reminders"
         ):
             return _response(HTTPStatus.OK, scan_due_lease_reminders(event, db))
+        if method == "PATCH" and notification_id is not None:
+            return _response(HTTPStatus.OK, mark_notification_read(event, db, notification_id))
         if method == "GET" and path == "/notifications":
             return _response(HTTPStatus.OK, list_notifications(event, db))
         if method == "GET" and path == "/lease-reminders/due-soon":
@@ -92,6 +109,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return _response(HTTPStatus.CREATED, create_property(event, db, _json_body(event)))
 
         return _response(HTTPStatus.NOT_FOUND, {"error": "Route not found"})
+    except LookupError as exc:
+        LOGGER.warning("request_rejected", extra={"request_id": request_id})
+        return _response(HTTPStatus.NOT_FOUND, {"error": str(exc)})
     except (ValueError, AuthError, ConfigError) as exc:
         LOGGER.warning("request_rejected", extra={"request_id": request_id})
         return _response(HTTPStatus.BAD_REQUEST, {"error": str(exc)})

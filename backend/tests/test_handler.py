@@ -209,6 +209,117 @@ def test_list_notifications_accepts_stage_prefixed_raw_path(monkeypatch) -> None
     assert json.loads(response["body"]) == {"items": []}
 
 
+def test_mark_notification_read_accepts_stage_prefixed_raw_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+    monkeypatch.setattr(
+        handler,
+        "mark_notification_read",
+        lambda event, db, notification_id: {
+            "notification_id": str(notification_id),
+            "read_at": "2026-04-09T10:00:00+00:00",
+        },
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/notifications/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/read",
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "notification_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "read_at": "2026-04-09T10:00:00+00:00",
+    }
+
+
+def test_mark_notification_read_rejects_invalid_notification_uuid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+
+    event = {
+        "rawPath": "/dev/notifications/not-a-uuid/read",
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {"error": "Invalid notification ID."}
+
+
+def test_mark_notification_read_maps_missing_notification_to_not_found(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+
+    def _raise_lookup_error(event, db, notification_id):
+        raise LookupError("Notification not found for tenant.")
+
+    monkeypatch.setattr(
+        handler,
+        "mark_notification_read",
+        _raise_lookup_error,
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/notifications/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/read",
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 404
+    assert json.loads(response["body"]) == {"error": "Notification not found for tenant."}
+
+
 def test_scan_due_lease_reminders_accepts_internal_event(monkeypatch) -> None:
     monkeypatch.setattr(
         handler,

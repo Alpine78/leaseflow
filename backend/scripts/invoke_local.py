@@ -26,6 +26,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     reminders_parser.add_argument("--user-id", default="user-local")
     reminders_parser.add_argument("--days", type=int, default=7)
 
+    read_notification_parser = subparsers.add_parser(
+        "read-notification",
+        help="Invoke PATCH /notifications/{notification_id}/read.",
+    )
+    read_notification_parser.add_argument("--tenant-id", default="tenant-local")
+    read_notification_parser.add_argument("--user-id", default="user-local")
+    read_notification_parser.add_argument("--notification-id", required=True)
+
     scan_parser = subparsers.add_parser(
         "scan-due-lease-reminders",
         help="Invoke internal due lease reminder scan.",
@@ -60,6 +68,22 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
             "source": "leaseflow.internal",
             "detail-type": "scan_due_lease_reminders",
             "detail": detail,
+        }
+
+    if args.command == "read-notification":
+        return {
+            "rawPath": f"/notifications/{args.notification_id}/read",
+            "requestContext": {
+                "http": {"method": "PATCH"},
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": args.user_id,
+                            "custom:tenant_id": args.tenant_id,
+                        }
+                    }
+                },
+            },
         }
 
     raw_path = (

@@ -57,6 +57,7 @@ class Notification:
     message: str
     due_date: date
     created_at: datetime
+    read_at: datetime | None
 
 
 @dataclass(slots=True)

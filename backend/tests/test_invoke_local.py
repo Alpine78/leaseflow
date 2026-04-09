@@ -96,6 +96,37 @@ def test_build_event_for_list_due_lease_reminders_uses_query_and_jwt_claims() ->
     }
 
 
+def test_build_event_for_read_notification_uses_patch_and_jwt_claims() -> None:
+    args = invoke_local.parse_args(
+        [
+            "read-notification",
+            "--tenant-id",
+            "tenant-local",
+            "--user-id",
+            "user-local",
+            "--notification-id",
+            "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        ]
+    )
+
+    event = invoke_local.build_event(args)
+
+    assert event == {
+        "rawPath": "/notifications/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/read",
+        "requestContext": {
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-local",
+                        "custom:tenant_id": "tenant-local",
+                    }
+                }
+            },
+        },
+    }
+
+
 def test_build_event_for_scan_due_lease_reminders_uses_internal_detail() -> None:
     args = invoke_local.parse_args(
         [

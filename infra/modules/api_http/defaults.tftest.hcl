@@ -32,6 +32,11 @@ run "exposes_backend_route_parity" {
   }
 
   assert {
+    condition     = aws_apigatewayv2_route.mark_notification_read.route_key == "PATCH /notifications/{notification_id}/read"
+    error_message = "API module should expose PATCH /notifications/{notification_id}/read."
+  }
+
+  assert {
     condition     = aws_apigatewayv2_route.list_due_lease_reminders.route_key == "GET /lease-reminders/due-soon"
     error_message = "API module should expose GET /lease-reminders/due-soon."
   }
@@ -44,5 +49,10 @@ run "exposes_backend_route_parity" {
   assert {
     condition     = aws_apigatewayv2_route.list_notifications.authorization_type == "JWT"
     error_message = "Notification route should require JWT auth."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.mark_notification_read.authorization_type == "JWT"
+    error_message = "Notification read route should require JWT auth."
   }
 }
