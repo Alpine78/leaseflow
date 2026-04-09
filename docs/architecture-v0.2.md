@@ -14,7 +14,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - **Lambda (Python)**: backend request handling and domain logic.
 - **Cognito**: authentication and JWT issuance.
 - **RDS PostgreSQL (private)**: core relational data store.
-- **CloudWatch**: application logs and operational visibility.
+- **CloudWatch**: application logs, baseline alarms, and operational visibility.
 - **Terraform**: infrastructure provisioning and repeatability.
 - **EventBridge Scheduler**: daily invocation of the internal reminder scan workflow.
 
@@ -42,6 +42,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Least-privilege IAM for EventBridge Scheduler to invoke the backend Lambda.
 - Secrets via SSM Parameter Store SecureString, not hardcoded values.
 - Private Lambda access to SSM and KMS uses interface VPC endpoints instead of a NAT path.
+- Baseline CloudWatch alarms cover backend Lambda errors, Lambda throttles, HTTP API 5xx responses, and scheduler target failures.
 - Structured JSON logging for traceability.
 
 ## Cost-Aware Decisions
