@@ -20,6 +20,8 @@ backend/pytest-cache-files-*
 **/.terraform/*
 *.tfstate
 *.tfstate.*
+*.tfplan
+tfdestroy
 crash.log
 *.tfvars
 !*.tfvars.example
