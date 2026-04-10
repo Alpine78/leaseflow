@@ -9,6 +9,14 @@ from app.auth import extract_auth_context
 from app.db import Database, leases_to_dict
 
 _MUTABLE_FIELDS = ("resident_name", "rent_due_day_of_month", "start_date", "end_date")
+_UPDATE_REQUIRED_FIELDS_ERROR = (
+    "At least one of 'resident_name', 'rent_due_day_of_month', "
+    "'start_date', or 'end_date' is required."
+)
+_UPDATE_SUPPORTED_FIELDS_ERROR = (
+    "Only fields 'resident_name', 'rent_due_day_of_month', "
+    "'start_date', and 'end_date' can be updated."
+)
 
 
 def list_leases(event: dict[str, Any], db: Database) -> dict[str, Any]:
@@ -74,15 +82,11 @@ def update_lease(event: dict[str, Any], db: Database, lease_id: UUID) -> dict[st
 def _lease_update_body(event: dict[str, Any]) -> dict[str, object]:
     body = _json_body(event)
     if not body:
-        raise ValueError(
-            "At least one of 'resident_name', 'rent_due_day_of_month', 'start_date', or 'end_date' is required."
-        )
+        raise ValueError(_UPDATE_REQUIRED_FIELDS_ERROR)
 
     unsupported_fields = set(body) - set(_MUTABLE_FIELDS)
     if unsupported_fields:
-        raise ValueError(
-            "Only fields 'resident_name', 'rent_due_day_of_month', 'start_date', and 'end_date' can be updated."
-        )
+        raise ValueError(_UPDATE_SUPPORTED_FIELDS_ERROR)
 
     updates: dict[str, object] = {}
     if "resident_name" in body:
@@ -107,9 +111,7 @@ def _lease_update_body(event: dict[str, Any]) -> dict[str, object]:
         raise ValueError("'end_date' must be on or after 'start_date'.")
 
     if not updates:
-        raise ValueError(
-            "At least one of 'resident_name', 'rent_due_day_of_month', 'start_date', or 'end_date' is required."
-        )
+        raise ValueError(_UPDATE_REQUIRED_FIELDS_ERROR)
 
     return updates
 

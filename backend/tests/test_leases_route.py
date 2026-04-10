@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -389,8 +390,12 @@ def test_update_lease_supports_multiple_fields() -> None:
     payload = leases.update_lease(
         {
             **event,
-            "body": (
-                '{"resident_name":" Bob Updated ","rent_due_day_of_month":"9","start_date":"2026-07-01"}'
+            "body": json.dumps(
+                {
+                    "resident_name": " Bob Updated ",
+                    "rent_due_day_of_month": "9",
+                    "start_date": "2026-07-01",
+                }
             ),
         },
         db,
