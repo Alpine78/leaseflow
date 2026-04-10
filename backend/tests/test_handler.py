@@ -400,6 +400,132 @@ def test_update_property_maps_missing_property_to_not_found(monkeypatch) -> None
     assert json.loads(response["body"]) == {"error": "Property not found for tenant."}
 
 
+def test_update_lease_accepts_stage_prefixed_raw_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+    monkeypatch.setattr(
+        handler,
+        "update_lease",
+        lambda event, db, lease_id: {
+            "lease_id": str(lease_id),
+            "tenant_id": "tenant-123",
+            "property_id": "11111111-1111-1111-1111-111111111111",
+            "resident_name": "Alice Updated",
+            "rent_due_day_of_month": 7,
+            "start_date": "2026-06-01",
+            "end_date": "2027-05-31",
+            "created_at": "2026-04-07T00:00:00+00:00",
+        },
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/leases/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "body": json.dumps({"resident_name": "Alice Updated"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "lease_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "tenant_id": "tenant-123",
+        "property_id": "11111111-1111-1111-1111-111111111111",
+        "resident_name": "Alice Updated",
+        "rent_due_day_of_month": 7,
+        "start_date": "2026-06-01",
+        "end_date": "2027-05-31",
+        "created_at": "2026-04-07T00:00:00+00:00",
+    }
+
+
+def test_update_lease_rejects_invalid_lease_uuid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+
+    event = {
+        "rawPath": "/dev/leases/not-a-uuid",
+        "body": json.dumps({"resident_name": "Alice Updated"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {"error": "Invalid lease ID."}
+
+
+def test_update_lease_maps_missing_lease_to_not_found(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+
+    def _raise_lookup_error(event, db, lease_id):
+        raise LookupError("Lease not found for tenant.")
+
+    monkeypatch.setattr(
+        handler,
+        "update_lease",
+        _raise_lookup_error,
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/leases/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "body": json.dumps({"resident_name": "Alice Updated"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 404
+    assert json.loads(response["body"]) == {"error": "Lease not found for tenant."}
+
+
 def test_mark_notification_read_maps_missing_notification_to_not_found(monkeypatch) -> None:
     monkeypatch.setattr(
         handler,

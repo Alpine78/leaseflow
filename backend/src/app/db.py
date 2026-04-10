@@ -285,6 +285,124 @@ class Database:
                 )
         return self._row_to_lease(lease_row)
 
+    def update_lease(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        lease_id: UUID,
+        updates: dict[str, object],
+    ) -> Lease:
+        lease_sql = """
+            SELECT
+                lease_id,
+                tenant_id,
+                property_id,
+                resident_name,
+                rent_due_day_of_month,
+                start_date,
+                end_date,
+                created_at
+            FROM leases
+            WHERE tenant_id = %s AND lease_id = %s
+            FOR UPDATE
+        """
+        delete_notifications_sql = """
+            DELETE FROM notifications
+            WHERE tenant_id = %s
+              AND lease_id = %s
+              AND type = 'rent_due_soon'
+              AND read_at IS NULL
+              AND due_date >= %s
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                lease_row = conn.execute(lease_sql, (tenant_id, lease_id)).fetchone()
+                if lease_row is None:
+                    raise LookupError("Lease not found for tenant.")
+
+                start_date = updates.get("start_date", lease_row["start_date"])
+                end_date = updates.get("end_date", lease_row["end_date"])
+                if end_date < start_date:
+                    raise ValueError("'end_date' must be on or after 'start_date'.")
+
+                changed_fields = [
+                    field
+                    for field in (
+                        "resident_name",
+                        "rent_due_day_of_month",
+                        "start_date",
+                        "end_date",
+                    )
+                    if field in updates and updates[field] != lease_row[field]
+                ]
+                if not changed_fields:
+                    return self._row_to_lease(lease_row)
+
+                assignments = SQL(", ").join(
+                    SQL("{} = %s").format(Identifier(field)) for field in changed_fields
+                )
+                update_sql = SQL("""
+                    UPDATE leases
+                    SET {assignments}
+                    WHERE tenant_id = %s AND lease_id = %s
+                    RETURNING
+                        lease_id,
+                        tenant_id,
+                        property_id,
+                        resident_name,
+                        rent_due_day_of_month,
+                        start_date,
+                        end_date,
+                        created_at
+                """).format(assignments=assignments)
+                update_params = tuple(updates[field] for field in changed_fields) + (
+                    tenant_id,
+                    lease_id,
+                )
+                lease_row = conn.execute(update_sql, update_params).fetchone()
+
+                reminder_fields_changed = any(
+                    field in {"rent_due_day_of_month", "start_date", "end_date"}
+                    for field in changed_fields
+                )
+                deleted_notification_count = 0
+                if reminder_fields_changed:
+                    deleted_notification_count = (
+                        conn.execute(
+                            delete_notifications_sql,
+                            (tenant_id, lease_id, date.today()),
+                        ).rowcount
+                        or 0
+                    )
+
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "lease.update",
+                        "lease",
+                        lease_id,
+                        json.dumps(
+                            {
+                                "source": "api",
+                                "changed_fields": changed_fields,
+                                "deleted_notification_count": deleted_notification_count,
+                            }
+                        ),
+                    ),
+                )
+
+        if lease_row is None:
+            raise RuntimeError("Failed to update lease.")
+
+        return self._row_to_lease(lease_row)
+
     def update_property(
         self,
         tenant_id: str,

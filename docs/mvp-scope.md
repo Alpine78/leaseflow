@@ -9,6 +9,7 @@
   - `GET /properties`
   - `POST /leases`
   - `GET /leases`
+  - `PATCH /leases/{lease_id}`
   - `GET /notifications`
   - `PATCH /notifications/{notification_id}/read`
 - Cognito JWT-based authentication and tenant claim extraction.
