@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date, timedelta
 from uuid import uuid4
 
 import psycopg
@@ -645,6 +645,490 @@ def test_list_leases_returns_only_requested_tenant_rows(integration_settings: Se
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_update_lease_writes_change_audit_and_deletes_future_unread_reminders(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Lease Update HQ {uuid4().hex[:8]}",
+            address=f"Lease Update Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Original Resident {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=today,
+            end_date=next_year,
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        created.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        "Rent is due soon.",
+                        today,
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date,
+                        read_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, now())
+                    """,
+                    (
+                        tenant_id,
+                        created.lease_id,
+                        "rent_due_soon",
+                        "Read reminder",
+                        "Already read.",
+                        today + timedelta(days=1),
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        created.lease_id,
+                        "rent_due_soon",
+                        "Past reminder",
+                        "Past due reminder.",
+                        today - timedelta(days=1),
+                    ),
+                )
+
+        updated = db.update_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            lease_id=created.lease_id,
+            updates={
+                "rent_due_day_of_month": 9,
+                "start_date": today + timedelta(days=2),
+                "end_date": next_year,
+            },
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            lease_rows = conn.execute(
+                """
+                SELECT resident_name, rent_due_day_of_month, start_date, end_date
+                FROM leases
+                WHERE tenant_id = %s AND lease_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT metadata
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'lease.update'
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            notification_rows = conn.execute(
+                """
+                SELECT title, due_date, read_at
+                FROM notifications
+                WHERE tenant_id = %s AND lease_id = %s
+                ORDER BY due_date
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+
+        assert updated.lease_id == created.lease_id
+        assert updated.rent_due_day_of_month == 9
+        assert updated.start_date == today + timedelta(days=2)
+        assert len(lease_rows) == 1
+        assert lease_rows[0]["rent_due_day_of_month"] == 9
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["metadata"] == {
+            "source": "api",
+            "changed_fields": ["rent_due_day_of_month", "start_date"],
+            "deleted_notification_count": 1,
+        }
+        assert len(notification_rows) == 2
+        assert notification_rows[0]["title"] == "Past reminder"
+        assert notification_rows[1]["title"] == "Read reminder"
+        assert notification_rows[1]["read_at"] is not None
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_lease_rejects_cross_tenant_access(integration_settings: Settings) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Lease HQ {uuid4().hex[:8]}",
+            address=f"Other Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Other Resident {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=today,
+            end_date=next_year,
+        )
+
+        with pytest.raises(LookupError, match="Lease not found for tenant."):
+            db.update_lease(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                lease_id=created.lease_id,
+                updates={"resident_name": "Updated Resident"},
+            )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_update_lease_is_idempotent_when_values_are_unchanged(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Stable Lease HQ {uuid4().hex[:8]}",
+            address=f"Stable Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name="Stable Resident",
+            rent_due_day_of_month=5,
+            start_date=today,
+            end_date=next_year,
+        )
+
+        updated = db.update_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            lease_id=created.lease_id,
+            updates={
+                "resident_name": "Stable Resident",
+                "rent_due_day_of_month": 5,
+                "start_date": today,
+                "end_date": next_year,
+            },
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'lease.update'
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+
+        assert updated.lease_id == created.lease_id
+        assert updated.resident_name == "Stable Resident"
+        assert audit_rows == []
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_lease_resident_name_only_keeps_future_unread_reminders(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Resident Lease HQ {uuid4().hex[:8]}",
+            address=f"Resident Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name="Original Resident",
+            rent_due_day_of_month=5,
+            start_date=today,
+            end_date=next_year,
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        created.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        "Rent is due soon.",
+                        today + timedelta(days=1),
+                    ),
+                )
+
+        updated = db.update_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            lease_id=created.lease_id,
+            updates={"resident_name": "Updated Resident"},
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT metadata
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'lease.update'
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            notification_rows = conn.execute(
+                """
+                SELECT notification_id
+                FROM notifications
+                WHERE tenant_id = %s AND lease_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+
+        assert updated.resident_name == "Updated Resident"
+        assert len(notification_rows) == 1
+        assert audit_rows[0]["metadata"] == {
+            "source": "api",
+            "changed_fields": ["resident_name"],
+            "deleted_notification_count": 0,
+        }
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_lease_changes_due_reminder_candidates(integration_settings: Settings) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+    original_due_day = today.day + 10 if today.day <= 18 else 28
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Reminder Candidate HQ {uuid4().hex[:8]}",
+            address=f"Reminder Candidate Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name="Reminder Candidate Resident",
+            rent_due_day_of_month=original_due_day,
+            start_date=today,
+            end_date=next_year,
+        )
+
+        before = db.list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=today,
+            days=7,
+        )
+
+        db.update_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            lease_id=created.lease_id,
+            updates={"rent_due_day_of_month": today.day},
+        )
+
+        after = db.list_due_lease_reminders(
+            tenant_id=tenant_id,
+            as_of_date=today,
+            days=7,
+        )
+
+        assert before == []
+        assert len(after) == 1
+        assert after[0].lease_id == created.lease_id
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_lease_rolls_back_when_audit_log_write_fails(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    constraint_name = f"audit_logs_reject_{uuid4().hex[:12]}"
+    today = date.today()
+    next_year = today.replace(year=today.year + 1)
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Rollback Lease HQ {uuid4().hex[:8]}",
+            address=f"Rollback Lease Street {uuid4().hex[:8]}",
+        )
+        created = db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name="Rollback Resident",
+            rent_due_day_of_month=5,
+            start_date=today,
+            end_date=next_year,
+        )
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    """
+                    INSERT INTO notifications (
+                        tenant_id,
+                        lease_id,
+                        type,
+                        title,
+                        message,
+                        due_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        created.lease_id,
+                        "rent_due_soon",
+                        "Future unread",
+                        "Future unread.",
+                        today + timedelta(days=1),
+                    ),
+                )
+                conn.execute(
+                    SQL(
+                        """
+                        ALTER TABLE audit_logs
+                        ADD CONSTRAINT {constraint_name}
+                        CHECK (action <> 'lease.update' OR tenant_id <> {tenant_id})
+                        """
+                    ).format(
+                        constraint_name=Identifier(constraint_name),
+                        tenant_id=Literal(tenant_id),
+                    )
+                )
+
+        with pytest.raises(psycopg.Error):
+            db.update_lease(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                lease_id=created.lease_id,
+                updates={"rent_due_day_of_month": 9},
+            )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            lease_rows = conn.execute(
+                """
+                SELECT rent_due_day_of_month
+                FROM leases
+                WHERE tenant_id = %s AND lease_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'lease.update'
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+            notification_rows = conn.execute(
+                """
+                SELECT notification_id
+                FROM notifications
+                WHERE tenant_id = %s AND lease_id = %s
+                """,
+                (tenant_id, created.lease_id),
+            ).fetchall()
+
+        assert lease_rows[0]["rent_due_day_of_month"] == 5
+        assert audit_rows == []
+        assert len(notification_rows) == 1
+    finally:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS {constraint_name}"
+                    ).format(constraint_name=Identifier(constraint_name))
+                )
+        _cleanup_test_tenant(integration_settings, tenant_id)
 
 
 def test_list_due_lease_reminders_returns_only_due_active_tenant_leases(
