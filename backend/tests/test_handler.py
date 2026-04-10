@@ -280,6 +280,126 @@ def test_mark_notification_read_rejects_invalid_notification_uuid(monkeypatch) -
     assert json.loads(response["body"]) == {"error": "Invalid notification ID."}
 
 
+def test_update_property_accepts_stage_prefixed_raw_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+    monkeypatch.setattr(
+        handler,
+        "update_property",
+        lambda event, db, property_id: {
+            "property_id": str(property_id),
+            "tenant_id": "tenant-123",
+            "name": "Updated HQ",
+            "address": "Updated Street 1",
+            "created_at": "2026-03-12T00:00:00+00:00",
+        },
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/properties/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "body": json.dumps({"name": "Updated HQ"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "property_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "tenant_id": "tenant-123",
+        "name": "Updated HQ",
+        "address": "Updated Street 1",
+        "created_at": "2026-03-12T00:00:00+00:00",
+    }
+
+
+def test_update_property_rejects_invalid_property_uuid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+
+    event = {
+        "rawPath": "/dev/properties/not-a-uuid",
+        "body": json.dumps({"name": "Updated HQ"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {"error": "Invalid property ID."}
+
+
+def test_update_property_maps_missing_property_to_not_found(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: object())
+
+    def _raise_lookup_error(event, db, property_id):
+        raise LookupError("Property not found for tenant.")
+
+    monkeypatch.setattr(
+        handler,
+        "update_property",
+        _raise_lookup_error,
+        raising=False,
+    )
+
+    event = {
+        "rawPath": "/dev/properties/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "body": json.dumps({"name": "Updated HQ"}),
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "PATCH"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 404
+    assert json.loads(response["body"]) == {"error": "Property not found for tenant."}
+
+
 def test_mark_notification_read_maps_missing_notification_to_not_found(monkeypatch) -> None:
     monkeypatch.setattr(
         handler,

@@ -37,6 +37,11 @@ run "exposes_backend_route_parity" {
   }
 
   assert {
+    condition     = aws_apigatewayv2_route.update_property.route_key == "PATCH /properties/{property_id}"
+    error_message = "API module should expose PATCH /properties/{property_id}."
+  }
+
+  assert {
     condition     = aws_apigatewayv2_route.list_due_lease_reminders.route_key == "GET /lease-reminders/due-soon"
     error_message = "API module should expose GET /lease-reminders/due-soon."
   }
@@ -54,5 +59,10 @@ run "exposes_backend_route_parity" {
   assert {
     condition     = aws_apigatewayv2_route.mark_notification_read.authorization_type == "JWT"
     error_message = "Notification read route should require JWT auth."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.update_property.authorization_type == "JWT"
+    error_message = "Property update route should require JWT auth."
   }
 }

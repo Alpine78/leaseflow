@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import json
 from collections.abc import Sequence
 from datetime import date, timedelta
 from typing import Any
@@ -8,6 +9,7 @@ from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.sql import SQL, Identifier
 
 from app.config import Settings
 from app.models import Lease, LeaseReminderCandidate, Notification, Property, ReminderScanResult
@@ -282,6 +284,69 @@ class Database:
                     ),
                 )
         return self._row_to_lease(lease_row)
+
+    def update_property(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        property_id: UUID,
+        updates: dict[str, str],
+    ) -> Property:
+        property_sql = """
+            SELECT property_id, tenant_id, name, address, created_at
+            FROM properties
+            WHERE tenant_id = %s AND property_id = %s
+            FOR UPDATE
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                property_row = conn.execute(property_sql, (tenant_id, property_id)).fetchone()
+                if property_row is None:
+                    raise LookupError("Property not found for tenant.")
+
+                changed_fields = [
+                    field
+                    for field in ("name", "address")
+                    if field in updates and updates[field] != property_row[field]
+                ]
+                if not changed_fields:
+                    return self._row_to_property(property_row)
+
+                assignments = SQL(", ").join(
+                    SQL("{} = %s").format(Identifier(field)) for field in changed_fields
+                )
+                update_sql = SQL("""
+                    UPDATE properties
+                    SET {assignments}
+                    WHERE tenant_id = %s AND property_id = %s
+                    RETURNING property_id, tenant_id, name, address, created_at
+                """).format(assignments=assignments)
+                update_params = tuple(updates[field] for field in changed_fields) + (
+                    tenant_id,
+                    property_id,
+                )
+                property_row = conn.execute(update_sql, update_params).fetchone()
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "property.update",
+                        "property",
+                        property_id,
+                        json.dumps({"source": "api", "changed_fields": changed_fields}),
+                    ),
+                )
+
+        if property_row is None:
+            raise RuntimeError("Failed to update property.")
+
+        return self._row_to_property(property_row)
 
     def create_property(
         self,

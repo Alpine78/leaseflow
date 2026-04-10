@@ -45,6 +45,14 @@ resource "aws_apigatewayv2_route" "create_property" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "update_property" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "PATCH /properties/{property_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
 resource "aws_apigatewayv2_route" "list_leases" {
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = "GET /leases"
