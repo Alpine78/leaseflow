@@ -15,12 +15,13 @@ from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases
 from app.routes.notifications import list_notifications, mark_notification_read
-from app.routes.properties import create_property, list_properties
+from app.routes.properties import create_property, list_properties, update_property
 from app.routes.reminder_scans import scan_due_lease_reminders
 
 setup_logging()
 LOGGER = get_logger(__name__)
 _NOTIFICATION_READ_PATH = re.compile(r"^/notifications/(?P<notification_id>[^/]+)/read$")
+_PROPERTY_PATH = re.compile(r"^/properties/(?P<property_id>[^/]+)$")
 
 
 def _response(status: HTTPStatus, body: dict[str, Any]) -> dict[str, Any]:
@@ -66,6 +67,17 @@ def _notification_read_id(path: str) -> UUID | None:
         raise ValueError("Invalid notification ID.") from exc
 
 
+def _property_id(path: str) -> UUID | None:
+    match = _PROPERTY_PATH.fullmatch(path)
+    if match is None:
+        return None
+
+    try:
+        return UUID(match.group("property_id"))
+    except ValueError as exc:
+        raise ValueError("Invalid property ID.") from exc
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     path = _route_path(event)
@@ -80,6 +92,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return _response(HTTPStatus.OK, get_health())
 
         notification_id = _notification_read_id(path) if method == "PATCH" else None
+        property_id = _property_id(path) if method == "PATCH" else None
         settings = load_settings()
         setup_logging(settings.log_level)
         if (
@@ -95,6 +108,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return _response(HTTPStatus.OK, scan_due_lease_reminders(event, db))
         if method == "PATCH" and notification_id is not None:
             return _response(HTTPStatus.OK, mark_notification_read(event, db, notification_id))
+        if method == "PATCH" and property_id is not None:
+            return _response(HTTPStatus.OK, update_property(event, db, property_id))
         if method == "GET" and path == "/notifications":
             return _response(HTTPStatus.OK, list_notifications(event, db))
         if method == "GET" and path == "/lease-reminders/due-soon":

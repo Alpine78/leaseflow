@@ -188,6 +188,221 @@ def test_list_properties_returns_only_requested_tenant_rows(
         _cleanup_test_tenant(integration_settings, other_tenant_id)
 
 
+def test_update_property_writes_property_change_and_audit_log(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Original HQ {uuid4().hex[:8]}",
+            address=f"Original Street {uuid4().hex[:8]}",
+        )
+
+        updated = db.update_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=created.property_id,
+            updates={"name": "Updated HQ", "address": "Updated Street 2"},
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            property_rows = conn.execute(
+                """
+                SELECT property_id, tenant_id, name, address
+                FROM properties
+                WHERE tenant_id = %s AND property_id = %s
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'property.update'
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+
+        assert updated.property_id == created.property_id
+        assert updated.tenant_id == tenant_id
+        assert updated.name == "Updated HQ"
+        assert updated.address == "Updated Street 2"
+
+        assert len(property_rows) == 1
+        assert property_rows[0]["name"] == "Updated HQ"
+        assert property_rows[0]["address"] == "Updated Street 2"
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["tenant_id"] == tenant_id
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["action"] == "property.update"
+        assert audit_rows[0]["entity_type"] == "property"
+        assert audit_rows[0]["entity_id"] == created.property_id
+        assert audit_rows[0]["metadata"] == {
+            "source": "api",
+            "changed_fields": ["name", "address"],
+        }
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_property_rejects_cross_tenant_access(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other HQ {uuid4().hex[:8]}",
+            address=f"Other Street {uuid4().hex[:8]}",
+        )
+
+        with pytest.raises(LookupError, match="Property not found for tenant."):
+            db.update_property(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                property_id=created.property_id,
+                updates={"name": "Updated HQ"},
+            )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_update_property_is_idempotent_when_values_are_unchanged(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    name = f"Stable HQ {uuid4().hex[:8]}"
+    address = f"Stable Street {uuid4().hex[:8]}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=name,
+            address=address,
+        )
+
+        updated = db.update_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=created.property_id,
+            updates={"name": name, "address": address},
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            property_rows = conn.execute(
+                """
+                SELECT property_id, name, address
+                FROM properties
+                WHERE tenant_id = %s AND property_id = %s
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'property.update'
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+
+        assert updated.property_id == created.property_id
+        assert updated.name == name
+        assert updated.address == address
+        assert len(property_rows) == 1
+        assert property_rows[0]["name"] == name
+        assert property_rows[0]["address"] == address
+        assert audit_rows == []
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_update_property_rolls_back_when_audit_log_write_fails(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    constraint_name = f"audit_logs_reject_{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Rollback Update HQ {uuid4().hex[:8]}",
+            address=f"Rollback Update Street {uuid4().hex[:8]}",
+        )
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        """
+                        ALTER TABLE audit_logs
+                        ADD CONSTRAINT {constraint_name}
+                        CHECK (action <> 'property.update' OR tenant_id <> {tenant_id})
+                        """
+                    ).format(
+                        constraint_name=Identifier(constraint_name),
+                        tenant_id=Literal(tenant_id),
+                    )
+                )
+
+        with pytest.raises(psycopg.Error):
+            db.update_property(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                property_id=created.property_id,
+                updates={"name": "Broken Update"},
+            )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            property_rows = conn.execute(
+                """
+                SELECT property_id, name, address
+                FROM properties
+                WHERE tenant_id = %s AND property_id = %s
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s AND action = 'property.update'
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+
+        assert len(property_rows) == 1
+        assert property_rows[0]["name"] == created.name
+        assert property_rows[0]["address"] == created.address
+        assert audit_rows == []
+    finally:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    SQL(
+                        "ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS {constraint_name}"
+                    ).format(constraint_name=Identifier(constraint_name))
+                )
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
 def test_create_lease_writes_lease_and_audit_log(integration_settings: Settings) -> None:
     db = Database(integration_settings)
     tenant_id = f"test-local-{uuid4().hex}"
