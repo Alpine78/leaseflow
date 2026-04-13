@@ -44,7 +44,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Secrets via SSM Parameter Store SecureString, not hardcoded values.
 - Private Lambda access to SSM and KMS uses interface VPC endpoints instead of a NAT path.
 - Baseline CloudWatch alarms cover backend Lambda errors, Lambda throttles, HTTP API 5xx responses, and scheduler target failures.
-- Baseline alarms publish alarm-state changes to an SNS topic; human subscriptions are intentionally out of scope for the current baseline.
+- Baseline alarms publish alarm-state changes to an SNS topic; dev can optionally add one email subscription that requires confirmation before delivery starts.
 - Structured JSON logging for traceability.
 
 ## Cost-Aware Decisions

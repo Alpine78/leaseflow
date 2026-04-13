@@ -12,3 +12,6 @@ db_engine_version = "15.17"
 # Terraform generates the DB password and stores it in SSM SecureString at this path.
 lambda_package_file   = "../../../dist/leaseflow-backend.zip"
 db_password_ssm_param = "/leaseflow/dev/db/password"
+
+# Optional. AWS sends a confirmation email before SNS starts delivery.
+baseline_alarm_notification_email = ""

@@ -91,6 +91,14 @@ resource "aws_sns_topic" "baseline_alarm_notifications" {
   tags = local.common_tags
 }
 
+resource "aws_sns_topic_subscription" "baseline_alarm_email" {
+  count = trimspace(var.baseline_alarm_notification_email) == "" ? 0 : 1
+
+  topic_arn = aws_sns_topic.baseline_alarm_notifications.arn
+  protocol  = "email"
+  endpoint  = trimspace(var.baseline_alarm_notification_email)
+}
+
 module "cloudwatch_alarms" {
   source = "../../modules/cloudwatch_alarms"
 
