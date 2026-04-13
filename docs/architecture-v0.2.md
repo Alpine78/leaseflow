@@ -15,6 +15,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - **Cognito**: authentication and JWT issuance.
 - **RDS PostgreSQL (private)**: core relational data store.
 - **CloudWatch**: application logs, baseline alarms, and operational visibility.
+- **SNS**: baseline alarm action topic for AWS-native alert fan-out.
 - **Terraform**: infrastructure provisioning and repeatability.
 - **EventBridge Scheduler**: daily invocation of the internal reminder scan workflow.
 
@@ -43,6 +44,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Secrets via SSM Parameter Store SecureString, not hardcoded values.
 - Private Lambda access to SSM and KMS uses interface VPC endpoints instead of a NAT path.
 - Baseline CloudWatch alarms cover backend Lambda errors, Lambda throttles, HTTP API 5xx responses, and scheduler target failures.
+- Baseline alarms publish alarm-state changes to an SNS topic; human subscriptions are intentionally out of scope for the current baseline.
 - Structured JSON logging for traceability.
 
 ## Cost-Aware Decisions

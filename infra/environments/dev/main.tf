@@ -85,6 +85,12 @@ module "reminder_scheduler" {
   tags                 = local.common_tags
 }
 
+resource "aws_sns_topic" "baseline_alarm_notifications" {
+  name = "${local.name_prefix}-baseline-alarm-notifications"
+
+  tags = local.common_tags
+}
+
 module "cloudwatch_alarms" {
   source = "../../modules/cloudwatch_alarms"
 
@@ -94,6 +100,7 @@ module "cloudwatch_alarms" {
   api_stage_name       = var.environment
   scheduler_group_name = "default"
   scheduler_enabled    = var.reminder_scan_enabled
+  alarm_action_arns    = [aws_sns_topic.baseline_alarm_notifications.arn]
   tags                 = local.common_tags
 }
 

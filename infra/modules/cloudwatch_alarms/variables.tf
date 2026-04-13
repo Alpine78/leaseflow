@@ -28,6 +28,12 @@ variable "scheduler_enabled" {
   type        = bool
 }
 
+variable "alarm_action_arns" {
+  description = "Alarm action ARNs for baseline CloudWatch alarms."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags applied to alarm resources."
   type        = map(string)
