@@ -94,6 +94,12 @@ variable "reminder_scan_enabled" {
   default     = true
 }
 
+variable "baseline_alarm_notification_email" {
+  type        = string
+  description = "Optional email endpoint subscribed to dev baseline alarm SNS notifications."
+  default     = ""
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."

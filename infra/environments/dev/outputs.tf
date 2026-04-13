@@ -47,3 +47,8 @@ output "baseline_alarm_notification_topic_arn" {
   description = "SNS topic ARN used as the baseline CloudWatch alarm action target."
   value       = aws_sns_topic.baseline_alarm_notifications.arn
 }
+
+output "baseline_alarm_email_subscription_configured" {
+  description = "Whether a dev baseline alarm email subscription is configured."
+  value       = length(aws_sns_topic_subscription.baseline_alarm_email) > 0
+}

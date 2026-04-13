@@ -156,7 +156,7 @@ Mitigations:
 - Logs should include timestamp, severity, request ID, user ID when available, tenant ID when relevant, action name, and outcome.
 - Audit events should be stored in PostgreSQL for business and security traceability.
 - Baseline CloudWatch alarms should exist for backend Lambda errors, backend Lambda throttles, HTTP API 5xx responses, and reminder scheduler target failures.
-- Baseline alarms publish to an environment SNS topic, but no confirmed human subscription exists yet.
+- Baseline alarms publish to an environment SNS topic; optional dev email delivery starts only after the recipient confirms the SNS subscription email.
 
 Examples of auditable events:
 
