@@ -56,6 +56,10 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - No extra services unless they deliver clear MVP value.
 - One daily scheduler is preferred over per-tenant schedules to keep dev-stage operational cost and complexity low.
 
+## Operational Runbooks
+
+- Dev RDS restore validation is documented in `docs/runbooks/dev-rds-restore-validation.md`.
+
 ## Diagram Source
 
 The version-controlled source for the architecture diagram lives in:
