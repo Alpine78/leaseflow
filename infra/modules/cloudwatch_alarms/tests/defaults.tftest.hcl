@@ -51,6 +51,11 @@ run "creates_baseline_alarm_resources" {
   }
 
   assert {
+    condition     = length(coalesce(aws_cloudwatch_metric_alarm.lambda_errors.alarm_actions, [])) == 0
+    error_message = "Lambda errors alarm should have no actions by default."
+  }
+
+  assert {
     condition     = aws_cloudwatch_metric_alarm.lambda_throttles.metric_name == "Throttles"
     error_message = "Lambda throttles alarm should track Lambda Throttles."
   }
@@ -98,6 +103,48 @@ run "creates_baseline_alarm_resources" {
   assert {
     condition     = aws_cloudwatch_metric_alarm.scheduler_target_errors[0].period == 300
     error_message = "Scheduler alarm should use a 5-minute period."
+  }
+}
+
+run "attaches_alarm_actions_when_supplied" {
+  command = plan
+
+  variables {
+    alarm_action_arns = [
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    ]
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.lambda_errors.alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.lambda_errors.alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Lambda errors alarm should publish to the supplied action ARN."
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.lambda_throttles.alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.lambda_throttles.alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Lambda throttles alarm should publish to the supplied action ARN."
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.api_gateway_5xx.alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.api_gateway_5xx.alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "API 5xx alarm should publish to the supplied action ARN."
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.scheduler_target_errors[0].alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.scheduler_target_errors[0].alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Scheduler target errors alarm should publish to the supplied action ARN."
   }
 }
 

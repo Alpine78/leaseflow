@@ -10,6 +10,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   metric_name         = "Errors"
   statistic           = "Sum"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
 
   dimensions = {
     FunctionName = var.lambda_function_name
@@ -30,6 +31,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
   metric_name         = "Throttles"
   statistic           = "Sum"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
 
   dimensions = {
     FunctionName = var.lambda_function_name
@@ -50,6 +52,7 @@ resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
   metric_name         = "5xx"
   statistic           = "Sum"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
 
   dimensions = {
     ApiId = var.api_id
@@ -73,6 +76,7 @@ resource "aws_cloudwatch_metric_alarm" "scheduler_target_errors" {
   metric_name         = "TargetErrorCount"
   statistic           = "Sum"
   treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
 
   dimensions = {
     ScheduleGroup = var.scheduler_group_name

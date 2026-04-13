@@ -104,6 +104,7 @@ Mitigations:
 - Enable API Gateway throttling and request validation.
 - Apply application-level input validation to reject obviously invalid or abusive requests early.
 - Use CloudWatch metrics and alarms for backend Lambda errors, Lambda throttles, HTTP API 5xx responses, scheduler target failures, and unusual invocation spikes.
+- Publish baseline alarm-state changes to the environment SNS alarm topic for AWS-native notification fan-out.
 - Keep scheduled and event-driven tasks idempotent to reduce cascading retries.
 - Size the MVP conservatively and prefer simple protective limits over complex resilience features.
 
@@ -155,6 +156,7 @@ Mitigations:
 - Logs should include timestamp, severity, request ID, user ID when available, tenant ID when relevant, action name, and outcome.
 - Audit events should be stored in PostgreSQL for business and security traceability.
 - Baseline CloudWatch alarms should exist for backend Lambda errors, backend Lambda throttles, HTTP API 5xx responses, and reminder scheduler target failures.
+- Baseline alarms publish to an environment SNS topic, but no confirmed human subscription exists yet.
 
 Examples of auditable events:
 

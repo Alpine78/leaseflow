@@ -37,3 +37,13 @@ output "baseline_alarm_names" {
     module.cloudwatch_alarms.scheduler_target_errors_alarm_name
   ])
 }
+
+output "baseline_alarm_notification_topic_name" {
+  description = "SNS topic name used as the baseline CloudWatch alarm action target."
+  value       = aws_sns_topic.baseline_alarm_notifications.name
+}
+
+output "baseline_alarm_notification_topic_arn" {
+  description = "SNS topic ARN used as the baseline CloudWatch alarm action target."
+  value       = aws_sns_topic.baseline_alarm_notifications.arn
+}
