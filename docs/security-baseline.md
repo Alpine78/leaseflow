@@ -193,6 +193,7 @@ Examples of auditable events:
 - Expose the API only over HTTPS through API Gateway.
 - Minimize stored sensitive data to what the MVP actually needs.
 - Avoid copying production data into unsecured local or test environments.
+- Validate dev RDS restore readiness with `docs/runbooks/dev-rds-restore-validation.md` without making restored databases public.
 
 ## Incident Handling (MVP)
 
@@ -210,7 +211,7 @@ The MVP does not require a full incident management platform, but it does requir
 
 - PostgreSQL Row Level Security for defense-in-depth tenant enforcement
 - Cognito MFA rollout for higher-risk roles
-- Backup and restore validation for RDS
+- Periodic RDS restore validation cadence
 - Lightweight alerting for suspicious login or API abuse patterns
 - Periodic dependency and IAM permission review
 
