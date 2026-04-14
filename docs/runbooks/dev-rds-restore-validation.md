@@ -152,7 +152,9 @@ Expected evidence:
 - DB subnet group and security group match the source DB.
 - Endpoint exists, but it remains private.
 
-Do not connect to the restored DB from a public laptop. Data-level validation requires a controlled private execution path and is out of scope for this runbook.
+Do not connect to the restored DB from a public laptop. Data-level validation
+requires a controlled private execution path and is defined separately in
+`docs/runbooks/dev-rds-private-data-validation.md`.
 
 ## Step 5: Clean Up
 
