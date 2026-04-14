@@ -194,6 +194,7 @@ Examples of auditable events:
 - Minimize stored sensitive data to what the MVP actually needs.
 - Avoid copying production data into unsecured local or test environments.
 - Validate dev RDS restore readiness with `docs/runbooks/dev-rds-restore-validation.md` without making restored databases public.
+- Run restored RDS data-level checks only through a private execution path and capture aggregate evidence only.
 
 ## Incident Handling (MVP)
 
