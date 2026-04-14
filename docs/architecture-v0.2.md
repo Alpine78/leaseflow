@@ -30,8 +30,10 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 ## Data and Persistence
 
 - PostgreSQL is chosen over DynamoDB to keep relational queries and schema evolution straightforward for this MVP.
-- Initial schema includes `properties` and `audit_logs`.
-- Audit records are written for critical state changes (property creation).
+- Current schema includes `properties`, `leases`, `notifications`, and `audit_logs`.
+- `properties`, `leases`, and `notifications` are tenant-owned domain tables.
+- `notifications` persists due-soon reminder records and uses nullable `read_at` for read acknowledgement.
+- Audit records are written for critical property and lease state changes.
 - Reminder notifications are persisted in PostgreSQL before any future external delivery step.
 
 ## Security Baseline Alignment
