@@ -6,12 +6,21 @@ Python Lambda backend for LeaseFlow MVP.
 
 - Lambda entry point with lightweight routing.
 - `GET /health`
-- `POST /properties`
 - `GET /properties`
+- `POST /properties`
+- `PATCH /properties/{property_id}`
+- `GET /leases`
+- `POST /leases`
+- `PATCH /leases/{lease_id}`
+- `GET /lease-reminders/due-soon`
+- `GET /notifications`
+- `PATCH /notifications/{notification_id}/read`
 - JWT claim extraction from Cognito ID tokens (`sub`, `custom:tenant_id`)
-- Tenant-scoped data access
-- Audit logging on property creation
-- Alembic migration setup
+- Tenant-scoped property, lease, reminder, and notification access.
+- Audit logging for property and lease write flows.
+- Alembic migration setup and internal migration event support.
+- Internal due-lease-reminder scan event support.
+- Local invoke helper for selected handler paths.
 
 ## Local setup
 
@@ -59,6 +68,8 @@ make test-local
 make test-integration-local
 make invoke-local-health
 make invoke-local-list-properties
+make invoke-local-list-due-lease-reminders
+make invoke-local-scan-due-lease-reminders
 make invoke-local-create-property
 ```
 
@@ -74,6 +85,8 @@ This local database is for development data only. Do not copy production or tena
 The local DB integration tests prove that `Database.create_property()` both writes the `properties` row plus the matching `audit_logs` row on the happy path and rolls the whole transaction back if audit logging fails. They are intentionally opt-in and run separately from the normal fast unit-test flow.
 
 The local invoke helper calls the existing Lambda handler directly with API Gateway v2-style events. That keeps local testing close to the deployed Lambda shape without introducing a separate local web framework.
+
+The helper currently covers health, property listing and creation, due lease reminder listing, notification read acknowledgement, and the internal reminder scan event. It does not cover every public route.
 
 You can override the sample create command values from the repo root in WSL:
 

@@ -5,11 +5,13 @@
 - Multi-tenant backend with strict application-layer tenant isolation.
 - API endpoints for:
   - `GET /health`
-  - `POST /properties`
   - `GET /properties`
-  - `POST /leases`
+  - `POST /properties`
+  - `PATCH /properties/{property_id}`
   - `GET /leases`
+  - `POST /leases`
   - `PATCH /leases/{lease_id}`
+  - `GET /lease-reminders/due-soon`
   - `GET /notifications`
   - `PATCH /notifications/{notification_id}/read`
 - Cognito JWT-based authentication and tenant claim extraction.
@@ -19,7 +21,7 @@
 - Infrastructure provisioning with Terraform modules.
 - Dev-focused deployment architecture on AWS Lambda + API Gateway.
 
-## Data Scope (Initial)
+## Data Scope (Current MVP)
 
 - `properties` table for tenant-owned rental units.
 - `leases` table for tenant-owned rental agreements linked to properties.
