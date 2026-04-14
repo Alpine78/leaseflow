@@ -1,4 +1,5 @@
 PYTHON ?= python
+LAMBDA_PYTHON ?= python3.12
 BACKEND_DIR := backend
 TF_DIR := infra
 LOCAL_ENV_FILE := .env.local
@@ -7,7 +8,7 @@ LOCAL_USER_ID ?= user-local
 PROPERTY_NAME ?= HQ
 PROPERTY_ADDRESS ?= Main Street 1
 
-.PHONY: format lint test migrate check-local-env migrate-local db-check-local test-local test-integration-local invoke-local-health invoke-local-list-properties invoke-local-list-due-lease-reminders invoke-local-scan-due-lease-reminders invoke-local-create-property tf-fmt
+.PHONY: format lint test migrate build-lambda-artifact check-local-env migrate-local db-check-local test-local test-integration-local invoke-local-health invoke-local-list-properties invoke-local-list-due-lease-reminders invoke-local-scan-due-lease-reminders invoke-local-create-property tf-fmt
 
 format:
 	cd $(BACKEND_DIR) && $(PYTHON) -m ruff format src tests migrations
@@ -20,6 +21,9 @@ test:
 
 migrate:
 	cd $(BACKEND_DIR) && $(PYTHON) -m alembic upgrade head
+
+build-lambda-artifact:
+	PYTHON_BIN="$(LAMBDA_PYTHON)" bash scripts/build_lambda_artifact.sh
 
 check-local-env:
 	cd $(BACKEND_DIR) && test -f $(LOCAL_ENV_FILE) || (echo "Missing $(BACKEND_DIR)/$(LOCAL_ENV_FILE). Copy $(BACKEND_DIR)/.env.local.example first." && exit 1)

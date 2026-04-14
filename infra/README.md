@@ -39,16 +39,15 @@ The goal is to:
 
 This preflight intentionally keeps:
 
-- local artifact packaging
+- local reproducible artifact packaging
 - local Terraform state
-- no automation script or Make target
 - no `terraform apply`
 
 ### Prerequisites
 
 - WSL is available on the Windows machine.
 - Python `3.12` is available in WSL to match the Lambda runtime.
-- `python3.12-full`, `python3.12-venv`, and `rsync` are installed in WSL.
+- `python3.12-full`, `python3.12-venv`, `make`, `rsync`, and `zip` are installed in WSL.
 - Terraform is installed in WSL.
 - AWS credentials already work in WSL via environment variables or a configured profile.
 
@@ -58,7 +57,7 @@ If the repository lives under `/mnt/c/...`, create a working copy inside the Lin
 
 ```bash
 sudo apt update
-sudo apt install -y python3.12-full python3.12-venv rsync
+sudo apt install -y python3.12-full python3.12-venv make rsync zip
 mkdir -p ~/leaseflow-preflight
 rsync -a --delete /mnt/c/Repos/LeaseFlow/ ~/leaseflow-preflight/ \
   --exclude '.git/' \
@@ -74,15 +73,7 @@ Run these commands from the Linux-side working copy:
 
 ```bash
 cd ~/leaseflow-preflight
-rm -rf dist/lambda-build dist/leaseflow-backend.zip .venv
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install ./backend -t dist/lambda-build
-cp backend/alembic.ini dist/lambda-build/alembic.ini
-rsync -a backend/migrations/ dist/lambda-build/migrations/
-find dist/lambda-build -type d -name "__pycache__" -prune -exec rm -rf {} +
-(cd dist/lambda-build && zip -r ../leaseflow-backend.zip .)
+make build-lambda-artifact
 ```
 
 Terraform expects the Lambda artifact at `dist/leaseflow-backend.zip`, which matches the current dev variable default.
@@ -200,6 +191,10 @@ terraform apply tfplan
 When the dev stack is already deployed but the private RDS schema is missing, use the backend Lambda's internal migration event.
 
 Build and deploy a fresh Lambda artifact first so the zip contains both `alembic.ini` and `migrations/`.
+
+```bash
+make build-lambda-artifact
+```
 
 Then invoke the migration path directly:
 

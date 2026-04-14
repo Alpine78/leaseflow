@@ -88,7 +88,7 @@ resource "aws_lambda_function" "this" {
   timeout       = var.timeout
   memory_size   = var.memory_size
 
-  # TODO: replace local file packaging with CI build artifact publishing.
+  # Build this zip with `make build-lambda-artifact` before planning or applying.
   filename         = var.package_file
   source_code_hash = filebase64sha256(var.package_file)
 
