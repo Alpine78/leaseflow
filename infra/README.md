@@ -221,3 +221,5 @@ Expected result:
 - `statusCode` is `200`
 - response body includes `target_revision`, `previous_revision`, and `current_revision`
 - after a successful migration run, protected API smoke tests should no longer fail with missing table errors such as `relation "properties" does not exist`
+
+For the full deployed dev smoke path, use `docs/runbooks/deployed-dev-smoke-test.md`.
