@@ -33,6 +33,33 @@ This is an operator-run dev procedure, not an automated disaster recovery platfo
 - The source DB status is `available`.
 - The source DB has a non-empty `LatestRestorableTime`.
 
+## Cadence and Retention Review
+
+Restore validation cadence:
+
+- Run this validation quarterly during MVP development.
+- Rerun it after meaningful DB schema, RDS module, backup retention, or migration
+  workflow changes.
+- Rerun it before important portfolio or demo milestones when the dev database
+  state matters.
+
+Backup retention review triggers:
+
+- Revisit `backup_retention_period` when dev data becomes difficult to recreate.
+- Revisit it when demo data becomes important enough to justify a wider restore
+  window.
+- Revisit it before introducing a pre-prod or prod-like environment.
+- Revisit it when recovery expectations exceed the current one-day dev restore
+  window.
+
+Current decision:
+
+- Keep dev `backup_retention_period = 1` for cost control.
+- Do not add Multi-AZ, cross-region replication, AWS Backup, or production DR
+  automation in this dev runbook.
+- Increase retention only when the recoverability benefit is explicitly accepted
+  against the added storage cost.
+
 ## Step 1: Capture Source Backup Readiness
 
 What it does: reads source RDS backup, networking, and encryption posture before restore.
@@ -187,7 +214,7 @@ Expected evidence:
 
 ## Evidence to Capture
 
-- Date and operator.
+- Date, operator, and cadence trigger.
 - Source DB identifier.
 - `LatestRestorableTime`.
 - Temporary restore DB identifier.
@@ -196,17 +223,26 @@ Expected evidence:
 - Cleanup confirmation.
 - Any errors and follow-up actions.
 
+Keep one evidence note per successful validation run under
+`docs/runbooks/evidence/`.
+
+Do not capture tenant data values, secrets, JWTs, passwords, SSM parameter
+values, or full connection strings.
+
 ## Cost Notes
 
 - The restore creates a temporary RDS instance and storage.
 - Delete it immediately after validation.
 - Do not leave restore validation instances running overnight.
 - Do not add Multi-AZ, cross-region replication, or AWS Backup plans in this dev runbook.
+- A longer backup retention window can improve recoverability but may increase
+  storage cost. Keep the dev default minimal unless the tradeoff is explicit.
 
 ## SAA-C03 Notes
 
 - Automated backups and point-in-time restore are different from manual snapshots.
 - A backup retention period of `0` disables automated backups.
+- Backup retention defines the restore window.
 - A private restored DB still needs correct subnet group and security group settings.
 - Restore validation proves recoverability better than just enabling backups.
 

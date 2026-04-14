@@ -195,6 +195,7 @@ Examples of auditable events:
 - Avoid copying production data into unsecured local or test environments.
 - Validate dev RDS restore readiness with `docs/runbooks/dev-rds-restore-validation.md` without making restored databases public.
 - Run restored RDS data-level checks only through a private execution path and capture aggregate evidence only.
+- Repeat dev RDS restore validation quarterly and after meaningful DB, RDS, backup, or migration workflow changes.
 
 ## Incident Handling (MVP)
 
@@ -212,7 +213,7 @@ The MVP does not require a full incident management platform, but it does requir
 
 - PostgreSQL Row Level Security for defense-in-depth tenant enforcement
 - Cognito MFA rollout for higher-risk roles
-- Periodic RDS restore validation cadence
+- Backup retention review when recovery expectations outgrow the one-day dev window
 - Lightweight alerting for suspicious login or API abuse patterns
 - Periodic dependency and IAM permission review
 
