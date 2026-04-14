@@ -121,6 +121,17 @@ terraform plan
 - Remote state is intentionally deferred to a later hardening step.
 - WSL is used here because the Lambda zip needs Linux-compatible dependencies.
 - Use a non-root AWS profile for Terraform work. Do not use the AWS account root profile for preflight or deployment tasks.
+
+## CI Terraform checks
+
+CI runs Terraform checks without AWS credentials.
+
+- `terraform fmt -check -recursive infra` checks formatting.
+- `infra/environments/dev` runs `terraform init -backend=false` and `terraform validate`.
+- Modules with `.tftest.hcl` coverage run `terraform init -backend=false` and `terraform test`.
+- Module tests use mocked providers and do not create AWS resources.
+- `modules/rds_postgres` is excluded until it has `.tftest.hcl` coverage.
+
 ## Dev cost expectation
 
 - Check AWS Billing before the first `terraform apply`.
