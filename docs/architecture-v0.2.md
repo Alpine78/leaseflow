@@ -59,6 +59,8 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 ## Operational Runbooks
 
 - Dev RDS restore validation is documented in `docs/runbooks/dev-rds-restore-validation.md`.
+- The restore validation runbook defines the quarterly MVP cadence, event-driven
+  rerun triggers, evidence retention, and backup retention review triggers.
 
 ## Diagram Source
 
