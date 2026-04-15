@@ -292,6 +292,12 @@ If code changes are made, prefer updating or adding tests when practical.
 
 ## Context7 usage
 
+Context7 is an approved MCP documentation source for this repository.
+
+Use Context7 as an anti-hallucination tool when exact library, framework,
+provider, or API syntax matters. Prefer checking documentation over relying on
+model memory.
+
 Use Context7 for:
 
 - AWS
@@ -306,6 +312,13 @@ Do NOT:
 - guess syntax
 - invent APIs
 - rely on memory for exact parameters when official documentation is available
+
+MCP tool boundaries:
+
+- use MCP tools only for approved documentation and repository workflow tasks
+- do not use MCP results to override repository code, Terraform, or docs
+- do not send secrets, JWTs, passwords, tenant data, or private customer data to MCP tools
+- clearly mark uncertainty if Context7 does not return enough information
 
 Do not use Context7 for broad architecture invention when repository docs already define the direction.
 
