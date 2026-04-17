@@ -7,21 +7,25 @@ internet: Internet {
 aws: AWS account {
   public_edge: Public edge {
     api_gateway: API Gateway HTTP API
+    routes_note: MVP routes
+    route_scope: properties, leases, reminders, notifications
   }
 
   identity: Identity {
     cognito: Cognito User Pool
-    jwt_note: JWT contains
-    claims_note: sub + custom:tenant_id
+    app_client: App client
+    claims_note: JWT: sub + custom:tenant_id
   }
 
   operations: Operations {
-    cloudwatch: CloudWatch Logs
+    cloudwatch_logs: CloudWatch Logs
+    cloudwatch_alarms: CloudWatch Alarms
+    sns_topic: SNS alarm topic
     eventbridge: EventBridge Scheduler
   }
 
   secrets: Secrets {
-    ssm: SSM Parameter Store
+    ssm: SSM SecureString
   }
 
   vpc: Private VPC {
@@ -31,19 +35,30 @@ aws: AWS account {
 
     rds_postgres: RDS PostgreSQL (private) {
       properties_table: properties
+      leases_table: leases
+      notifications_table: notifications
       audit_logs_table: audit_logs
     }
   }
 }
 
 internet.landlord_user -> aws.identity.cognito: Sign in
-aws.identity.cognito -> internet.landlord_user: JWT
-internet.landlord_user -> aws.public_edge.api_gateway: HTTPS GET/POST /properties
+aws.identity.cognito -> internet.landlord_user: ID token
+internet.landlord_user -> aws.public_edge.api_gateway: HTTPS API calls
 aws.public_edge.api_gateway -> aws.identity.cognito: JWT authorizer
-aws.public_edge.api_gateway -> aws.vpc.lambda_backend: Invoke
+aws.public_edge.api_gateway -> aws.vpc.lambda_backend: Lambda proxy invoke
+
 aws.vpc.lambda_backend -> aws.vpc.tenant_note: Extract tenant_id from JWT
-aws.vpc.lambda_backend -> aws.vpc.rds_postgres.properties_table: Tenant-scoped reads/writes
-aws.vpc.lambda_backend -> aws.vpc.rds_postgres.audit_logs_table: Audit log on write
-aws.vpc.lambda_backend -> aws.secrets.ssm: Read DB password
-aws.vpc.lambda_backend -> aws.operations.cloudwatch: Structured JSON logs
-aws.operations.eventbridge -> aws.vpc.lambda_backend: Daily reminder scan
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.properties_table: Tenant-scoped property CRUD
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.leases_table: Tenant-scoped lease CRUD
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.notifications_table: Persist/read reminders
+aws.vpc.lambda_backend -> aws.vpc.rds_postgres.audit_logs_table: Audit write flows
+
+aws.vpc.lambda_backend -> aws.secrets.ssm: Read DB password privately
+
+aws.operations.eventbridge -> aws.vpc.lambda_backend: Daily reminder scan event
+aws.vpc.lambda_backend -> aws.operations.cloudwatch_logs: Structured JSON logs
+aws.operations.cloudwatch_alarms -> aws.operations.sns_topic: Alarm state action
+aws.operations.cloudwatch_alarms -> aws.vpc.lambda_backend: Lambda errors/throttles
+aws.operations.cloudwatch_alarms -> aws.public_edge.api_gateway: HTTP API 5xx
+aws.operations.cloudwatch_alarms -> aws.operations.eventbridge: Scheduler target errors

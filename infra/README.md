@@ -223,3 +223,6 @@ Expected result:
 - after a successful migration run, protected API smoke tests should no longer fail with missing table errors such as `relation "properties" does not exist`
 
 For the full deployed dev smoke path, use `docs/runbooks/deployed-dev-smoke-test.md`.
+
+For a shorter portfolio or interview walkthrough of the same deployed MVP path,
+use `docs/portfolio-demo-flow.md`.

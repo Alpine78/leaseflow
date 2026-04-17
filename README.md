@@ -26,6 +26,11 @@ LeaseFlow is a cloud-native, multi-tenant rental management system MVP built as 
 - `infra/`: Terraform modules and environment composition.
 - `docs/`: MVP and architecture docs.
 
+## Portfolio Demo
+
+Use `docs/portfolio-demo-flow.md` for a short deployed MVP walkthrough suitable
+for portfolio reviews or interviews.
+
 ## Current MVP Status
 
 Implemented now:
