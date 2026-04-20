@@ -61,6 +61,8 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 ## Operational Runbooks
 
 - Presentation-friendly MVP demo flow is documented in `docs/portfolio-demo-flow.md`.
+- Safe local demo-client usage and sanitized evidence capture are documented in
+  `docs/runbooks/demo-client-safe-demo.md`.
 - Deployed dev smoke validation is documented in `docs/runbooks/deployed-dev-smoke-test.md`.
 - Dev RDS restore validation is documented in `docs/runbooks/dev-rds-restore-validation.md`.
 - The restore validation runbook defines the quarterly MVP cadence, event-driven
