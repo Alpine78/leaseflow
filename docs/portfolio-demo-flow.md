@@ -26,6 +26,8 @@ Then open `http://127.0.0.1:8765`. The client uses a localhost proxy because
 the deployed HTTP API is not configured as a browser product API with CORS.
 See `demo-client/README.md` for the browser-client setup checklist, including
 DB migrations, temporary Cognito user creation, token verification, and cleanup.
+For sanitized portfolio evidence capture, use
+`docs/runbooks/demo-client-safe-demo.md`.
 
 ## Audience and Demo Goal
 
