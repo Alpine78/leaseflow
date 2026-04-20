@@ -80,6 +80,8 @@ Target posture:
 - Deletion protection and final snapshot behavior reviewed for production-like use.
 - Multi-AZ tradeoff reviewed against availability needs and cost.
 - Restore objectives and evidence cadence defined before real tenant data exists.
+- Production-like defaults are defined in
+  `docs/rds-production-protection-baseline.md`.
 
 Cost impact: medium to high.
 
@@ -303,9 +305,10 @@ demo readiness.
 
 Highest-value follow-ups:
 
-1. Define production-like RDS protection baseline.
-2. Add stricter Terraform state access boundaries if the project becomes
+1. Add stricter Terraform state access boundaries if the project becomes
    team-managed.
+2. Implement the RDS production-like protection baseline only if the project
+   moves beyond portfolio/demo mode.
 
 Defer for now:
 
@@ -336,6 +339,6 @@ Current recommendation:
 
 - Keep LeaseFlow in portfolio/demo mode unless the project goal explicitly
   changes.
-- Treat RDS protection and stricter Terraform state access boundaries as the
-  first hardening work if the project moves toward team-managed or
-  production-like operation.
+- Treat stricter Terraform state access boundaries and RDS protection
+  implementation as the first hardening work if the project moves toward
+  team-managed or production-like operation.
