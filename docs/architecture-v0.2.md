@@ -65,6 +65,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
   `docs/runbooks/demo-client-safe-demo.md`.
 - Deployed dev smoke validation is documented in `docs/runbooks/deployed-dev-smoke-test.md`.
 - Dev RDS restore validation is documented in `docs/runbooks/dev-rds-restore-validation.md`.
+- Production-readiness hardening is scoped in `docs/production-readiness-hardening.md`.
 - The restore validation runbook defines the quarterly MVP cadence, event-driven
   rerun triggers, evidence retention, and backup retention review triggers.
 

@@ -130,6 +130,9 @@ Other valid next phases:
 - AWS SAA-C03 study extraction: turn the project decisions into exam-focused notes about serverless, private networking, RDS, IAM, monitoring, and operational tradeoffs.
 - Frontend MVP: add a minimal UI only if the project goal shifts from backend/infra portfolio to user-facing product demo.
 
+Production-readiness hardening is scoped in
+`docs/production-readiness-hardening.md`.
+
 ## Final Assessment
 
 Backend MVP: mostly ready for portfolio review.
