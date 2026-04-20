@@ -21,6 +21,8 @@ backend/pytest-cache-files-*
 *.tfstate
 *.tfstate.*
 *.tfplan
+backend.hcl
+*.backend.hcl
 tfdestroy
 crash.log
 *.tfvars
