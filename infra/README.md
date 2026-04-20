@@ -4,6 +4,7 @@ Terraform code is split into reusable modules and environment composition.
 
 ## Layout
 
+- `bootstrap/terraform_state`: S3 bucket used by Terraform remote state.
 - `modules/network`: VPC, private subnets, Lambda/RDS security groups.
 - `modules/rds_postgres`: private PostgreSQL instance and subnet group.
 - `modules/cognito`: user pool and app client.
@@ -17,6 +18,7 @@ Terraform code is split into reusable modules and environment composition.
 - Keeps module interfaces clear.
 - Makes dev/prod split straightforward later.
 - Preserves low-cost defaults and avoids NAT Gateway.
+- Gives the dev environment a remote encrypted Terraform state path with locking.
 - The Terraform RDS environment is for deployed AWS verification, not for everyday backend development.
 - Normal backend development can use local PostgreSQL in WSL to avoid leaving billable AWS resources running.
 
@@ -26,6 +28,72 @@ Terraform code is split into reusable modules and environment composition.
 - Terraform stores the generated password in AWS Systems Manager Parameter Store as a `SecureString`.
 - Lambda reads the password from `DB_PASSWORD_SSM_PARAM` at runtime instead of receiving a plaintext password environment variable.
 - The password still exists in Terraform state because both `aws_db_instance.password` and `aws_ssm_parameter.value` are stored there by the current Terraform/provider model.
+- Treat Terraform state bucket access as sensitive access.
+
+## Remote Terraform state bootstrap
+
+The dev environment supports an S3 backend with native S3 lockfile locking.
+
+Bootstrap creates only the Terraform state bucket. It does not create the
+LeaseFlow dev application stack.
+
+What it does: creates the S3 bucket used for encrypted Terraform remote state.
+Target service: Amazon S3.
+
+```bash
+cd infra/bootstrap/terraform_state
+export AWS_PROFILE=terraform
+export AWS_REGION=eu-north-1
+terraform init
+terraform apply
+terraform output -raw dev_backend_config > ../../environments/dev/backend.hcl
+```
+
+`backend.hcl` is ignored by Git and must not be committed. It contains
+account-specific backend configuration.
+
+The generated dev backend config uses:
+
+- `bucket`: the bootstrap state bucket.
+- `key`: `leaseflow/dev/terraform.tfstate`.
+- `region`: `eu-north-1`.
+- `encrypt = true`.
+- `use_lockfile = true`.
+
+Terraform's S3 lockfile support is used instead of DynamoDB locking. DynamoDB
+locking is intentionally not added because current Terraform documentation marks
+it as deprecated.
+
+### Migrate an existing local dev state
+
+If `infra/environments/dev/terraform.tfstate` already contains the current dev
+stack, migrate it manually after `backend.hcl` exists.
+
+What it does: migrates existing dev Terraform state into the configured S3 backend.
+Target service: Terraform S3 backend.
+
+```bash
+cd infra/environments/dev
+terraform init -backend-config=backend.hcl -migrate-state
+terraform validate
+```
+
+Do not delete the local state file until migration is confirmed. After migration,
+use the same `backend.hcl` for future `plan`, `apply`, and `destroy` commands.
+
+If the dev stack was already destroyed and local state is intentionally empty,
+the same backend init path creates a fresh remote state backend for the next
+apply.
+
+### Remote state safety rules
+
+- Do not commit `backend.hcl`.
+- Do not commit `.tfstate` files or Terraform plans.
+- Do not delete the remote state bucket casually.
+- Keep bucket versioning enabled so accidental state overwrites are recoverable.
+- Restrict state bucket access because state may include sensitive values.
+- Remote state improves collaboration and recovery, but it does not make the
+  workload production-ready by itself.
 
 ## First Dev Preflight
 
@@ -35,13 +103,13 @@ The goal is to:
 
 - build a Linux-compatible Lambda zip in WSL
 - verify AWS credentials work inside WSL
-- run a real `terraform init` / `validate` / `plan` without creating resources yet
+- run a real `terraform init` / `validate` / `plan` before creating dev resources
 
 This preflight intentionally keeps:
 
 - local reproducible artifact packaging
-- local Terraform state
-- no `terraform apply`
+- remote Terraform state configuration through `backend.hcl`
+- no dev stack `terraform apply`
 
 ### Prerequisites
 
@@ -99,17 +167,20 @@ Run the Terraform checks from the dev environment directory:
 ```bash
 cd ~/leaseflow-preflight/infra/environments/dev
 cp terraform.tfvars.example terraform.tfvars
+test -f backend.hcl || cp backend.hcl.example backend.hcl
+grep -q "<aws-account-id>" backend.hcl && echo "Replace backend.hcl bucket with the real bootstrap output first." && exit 1
 export AWS_PROFILE=terraform
 aws sts get-caller-identity
-terraform init
+terraform init -backend-config=backend.hcl
 terraform validate
 terraform plan
 ```
 
 ### Notes
 
-- Do not run `terraform apply` as part of this preflight.
-- Remote state is intentionally deferred to a later hardening step.
+- Do not run dev stack `terraform apply` as part of this preflight.
+- Replace the placeholder bucket in `backend.hcl` with the real bootstrap output
+  before using remote state.
 - WSL is used here because the Lambda zip needs Linux-compatible dependencies.
 - Use a non-root AWS profile for Terraform work. Do not use the AWS account root profile for preflight or deployment tasks.
 
@@ -141,13 +212,14 @@ CI runs Terraform checks without AWS credentials.
 
 ## Safe destroy workflow
 
-- Use the same working copy and the same Terraform state that created the resources.
+- Use the same working copy and Terraform backend config that created the resources.
 - Use the same AWS profile and region that were used during `apply`.
-- Do not delete the local Terraform state before destroying the environment.
+- Do not delete Terraform state before destroying the environment.
 - The current dev RDS config uses `skip_final_snapshot = true`, so destroying the stack will permanently delete the dev database contents.
 
 ```bash
 cd infra/environments/dev
+terraform init -backend-config=backend.hcl
 terraform plan -destroy -out=tfdestroy
 terraform apply tfdestroy
 ```
@@ -175,7 +247,7 @@ aws rds describe-db-engine-versions --engine postgres --region eu-north-1 \
 cd infra
 terraform fmt -recursive
 cd environments/dev
-terraform init
+terraform init -backend-config=backend.hcl
 terraform plan
 ```
 

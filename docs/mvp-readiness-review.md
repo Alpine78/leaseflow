@@ -41,6 +41,7 @@ Tenant isolation:
 Infrastructure capabilities:
 
 - Terraform-managed AWS dev environment
+- S3 remote state bootstrap path with native Terraform S3 lockfile locking
 - API Gateway HTTP API with JWT authorization
 - Python Lambda backend
 - Cognito user pool and app client
@@ -86,7 +87,8 @@ The current state is a validated dev MVP, not a production workload.
 
 Known limitations:
 
-- Terraform state is local for the dev workflow, not remote encrypted state with locking.
+- Terraform state now has a dev S3 remote-state path, but this is still not a
+  complete production environment strategy.
 - Dev RDS is single-instance and cost-controlled, not a highly available production database design.
 - RDS deletion behavior is dev-oriented; destroy removes dev data.
 - No frontend UI exists.
@@ -107,7 +109,10 @@ Assumptions:
 
 Risks:
 
-- Local Terraform state is acceptable for this learning MVP but would be a collaboration and recovery weakness for team or production use.
+- Terraform state access remains sensitive because state can contain generated
+  password material and other infrastructure details.
+- Remote state improves collaboration and recovery, but it still requires
+  disciplined IAM access and operator workflow.
 - Sparse CloudWatch metrics and missing-data treatment can make alarm timing non-obvious.
 - Optional email alarm delivery can fail operationally if the SNS subscription is not confirmed.
 - The backend has no delete/archive flows, so API-created synthetic domain data is normally cleaned up through dev stack destroy.
@@ -145,6 +150,6 @@ The strongest current story is:
 
 ```text
 LeaseFlow demonstrates a tenant-aware AWS backend MVP with Terraform-managed dev infrastructure,
-local and CI validation, deployed smoke evidence, operational runbooks, baseline alarms,
+remote-state bootstrap support, local and CI validation, deployed smoke evidence, operational runbooks, baseline alarms,
 and explicit documentation of the remaining production-readiness gaps.
 ```

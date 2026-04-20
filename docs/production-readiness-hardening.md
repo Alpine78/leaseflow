@@ -32,15 +32,20 @@ Classification: production-blocking
 
 Current state:
 
-- Dev workflow uses local Terraform state.
+- Dev now has an S3 remote-state bootstrap path with native Terraform S3
+  lockfile locking.
+- Existing local dev state can be migrated manually with
+  `terraform init -backend-config=backend.hcl -migrate-state`.
 - CI validates Terraform without AWS credentials.
 - Dev stack creation and destroy are operator-driven.
 
 Target posture:
 
-- Remote encrypted Terraform state with locking.
+- Remote encrypted Terraform state is consistently used for team-managed
+  environments.
 - Clear environment separation, at minimum dev and a production-like stage.
-- Documented state bootstrap and recovery process.
+- Documented IAM access boundaries for state and lockfile operations.
+- Documented state recovery process.
 
 Cost impact: low to medium.
 
@@ -52,8 +57,9 @@ Well-Architected relevance:
 
 SAA-C03 pitfall:
 
-- Terraform files are not the same as Terraform state. Without protected remote
-  state, collaboration and recovery remain weak.
+- Terraform files are not the same as Terraform state. Remote state reduces one
+  operational risk, but production readiness still needs controlled access,
+  recovery procedures, and environment separation.
 
 ## RDS Production Posture
 
@@ -297,8 +303,9 @@ demo readiness.
 
 Highest-value follow-ups:
 
-1. Add remote encrypted Terraform state with locking.
-2. Define production-like RDS protection baseline.
+1. Define production-like RDS protection baseline.
+2. Add stricter Terraform state access boundaries if the project becomes
+   team-managed.
 
 Defer for now:
 
@@ -329,5 +336,6 @@ Current recommendation:
 
 - Keep LeaseFlow in portfolio/demo mode unless the project goal explicitly
   changes.
-- Treat remote Terraform state and RDS protection as the first hardening work if
-  the project moves toward team-managed or production-like operation.
+- Treat RDS protection and stricter Terraform state access boundaries as the
+  first hardening work if the project moves toward team-managed or
+  production-like operation.

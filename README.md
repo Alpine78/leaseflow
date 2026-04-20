@@ -84,6 +84,7 @@ make migrate
 
 ## Infrastructure Layout
 
+- `infra/bootstrap/terraform_state`: S3 bucket for Terraform remote state.
 - `infra/modules/`: reusable Terraform modules (`network`, `rds_postgres`, `cognito`, `lambda_backend`, `api_http`)
 - `infra/environments/dev`: dev environment composition using the modules
 
@@ -91,5 +92,10 @@ Terraform commands:
 
 ```bash
 make tf-fmt
-cd infra/environments/dev && terraform init && terraform plan
+cd infra/environments/dev
+terraform init -backend-config=backend.hcl
+terraform plan
 ```
+
+Create `infra/environments/dev/backend.hcl` from the remote state bootstrap
+output before running dev environment Terraform commands.

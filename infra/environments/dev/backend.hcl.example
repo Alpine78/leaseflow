@@ -1,0 +1,5 @@
+bucket       = "leaseflow-terraform-state-<aws-account-id>-eu-north-1"
+key          = "leaseflow/dev/terraform.tfstate"
+region       = "eu-north-1"
+encrypt      = true
+use_lockfile = true
