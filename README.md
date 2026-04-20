@@ -31,6 +31,15 @@ LeaseFlow is a cloud-native, multi-tenant rental management system MVP built as 
 Use `docs/portfolio-demo-flow.md` for a short deployed MVP walkthrough suitable
 for portfolio reviews or interviews.
 
+For a local browser-based demo helper, run:
+
+```bash
+make demo-client
+```
+
+Then open `http://127.0.0.1:8765`. The demo client is local portfolio tooling,
+not a hosted production frontend.
+
 ## Current MVP Status
 
 Implemented now:
@@ -51,6 +60,7 @@ Implemented now:
 - Audit logging for property and lease creation
 - Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
+- Local portfolio demo client for the deployed MVP flow
 
 Planned next:
 

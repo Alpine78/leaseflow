@@ -9,6 +9,16 @@ This is a presentation-friendly walkthrough, not a full operator validation
 runbook. For full deployed verification and evidence capture, use
 `docs/runbooks/deployed-dev-smoke-test.md`.
 
+If you want a local browser helper instead of manually running each `curl`
+command, start the local demo client:
+
+```bash
+make demo-client
+```
+
+Then open `http://127.0.0.1:8765`. The client uses a localhost proxy because
+the deployed HTTP API is not configured as a browser product API with CORS.
+
 ## Audience and Demo Goal
 
 Audience:

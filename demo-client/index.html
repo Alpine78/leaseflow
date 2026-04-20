@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LeaseFlow Demo Client</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">LeaseFlow MVP</p>
+        <h1>Portfolio demo client</h1>
+        <p>
+          Run the deployed AWS demo flow from localhost without exposing RDS, storing tokens,
+          or changing the backend API.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Connection</h2>
+        <div class="grid">
+          <label>
+            API base URL
+            <input id="apiBaseUrl" placeholder="https://api.example.invalid/dev">
+          </label>
+          <label>
+            ID token
+            <textarea id="idToken" rows="4" placeholder="Paste a temporary Cognito ID token"></textarea>
+          </label>
+          <label>
+            AWS region
+            <input id="awsRegion" value="eu-north-1">
+          </label>
+          <label>
+            Backend function
+            <input id="backendFunction" value="leaseflow-dev-backend">
+          </label>
+        </div>
+        <p class="note">
+          Token stays in browser memory and is sent only to this localhost demo server.
+          Do not paste production tokens.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Synthetic demo data</h2>
+        <div class="grid">
+          <label>
+            Property name
+            <input id="propertyName" value="Demo Property">
+          </label>
+          <label>
+            Property address
+            <input id="propertyAddress" value="Demo Address">
+          </label>
+          <label>
+            Resident name
+            <input id="residentName" value="Demo Resident">
+          </label>
+          <label>
+            Rent due day
+            <input id="rentDueDay" type="number" min="1" max="31">
+          </label>
+          <label>
+            Lease start
+            <input id="startDate" type="date">
+          </label>
+          <label>
+            Lease end
+            <input id="endDate" type="date">
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Run flow</h2>
+        <div class="actions">
+          <button data-action="health">1. Health</button>
+          <button data-action="createProperty">2. Create property</button>
+          <button data-action="listProperties">3. List properties</button>
+          <button data-action="createLease">4. Create lease</button>
+          <button data-action="listLeases">5. List leases</button>
+          <button data-action="dueSoon">6. Due soon</button>
+          <button data-action="scan">7. Reminder scan</button>
+          <button data-action="notifications">8. Notifications</button>
+          <button data-action="markRead">9. Mark read</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Status</h2>
+        <div id="statusCards" class="cards"></div>
+      </section>
+
+      <section class="panel warning">
+        <h2>Safety notes</h2>
+        <ul>
+          <li>Use only synthetic demo data.</li>
+          <li>Do not screenshot JWTs, tenant IDs, emails, passwords, or real tenant data.</li>
+          <li>Destroy the dev stack after demo use if it is not needed.</li>
+        </ul>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
