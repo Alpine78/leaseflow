@@ -40,6 +40,9 @@ make demo-client
 Then open `http://127.0.0.1:8765`. The demo client is local portfolio tooling,
 not a hosted production frontend.
 
+The real browser frontend direction is documented in
+`docs/frontend-mvp-strategy.md`.
+
 ## Current MVP Status
 
 Implemented now:
@@ -64,6 +67,8 @@ Implemented now:
 
 Planned next:
 
+- Build the first real browser frontend slice with React + Vite + TypeScript,
+  Cognito Hosted UI + PKCE, and core properties + leases flows.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
