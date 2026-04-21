@@ -28,6 +28,8 @@ See `demo-client/README.md` for the browser-client setup checklist, including
 DB migrations, temporary Cognito user creation, token verification, and cleanup.
 For sanitized portfolio evidence capture, use
 `docs/runbooks/demo-client-safe-demo.md`.
+The real browser frontend direction is documented separately in
+`docs/frontend-mvp-strategy.md`.
 
 ## Audience and Demo Goal
 

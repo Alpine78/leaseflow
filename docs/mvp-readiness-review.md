@@ -91,7 +91,8 @@ Known limitations:
   complete production environment strategy.
 - Dev RDS is single-instance and cost-controlled, not a highly available production database design.
 - RDS deletion behavior is dev-oriented; destroy removes dev data.
-- No frontend UI exists.
+- No real browser frontend exists yet; the current `demo-client` is only local
+  portfolio/demo tooling.
 - SNS alarm actions exist, but an SNS topic alone is not human notification delivery.
 - Optional email delivery requires a configured address and confirmed subscription.
 - There is no full incident workflow, escalation policy, dashboard suite, or on-call process.
@@ -121,19 +122,23 @@ Risks:
 
 Recommended default:
 
-- Build a small portfolio/demo client or scripted API demo layer.
+- Build the first real browser frontend slice after locking the auth and CORS
+  strategy.
 
 Why:
 
 - Backend and infra are now mostly validated for MVP use.
-- A lightweight demo layer would make the project easier to show without adding core backend scope.
-- It keeps the next phase focused on communication and reviewability instead of adding more backend features.
+- The next natural step is a production-like browser frontend on top of the
+  validated backend and infra MVP.
+- The frontend direction is now documented separately in
+  `docs/frontend-mvp-strategy.md`.
 
 Other valid next phases:
 
 - Production-readiness hardening: remote Terraform state, stronger operational alerting, production-like DR design, and stricter runtime controls.
 - AWS SAA-C03 study extraction: turn the project decisions into exam-focused notes about serverless, private networking, RDS, IAM, monitoring, and operational tradeoffs.
-- Frontend MVP: add a minimal UI only if the project goal shifts from backend/infra portfolio to user-facing product demo.
+- Frontend MVP: build the browser frontend in slices, starting with auth,
+  properties, and leases.
 
 Production-readiness hardening is scoped in
 `docs/production-readiness-hardening.md`.

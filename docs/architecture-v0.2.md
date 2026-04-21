@@ -60,6 +60,20 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - No extra services unless they deliver clear MVP value.
 - One daily scheduler is preferred over per-tenant schedules to keep dev-stage operational cost and complexity low.
 
+## Frontend Direction
+
+- The current browser-facing helper is `demo-client`, which is local demo
+  tooling and not the future production-like frontend.
+- The real frontend direction is documented in
+  `docs/frontend-mvp-strategy.md`.
+- The chosen frontend direction is React + Vite + TypeScript in a future
+  `frontend/` directory.
+- Browser auth is planned through Cognito Hosted UI with OAuth Authorization
+  Code + PKCE.
+- Later hosting is planned as a static SPA behind S3 + CloudFront.
+- Hosted UI and browser CORS are not yet implemented in the current Terraform
+  stack.
+
 ## Operational Runbooks
 
 - Presentation-friendly MVP demo flow is documented in `docs/portfolio-demo-flow.md`.
