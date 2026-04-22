@@ -2,6 +2,13 @@ resource "aws_apigatewayv2_api" "this" {
   name          = "${var.name_prefix}-http-api"
   protocol_type = "HTTP"
   tags          = merge(var.tags, { Name = "${var.name_prefix}-http-api" })
+
+  cors_configuration {
+    allow_credentials = var.cors_allow_credentials
+    allow_headers     = var.cors_allow_headers
+    allow_methods     = var.cors_allow_methods
+    allow_origins     = var.cors_allowed_origins
+  }
 }
 
 resource "aws_apigatewayv2_integration" "backend" {

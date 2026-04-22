@@ -1,5 +1,19 @@
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  name_prefix            = "${var.project_name}-${var.environment}"
+  frontend_hosted_origin = trimsuffix(trimspace(var.frontend_hosted_origin), "/")
+  frontend_local_origin  = trimsuffix(trimspace(var.frontend_local_origin), "/")
+  frontend_allowed_origins = compact([
+    local.frontend_local_origin,
+    local.frontend_hosted_origin,
+  ])
+  frontend_callback_urls = concat(
+    ["${local.frontend_local_origin}/auth/callback"],
+    local.frontend_hosted_origin == "" ? [] : ["${local.frontend_hosted_origin}/auth/callback"]
+  )
+  frontend_logout_urls = concat(
+    ["${local.frontend_local_origin}/"],
+    local.frontend_hosted_origin == "" ? [] : ["${local.frontend_hosted_origin}/"]
+  )
   common_tags = merge(
     {
       Project     = var.project_name
@@ -51,8 +65,13 @@ module "rds_postgres" {
 module "cognito" {
   source = "../../modules/cognito"
 
-  name_prefix = local.name_prefix
-  tags        = local.common_tags
+  aws_region              = var.aws_region
+  callback_urls           = local.frontend_callback_urls
+  default_redirect_uri    = local.frontend_callback_urls[0]
+  hosted_ui_domain_prefix = var.cognito_hosted_ui_domain_prefix
+  logout_urls             = local.frontend_logout_urls
+  name_prefix             = local.name_prefix
+  tags                    = local.common_tags
 }
 
 module "lambda_backend" {
@@ -117,6 +136,10 @@ module "api_http" {
 
   name_prefix                 = local.name_prefix
   aws_region                  = var.aws_region
+  cors_allowed_origins        = local.frontend_allowed_origins
+  cors_allow_credentials      = false
+  cors_allow_headers          = ["Authorization", "Content-Type"]
+  cors_allow_methods          = ["GET", "OPTIONS", "PATCH", "POST"]
   stage_name                  = var.environment
   lambda_invoke_arn           = module.lambda_backend.invoke_arn
   lambda_function_name        = module.lambda_backend.function_name
