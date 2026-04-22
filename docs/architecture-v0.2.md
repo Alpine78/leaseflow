@@ -68,11 +68,12 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
   `docs/frontend-mvp-strategy.md`.
 - The chosen frontend direction is React + Vite + TypeScript in a future
   `frontend/` directory.
-- Browser auth is planned through Cognito Hosted UI with OAuth Authorization
-  Code + PKCE.
+- Dev Terraform now provides Cognito Hosted UI foundation through a managed
+  domain and OAuth Authorization Code + PKCE-capable app client settings.
+- Dev Terraform now provides allowlisted browser CORS on the HTTP API for
+  approved frontend origins.
 - Later hosting is planned as a static SPA behind S3 + CloudFront.
-- Hosted UI and browser CORS are not yet implemented in the current Terraform
-  stack.
+- The real browser frontend is still not implemented yet.
 
 ## Operational Runbooks
 

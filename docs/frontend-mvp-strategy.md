@@ -13,11 +13,13 @@ local portfolio/demo tool and not the production-like frontend path.
   a backend/infra MVP.
 - The current `demo-client` is a localhost proxy-based demo helper, not a real
   browser product frontend.
-- The current Cognito app client is not yet configured for Hosted UI or OAuth
-  flows.
-- The current API Gateway HTTP API is not yet configured as a browser product
-  API with CORS.
-- These gaps are expected and require follow-up implementation tickets.
+- The dev Terraform stack now configures a Cognito Hosted UI foundation with a
+  managed domain, OAuth authorization code flow, and callback/logout URLs for
+  approved frontend origins.
+- The dev Terraform stack now configures allowlisted browser CORS on the HTTP
+  API for approved frontend origins.
+- A real browser frontend is still not implemented yet; only the auth/CORS
+  foundation exists.
 
 ## Chosen Frontend Direction
 
@@ -38,8 +40,9 @@ local portfolio/demo tool and not the production-like frontend path.
 - Protected API calls continue to use a Cognito ID token in the
   `Authorization` header because the backend reads tenant context from the
   Cognito claim `custom:tenant_id`.
-- Follow-up Cognito work must add the OAuth flows, callback URLs, and logout
-  URLs required for the browser frontend.
+- The current Terraform foundation already includes the OAuth flows,
+  callback URLs, logout URLs, and managed Hosted UI domain required for the
+  first browser frontend slice.
 
 ## CORS Contract
 
@@ -50,6 +53,7 @@ local portfolio/demo tool and not the production-like frontend path.
 - Planned browser headers: `Authorization`, `Content-Type`
 - Browser API calls use bearer tokens in the `Authorization` header, not
   cookie-based cross-site credentials.
+- Current Terraform uses `allow_credentials = false` for the browser path.
 - CORS is browser access control only. It is not authentication or
   authorization.
 
@@ -82,8 +86,6 @@ Later frontend follow-ups:
 
 ## Follow-Up Tickets
 
-- `#91` Enable Cognito Hosted UI, OAuth PKCE, and API Gateway CORS for
-  frontend origins.
 - `#92` Build the React + Vite + TypeScript frontend shell with auth,
   properties, and leases flows.
 - `#93` Add the later S3 + CloudFront hosting path for the frontend.

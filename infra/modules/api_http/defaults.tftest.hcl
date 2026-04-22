@@ -3,6 +3,10 @@ mock_provider "aws" {}
 variables {
   name_prefix                 = "leaseflow-dev"
   aws_region                  = "eu-north-1"
+  cors_allow_credentials      = false
+  cors_allow_headers          = ["Authorization", "Content-Type"]
+  cors_allow_methods          = ["GET", "OPTIONS", "PATCH", "POST"]
+  cors_allowed_origins        = ["http://localhost:5173"]
   stage_name                  = "dev"
   lambda_invoke_arn           = "arn:aws:lambda:eu-north-1:123456789012:function:leaseflow-dev-backend:$LATEST"
   lambda_function_name        = "leaseflow-dev-backend"
@@ -74,5 +78,66 @@ run "exposes_backend_route_parity" {
   assert {
     condition     = aws_apigatewayv2_route.update_property.authorization_type == "JWT"
     error_message = "Property update route should require JWT auth."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_origins, "http://localhost:5173"), false)
+    error_message = "HTTP API should allow the local frontend origin by default."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_headers, "Authorization"), false)
+    error_message = "HTTP API should allow the Authorization header for browser calls."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_headers, "Content-Type"), false)
+    error_message = "HTTP API should allow the Content-Type header for browser calls."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_methods, "GET"), false)
+    error_message = "HTTP API should allow GET in browser CORS."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_methods, "POST"), false)
+    error_message = "HTTP API should allow POST in browser CORS."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_methods, "PATCH"), false)
+    error_message = "HTTP API should allow PATCH in browser CORS."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_methods, "OPTIONS"), false)
+    error_message = "HTTP API should allow OPTIONS in browser CORS."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_api.this.cors_configuration[0].allow_credentials == false
+    error_message = "HTTP API should not allow browser credentials for this frontend phase."
+  }
+}
+
+run "supports_optional_hosted_frontend_origin" {
+  command = plan
+
+  variables {
+    cors_allowed_origins = [
+      "http://localhost:5173",
+      "https://demo.example.com",
+    ]
+  }
+
+  assert {
+    condition     = try(length(aws_apigatewayv2_api.this.cors_configuration[0].allow_origins), 0) == 2
+    error_message = "HTTP API should allow both the local and hosted frontend origins when configured."
+  }
+
+  assert {
+    condition     = try(contains(aws_apigatewayv2_api.this.cors_configuration[0].allow_origins, "https://demo.example.com"), false)
+    error_message = "HTTP API should include the configured hosted frontend origin."
   }
 }

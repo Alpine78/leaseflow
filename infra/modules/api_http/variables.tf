@@ -33,6 +33,26 @@ variable "cognito_user_pool_client_id" {
   description = "Cognito app client ID."
 }
 
+variable "cors_allowed_origins" {
+  type        = list(string)
+  description = "Browser origins allowed to call the HTTP API."
+}
+
+variable "cors_allow_headers" {
+  type        = list(string)
+  description = "Headers allowed by the HTTP API CORS configuration."
+}
+
+variable "cors_allow_methods" {
+  type        = list(string)
+  description = "Methods allowed by the HTTP API CORS configuration."
+}
+
+variable "cors_allow_credentials" {
+  type        = bool
+  description = "Whether the HTTP API CORS configuration allows browser credentials."
+}
+
 variable "tags" {
   type        = map(string)
   description = "Common tags."

@@ -7,7 +7,7 @@ Terraform code is split into reusable modules and environment composition.
 - `bootstrap/terraform_state`: S3 bucket used by Terraform remote state.
 - `modules/network`: VPC, private subnets, Lambda/RDS security groups.
 - `modules/rds_postgres`: private PostgreSQL instance and subnet group.
-- `modules/cognito`: user pool and app client.
+- `modules/cognito`: user pool, app client, and managed Hosted UI domain.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
 - `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
@@ -21,6 +21,20 @@ Terraform code is split into reusable modules and environment composition.
 - Gives the dev environment a remote encrypted Terraform state path with locking.
 - The Terraform RDS environment is for deployed AWS verification, not for everyday backend development.
 - Normal backend development can use local PostgreSQL in WSL to avoid leaving billable AWS resources running.
+
+## Browser frontend foundation
+
+The dev stack now includes the browser-auth and browser-CORS foundation needed
+for a future real frontend.
+
+- Cognito app client is configured for Hosted UI OAuth authorization code flow.
+- Cognito uses a managed domain prefix that you must set explicitly in
+  `terraform.tfvars`.
+- API Gateway HTTP API allows browser calls only from approved origins.
+- Default local frontend origin is `http://localhost:5173`.
+- Optional hosted frontend origin must be HTTPS.
+- `allow_credentials = false`; browser calls use bearer tokens, not cookies.
+- The existing `demo-client` remains a separate local demo/operator tool.
 
 ## DB password handling
 
@@ -169,6 +183,7 @@ cd ~/leaseflow-preflight/infra/environments/dev
 cp terraform.tfvars.example terraform.tfvars
 test -f backend.hcl || cp backend.hcl.example backend.hcl
 grep -q "<aws-account-id>" backend.hcl && echo "Replace backend.hcl bucket with the real bootstrap output first." && exit 1
+grep -q "replace-with-a-unique-dev-prefix" terraform.tfvars && echo "Replace cognito_hosted_ui_domain_prefix with a globally unique value first." && exit 1
 export AWS_PROFILE=terraform
 aws sts get-caller-identity
 terraform init -backend-config=backend.hcl
@@ -181,6 +196,8 @@ terraform plan
 - Do not run dev stack `terraform apply` as part of this preflight.
 - Replace the placeholder bucket in `backend.hcl` with the real bootstrap output
   before using remote state.
+- Replace the placeholder `cognito_hosted_ui_domain_prefix` in `terraform.tfvars`
+  with a globally unique value before planning or applying the dev stack.
 - WSL is used here because the Lambda zip needs Linux-compatible dependencies.
 - Use a non-root AWS profile for Terraform work. Do not use the AWS account root profile for preflight or deployment tasks.
 

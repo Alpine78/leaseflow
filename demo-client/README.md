@@ -2,7 +2,9 @@
 
 This is a local portfolio/demo client for the deployed LeaseFlow dev API.
 
-It is not a production frontend.
+It is not a production frontend. The real browser-frontend path now uses
+Cognito Hosted UI plus direct browser API access for approved origins, while
+this tool stays as a local demo/operator helper.
 
 ## Run
 
@@ -171,6 +173,13 @@ aws cognito-idp admin-delete-user \
 
 ## Why There Is A Local Server
 
-The deployed HTTP API is not configured as a browser product API with CORS.
-The local server lets the browser talk to `localhost` while the server proxies
-only the allowlisted demo API calls to the deployed API Gateway.
+The local server is still intentional even though the dev stack now has browser
+CORS for approved origins.
+
+The demo client keeps a local proxy because it combines:
+
+- token-paste operator workflow
+- allowlisted API proxy calls
+- internal reminder-scan helper invocation through the local AWS CLI context
+
+The future real frontend uses the direct browser path instead.

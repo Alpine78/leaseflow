@@ -5,10 +5,20 @@ locals {
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_SRP_AUTH",
   ]
+  app_client_allowed_oauth_flows = [
+    "code",
+  ]
+  app_client_allowed_oauth_scopes = [
+    "email",
+    "openid",
+  ]
   app_client_read_attributes = [
     "custom:tenant_id",
     "email",
     "email_verified",
+  ]
+  app_client_supported_identity_providers = [
+    "COGNITO",
   ]
   app_client_write_attributes = [
     "email",
@@ -51,8 +61,19 @@ resource "aws_cognito_user_pool_client" "this" {
   generate_secret                      = false
   prevent_user_existence_errors        = "ENABLED"
   enable_token_revocation              = true
-  allowed_oauth_flows_user_pool_client = false
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = local.app_client_allowed_oauth_flows
+  allowed_oauth_scopes                 = local.app_client_allowed_oauth_scopes
+  callback_urls                        = var.callback_urls
+  default_redirect_uri                 = var.default_redirect_uri
   explicit_auth_flows                  = local.app_client_explicit_auth_flows
+  logout_urls                          = var.logout_urls
   read_attributes                      = local.app_client_read_attributes
+  supported_identity_providers         = local.app_client_supported_identity_providers
   write_attributes                     = local.app_client_write_attributes
+}
+
+resource "aws_cognito_user_pool_domain" "this" {
+  domain       = var.hosted_ui_domain_prefix
+  user_pool_id = aws_cognito_user_pool.this.id
 }

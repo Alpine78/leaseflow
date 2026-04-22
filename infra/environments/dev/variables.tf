@@ -64,6 +64,28 @@ variable "lambda_package_file" {
   default     = "../../../dist/leaseflow-backend.zip"
 }
 
+variable "frontend_local_origin" {
+  type        = string
+  description = "Local browser frontend origin allowed by Cognito and API Gateway CORS."
+  default     = "http://localhost:5173"
+}
+
+variable "frontend_hosted_origin" {
+  type        = string
+  description = "Optional hosted browser frontend origin allowed by Cognito and API Gateway CORS."
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.frontend_hosted_origin) == "" || startswith(trimspace(var.frontend_hosted_origin), "https://")
+    error_message = "frontend_hosted_origin must be empty or start with https://."
+  }
+}
+
+variable "cognito_hosted_ui_domain_prefix" {
+  type        = string
+  description = "Globally unique Cognito managed Hosted UI domain prefix for the dev frontend auth flow."
+}
+
 variable "db_password_ssm_param" {
   type        = string
   description = "SSM parameter path for generated runtime DB password."

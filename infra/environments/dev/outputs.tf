@@ -13,6 +13,11 @@ output "cognito_user_pool_client_id" {
   value       = module.cognito.user_pool_client_id
 }
 
+output "cognito_hosted_ui_base_url" {
+  description = "Managed Cognito Hosted UI base URL for the dev frontend auth flow."
+  value       = module.cognito.hosted_ui_base_url
+}
+
 output "rds_endpoint" {
   description = "RDS endpoint."
   value       = module.rds_postgres.endpoint
