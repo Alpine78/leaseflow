@@ -18,8 +18,9 @@ local portfolio/demo tool and not the production-like frontend path.
   approved frontend origins.
 - The dev Terraform stack now configures allowlisted browser CORS on the HTTP
   API for approved frontend origins.
-- A real browser frontend is still not implemented yet; only the auth/CORS
-  foundation exists.
+- The first local browser frontend slice now exists under `frontend/` with
+  sign-in plus properties and leases list/create flows.
+- Hosted deployment and later screens are still follow-up work.
 
 ## Chosen Frontend Direction
 
@@ -68,14 +69,14 @@ Broader frontend MVP screens:
 - due reminders
 - notifications
 
-First implementation milestone only:
+Current implemented slice:
 
 - sign in / sign out
 - app shell and navigation
 - properties list and create flow
 - leases list and create flow
-- properties and leases structure should remain update-ready for later PATCH
-  route support
+- properties and leases structure remains update-ready for later PATCH route
+  support
 
 Later frontend follow-ups:
 
@@ -86,8 +87,6 @@ Later frontend follow-ups:
 
 ## Follow-Up Tickets
 
-- `#92` Build the React + Vite + TypeScript frontend shell with auth,
-  properties, and leases flows.
 - `#93` Add the later S3 + CloudFront hosting path for the frontend.
 
 ## Guardrails

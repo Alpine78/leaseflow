@@ -23,6 +23,7 @@ LeaseFlow is a cloud-native, multi-tenant rental management system MVP built as 
 ## Repository Structure
 
 - `backend/`: Lambda backend code, tests, and Alembic migrations.
+- `frontend/`: React + Vite + TypeScript browser frontend slice.
 - `infra/`: Terraform modules and environment composition.
 - `docs/`: MVP and architecture docs.
 
@@ -42,6 +43,14 @@ not a hosted production frontend.
 
 The real browser frontend direction is documented in
 `docs/frontend-mvp-strategy.md`.
+
+For the real browser frontend slice:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ## Current MVP Status
 
@@ -64,11 +73,13 @@ Implemented now:
 - Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 - Local portfolio demo client for the deployed MVP flow
+- Local browser frontend slice with Hosted UI auth plus properties and leases
+  list/create flows
 
 Planned next:
 
-- Build the first real browser frontend slice with React + Vite + TypeScript,
-  Cognito Hosted UI + PKCE, and core properties + leases flows.
+- Extend the browser frontend with reminders, notifications, and hosted
+  deployment.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring

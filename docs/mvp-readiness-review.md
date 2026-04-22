@@ -91,8 +91,9 @@ Known limitations:
   complete production environment strategy.
 - Dev RDS is single-instance and cost-controlled, not a highly available production database design.
 - RDS deletion behavior is dev-oriented; destroy removes dev data.
-- No real browser frontend exists yet; the current `demo-client` is only local
-  portfolio/demo tooling.
+- At review time there was no real browser frontend yet. The repo now also has
+  a first local browser frontend slice under `frontend/`, but hosted delivery
+  and later screens remain outside this backend+infra review.
 - SNS alarm actions exist, but an SNS topic alone is not human notification delivery.
 - Optional email delivery requires a configured address and confirmed subscription.
 - There is no full incident workflow, escalation policy, dashboard suite, or on-call process.
@@ -122,8 +123,8 @@ Risks:
 
 Recommended default:
 
-- Build the first real browser frontend slice after locking the auth and CORS
-  strategy.
+- Deliver a first local browser frontend slice after locking the auth and CORS
+  strategy. That local browser slice now exists under `frontend/`.
 
 Why:
 
