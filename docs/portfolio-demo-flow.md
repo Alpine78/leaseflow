@@ -26,6 +26,7 @@ Then open `http://127.0.0.1:8765`. The client uses a localhost proxy because
 the demo tool still wraps the deployed API and internal reminder-scan helper in
 one local operator flow. The real frontend path is separate and now uses
 Hosted UI plus direct browser API access for approved origins.
+For the real browser frontend setup, use `frontend/README.md`.
 See `demo-client/README.md` for the browser-client setup checklist, including
 DB migrations, temporary Cognito user creation, token verification, and cleanup.
 For sanitized portfolio evidence capture, use
