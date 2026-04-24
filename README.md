@@ -92,6 +92,10 @@ make lint
 make test
 ```
 
+For everyday backend and database development in WSL, use the local PostgreSQL
+workflow in `backend/README.md` instead of keeping the AWS dev RDS instance
+running.
+
 Migration command:
 
 ```bash

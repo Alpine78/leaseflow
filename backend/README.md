@@ -24,10 +24,20 @@ Python Lambda backend for LeaseFlow MVP.
 
 ## Local setup
 
+For WSL/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+```
+
+For Windows PowerShell:
+
 ```bash
 python -m venv .venv
-. .venv/Scripts/activate
-pip install -e ".[dev]"
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
 ```
 
 ## Local PostgreSQL in WSL
@@ -54,12 +64,68 @@ Then create a local env file from the example and load it before running backend
 
 ```bash
 cp .env.local.example .env.local
+sed -i 's/\r$//' .env.local
 set -a
 source .env.local
 set +a
 ```
 
-If you are working from the repo root in WSL with the backend virtual environment activated, you can then use:
+## Daily WSL workflow
+
+Run these commands from the repo root unless the command explicitly says
+`backend/`.
+
+What it does: activates the backend virtual environment from WSL.
+Target filename/service: `backend/.venv`.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow/backend
+source .venv/bin/activate
+```
+
+What it does: loads the local backend DB configuration.
+Target filename/service: `backend/.env.local`.
+
+```bash
+set -a
+source .env.local
+set +a
+export DATABASE_URL="postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+```
+
+What it does: applies Alembic migrations to the local WSL PostgreSQL database.
+Target filename/service: local `leaseflow` PostgreSQL schema.
+
+```bash
+python -m alembic upgrade head
+```
+
+What it does: runs the root Makefile local backend targets.
+Target filename/service: repo root `Makefile`.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+make test-local
+make test-integration-local
+make invoke-local-health
+make invoke-local-create-property
+make invoke-local-list-properties
+```
+
+Important:
+
+- Root-level `make` targets such as `make test-local` must be run from the repo
+  root, not from `backend/`.
+- WSL activation uses `source .venv/bin/activate`, not
+  `.venv/Scripts/activate`.
+- If `.env.local` was created from Windows tools, normalize line endings with
+  `sed -i 's/\r$//' .env.local` before sourcing it.
+- This local PostgreSQL path is for backend and DB development only. It does
+  not replace Cognito Hosted UI, API Gateway, or browser CORS validation in
+  AWS.
+
+If you are working from the repo root in WSL with the backend virtual
+environment already activated, you can also use:
 
 ```bash
 make migrate-local
