@@ -75,11 +75,11 @@ Implemented now:
 - Local portfolio demo client for the deployed MVP flow
 - Local browser frontend slice with Hosted UI auth plus properties and leases
   list/create flows
+- Terraform-managed S3 + CloudFront hosting path for the frontend SPA
 
 Planned next:
 
-- Extend the browser frontend with reminders, notifications, and hosted
-  deployment.
+- Extend the browser frontend with reminders and notifications.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
@@ -101,7 +101,7 @@ make migrate
 ## Infrastructure Layout
 
 - `infra/bootstrap/terraform_state`: S3 bucket for Terraform remote state.
-- `infra/modules/`: reusable Terraform modules (`network`, `rds_postgres`, `cognito`, `lambda_backend`, `api_http`)
+- `infra/modules/`: reusable Terraform modules (`network`, `rds_postgres`, `cognito`, `lambda_backend`, `api_http`, `frontend_hosting`)
 - `infra/environments/dev`: dev environment composition using the modules
 
 Terraform commands:

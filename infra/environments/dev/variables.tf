@@ -72,7 +72,7 @@ variable "frontend_local_origin" {
 
 variable "frontend_hosted_origin" {
   type        = string
-  description = "Optional hosted browser frontend origin allowed by Cognito and API Gateway CORS."
+  description = "Deprecated. The hosted frontend origin is now derived from the dev CloudFront distribution."
   default     = ""
 
   validation {

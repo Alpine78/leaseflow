@@ -18,6 +18,26 @@ output "cognito_hosted_ui_base_url" {
   value       = module.cognito.hosted_ui_base_url
 }
 
+output "frontend_bucket_name" {
+  description = "S3 bucket name for hosted frontend assets."
+  value       = module.frontend_hosting.bucket_name
+}
+
+output "frontend_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for the hosted frontend."
+  value       = module.frontend_hosting.cloudfront_distribution_id
+}
+
+output "frontend_cloudfront_domain_name" {
+  description = "CloudFront distribution domain name for the hosted frontend."
+  value       = module.frontend_hosting.cloudfront_domain_name
+}
+
+output "frontend_cloudfront_url" {
+  description = "CloudFront HTTPS URL for the hosted frontend."
+  value       = module.frontend_hosting.cloudfront_url
+}
+
 output "rds_endpoint" {
   description = "RDS endpoint."
   value       = module.rds_postgres.endpoint

@@ -43,6 +43,7 @@ Infrastructure capabilities:
 - Terraform-managed AWS dev environment
 - S3 remote state bootstrap path with native Terraform S3 lockfile locking
 - API Gateway HTTP API with JWT authorization
+- CloudFront + private S3 frontend hosting path
 - Python Lambda backend
 - Cognito user pool and app client
 - Private RDS PostgreSQL
@@ -91,9 +92,8 @@ Known limitations:
   complete production environment strategy.
 - Dev RDS is single-instance and cost-controlled, not a highly available production database design.
 - RDS deletion behavior is dev-oriented; destroy removes dev data.
-- At review time there was no real browser frontend yet. The repo now also has
-  a first local browser frontend slice under `frontend/`, but hosted delivery
-  and later screens remain outside this backend+infra review.
+- The repo now has a first browser frontend slice and Terraform-managed hosted
+  frontend path, but later screens remain outside this backend+infra review.
 - SNS alarm actions exist, but an SNS topic alone is not human notification delivery.
 - Optional email delivery requires a configured address and confirmed subscription.
 - There is no full incident workflow, escalation policy, dashboard suite, or on-call process.
@@ -123,13 +123,12 @@ Risks:
 
 Recommended default:
 
-- Deliver a first local browser frontend slice after locking the auth and CORS
-  strategy. That local browser slice now exists under `frontend/`.
+- Continue the browser frontend after the auth, CORS, and hosting foundation.
 
 Why:
 
 - Backend and infra are now mostly validated for MVP use.
-- The next natural step is a production-like browser frontend on top of the
+- The next natural step is completing user-facing frontend flows on top of the
   validated backend and infra MVP.
 - The frontend direction is now documented separately in
   `docs/frontend-mvp-strategy.md`.
@@ -138,8 +137,8 @@ Other valid next phases:
 
 - Production-readiness hardening: remote Terraform state, stronger operational alerting, production-like DR design, and stricter runtime controls.
 - AWS SAA-C03 study extraction: turn the project decisions into exam-focused notes about serverless, private networking, RDS, IAM, monitoring, and operational tradeoffs.
-- Frontend MVP: build the browser frontend in slices, starting with auth,
-  properties, and leases.
+- Frontend MVP: continue the browser frontend in slices, adding reminders and
+  notifications after auth, properties, and leases.
 
 Production-readiness hardening is scoped in
 `docs/production-readiness-hardening.md`.

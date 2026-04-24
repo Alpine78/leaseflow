@@ -8,6 +8,7 @@ Terraform code is split into reusable modules and environment composition.
 - `modules/network`: VPC, private subnets, Lambda/RDS security groups.
 - `modules/rds_postgres`: private PostgreSQL instance and subnet group.
 - `modules/cognito`: user pool, app client, and managed Hosted UI domain.
+- `modules/frontend_hosting`: private S3 bucket and CloudFront distribution for the SPA.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
 - `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
@@ -24,16 +25,18 @@ Terraform code is split into reusable modules and environment composition.
 
 ## Browser frontend foundation
 
-The dev stack now includes the browser-auth and browser-CORS foundation needed
-for a future real frontend.
+The dev stack includes browser auth, browser CORS, and a hosted SPA path for
+the real frontend.
 
 - Cognito app client is configured for Hosted UI OAuth authorization code flow.
 - Cognito uses a managed domain prefix that you must set explicitly in
   `terraform.tfvars`.
 - API Gateway HTTP API allows browser calls only from approved origins.
 - Default local frontend origin is `http://localhost:5173`.
-- Optional hosted frontend origin must be HTTPS.
+- Hosted frontend origin is the dev CloudFront distribution URL.
 - `allow_credentials = false`; browser calls use bearer tokens, not cookies.
+- Terraform creates the hosting bucket/distribution; `aws s3 sync` uploads
+  built frontend assets.
 - The existing `demo-client` remains a separate local demo/operator tool.
 
 ## DB password handling
@@ -266,6 +269,34 @@ terraform fmt -recursive
 cd environments/dev
 terraform init -backend-config=backend.hcl
 terraform plan
+```
+
+## Upload hosted frontend assets
+
+Run this after the dev stack exists and `frontend_cloudfront_url` is present in
+Terraform outputs.
+
+What it does: builds the local frontend bundle and uploads it to the hosted dev
+SPA bucket.
+Target service: S3 frontend hosting bucket.
+
+```bash
+cd infra/environments/dev
+export FRONTEND_BUCKET=$(terraform output -raw frontend_bucket_name)
+export FRONTEND_DISTRIBUTION_ID=$(terraform output -raw frontend_cloudfront_distribution_id)
+
+cd ../../../frontend
+npm run build
+aws s3 sync dist/ "s3://${FRONTEND_BUCKET}/" --delete
+```
+
+What it does: invalidates CloudFront so the latest uploaded SPA shell is served.
+Target service: CloudFront hosted frontend distribution.
+
+```bash
+aws cloudfront create-invalidation \
+  --distribution-id "$FRONTEND_DISTRIBUTION_ID" \
+  --paths "/*"
 ```
 
 For a real dev deployment, prefer saving the plan first:
