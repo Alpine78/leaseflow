@@ -39,15 +39,19 @@ export function LeasesPage() {
       return;
     }
 
-    await createLease({
-      end_date: form.endDate,
-      property_id: selectedPropertyId,
-      rent_due_day_of_month: Number(form.rentDueDayOfMonth),
-      resident_name: form.residentName.trim(),
-      start_date: form.startDate,
-    });
+    try {
+      await createLease({
+        end_date: form.endDate,
+        property_id: selectedPropertyId,
+        rent_due_day_of_month: Number(form.rentDueDayOfMonth),
+        resident_name: form.residentName.trim(),
+        start_date: form.startDate,
+      });
 
-    setForm(createInitialLeaseForm(selectedPropertyId));
+      setForm(createInitialLeaseForm(selectedPropertyId));
+    } catch {
+      // The hook already exposes the user-facing error message.
+    }
   }
 
   return (
@@ -177,7 +181,7 @@ export function LeasesPage() {
                 <div>
                   <p className="resource-title">{lease.resident_name}</p>
                   <p className="resource-subtitle">
-                    Due day {lease.rent_due_day_of_month} · {lease.start_date} to {lease.end_date}
+                    Due day {lease.rent_due_day_of_month} | {lease.start_date} to {lease.end_date}
                   </p>
                 </div>
                 <code className="resource-meta">property {lease.property_id.slice(0, 8)}</code>
