@@ -54,6 +54,11 @@ run "exposes_tenant_id_claim_for_api_auth" {
   }
 
   assert {
+    condition     = try(contains(aws_cognito_user_pool_client.this.allowed_oauth_scopes, "profile"), false)
+    error_message = "App client should allow the profile OAuth scope for readable custom attributes."
+  }
+
+  assert {
     condition     = try(contains(aws_cognito_user_pool_client.this.supported_identity_providers, "COGNITO"), false)
     error_message = "App client should use Cognito as the supported identity provider."
   }
