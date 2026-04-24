@@ -11,6 +11,7 @@ locals {
   app_client_allowed_oauth_scopes = [
     "email",
     "openid",
+    "profile",
   ]
   app_client_read_attributes = [
     "custom:tenant_id",

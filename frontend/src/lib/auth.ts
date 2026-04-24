@@ -140,6 +140,14 @@ export async function redirectToHostedUiSignIn(
 
   storePendingSignIn(verifier, oauthState, returnPath);
 
+  window.location.assign(buildHostedUiAuthorizeUrl(config, challenge, oauthState));
+}
+
+export function buildHostedUiAuthorizeUrl(
+  config: RuntimeConfig,
+  challenge: string,
+  oauthState: string
+) {
   const authorizeUrl = new URL(
     `${normalizeBaseUrl(config.cognitoHostedUiBaseUrl)}/oauth2/authorize`
   );
@@ -147,12 +155,12 @@ export async function redirectToHostedUiSignIn(
   authorizeUrl.searchParams.set("client_id", config.cognitoClientId);
   authorizeUrl.searchParams.set("redirect_uri", getRedirectUri());
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", "openid email");
+  authorizeUrl.searchParams.set("scope", "openid email profile");
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
   authorizeUrl.searchParams.set("code_challenge", challenge);
   authorizeUrl.searchParams.set("state", oauthState);
 
-  window.location.assign(authorizeUrl.toString());
+  return authorizeUrl.toString();
 }
 
 export function redirectToHostedUiSignOut(config: RuntimeConfig) {

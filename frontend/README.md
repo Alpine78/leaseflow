@@ -90,5 +90,7 @@ npm run build
 - Browser auth uses Cognito Hosted UI, not admin auth APIs.
 - Protected API calls use the Cognito `id_token` because the backend depends on
   `custom:tenant_id`.
+- Hosted UI requests `openid email profile` so readable custom attributes can
+  be included in the ID token.
 - Session state is stored in `sessionStorage`.
 - Do not commit `.env.local`, tokens, tenant IDs, or any real user data.
