@@ -18,11 +18,15 @@ export function PropertiesPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createProperty({
-      address: form.address.trim(),
-      name: form.name.trim(),
-    });
-    setForm(INITIAL_FORM);
+    try {
+      await createProperty({
+        address: form.address.trim(),
+        name: form.name.trim(),
+      });
+      setForm(INITIAL_FORM);
+    } catch {
+      // The hook already exposes the user-facing error message.
+    }
   }
 
   return (
