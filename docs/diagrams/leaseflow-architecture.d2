@@ -6,6 +6,8 @@ internet: Internet {
 
 aws: AWS account {
   public_edge: Public edge {
+    cloudfront: CloudFront frontend
+    frontend_bucket: Private S3 SPA bucket
     api_gateway: API Gateway HTTP API
     routes_note: MVP routes
     route_scope: properties, leases, reminders, notifications
@@ -44,6 +46,8 @@ aws: AWS account {
 
 internet.landlord_user -> aws.identity.cognito: Sign in
 aws.identity.cognito -> internet.landlord_user: ID token
+internet.landlord_user -> aws.public_edge.cloudfront: Load SPA
+aws.public_edge.cloudfront -> aws.public_edge.frontend_bucket: Signed OAC origin access
 internet.landlord_user -> aws.public_edge.api_gateway: HTTPS API calls
 aws.public_edge.api_gateway -> aws.identity.cognito: JWT authorizer
 aws.public_edge.api_gateway -> aws.vpc.lambda_backend: Lambda proxy invoke

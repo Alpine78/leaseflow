@@ -19,7 +19,7 @@ cognito_hosted_ui_domain_prefix = "replace-with-a-unique-dev-prefix"
 # Local browser frontend origin used by Vite during development.
 frontend_local_origin = "http://localhost:5173"
 
-# Optional later hosted browser frontend origin. Leave empty until hosting exists.
+# Deprecated. Hosted frontend origin is now derived from the CloudFront output.
 frontend_hosted_origin = ""
 
 # Optional. AWS sends a confirmation email before SNS starts delivery.

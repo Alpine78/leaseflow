@@ -14,8 +14,7 @@ tool.
 - properties list and create
 - leases list and create
 
-This slice does not include hosted deployment, dashboard, reminders, or
-notifications UI yet.
+This slice does not include dashboard, reminders, or notifications UI yet.
 
 ## Prerequisites
 
@@ -61,6 +60,41 @@ npm run dev
 ```
 
 Then open `http://localhost:5173`.
+
+## Hosted dev deploy
+
+Terraform creates the S3 bucket and CloudFront distribution. Frontend asset
+upload remains a local operator step.
+
+What it does: reads hosted frontend deployment outputs.
+Target filename/service: `infra/environments/dev` / Terraform outputs.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow/infra/environments/dev
+export FRONTEND_BUCKET=$(terraform output -raw frontend_bucket_name)
+export FRONTEND_DISTRIBUTION_ID=$(terraform output -raw frontend_cloudfront_distribution_id)
+export FRONTEND_URL=$(terraform output -raw frontend_cloudfront_url)
+```
+
+What it does: builds and uploads the static SPA assets.
+Target filename/service: `frontend/dist` / S3 frontend bucket.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow/frontend
+npm run build
+aws s3 sync dist/ "s3://${FRONTEND_BUCKET}/" --delete
+```
+
+What it does: clears CloudFront cache after uploading a new SPA build.
+Target filename/service: CloudFront hosted frontend distribution.
+
+```bash
+aws cloudfront create-invalidation \
+  --distribution-id "$FRONTEND_DISTRIBUTION_ID" \
+  --paths "/*"
+```
+
+Then open the value of `FRONTEND_URL`.
 
 ## Checks
 

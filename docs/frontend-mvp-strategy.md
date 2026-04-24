@@ -20,14 +20,16 @@ local portfolio/demo tool and not the production-like frontend path.
   API for approved frontend origins.
 - The first local browser frontend slice now exists under `frontend/` with
   sign-in plus properties and leases list/create flows.
-- Hosted deployment and later screens are still follow-up work.
+- The dev Terraform stack now includes an S3 + CloudFront hosting path for the
+  static SPA. Asset upload remains a local operator command.
+- Dashboard, reminders, and notifications UI are still follow-up work.
 
 ## Chosen Frontend Direction
 
 - Real frontend target: `React + Vite + TypeScript`
 - Real frontend location: future `frontend/` directory
 - Local development mode: Vite dev server on `http://localhost:5173`
-- Later hosting target: static SPA assets in S3 behind CloudFront
+- Hosting target: static SPA assets in private S3 behind CloudFront
 - This phase does not add SSR, Next.js, or a separate backend-for-frontend
 
 ## Auth Contract
@@ -49,7 +51,7 @@ local portfolio/demo tool and not the production-like frontend path.
 
 - API Gateway CORS is allowlist-based, not wildcard-based.
 - Planned local origin: `http://localhost:5173`
-- Planned hosted origin: one HTTPS CloudFront-backed SPA origin
+- Hosted origin: HTTPS CloudFront-backed SPA origin from Terraform output
 - Planned browser methods: `GET`, `POST`, `PATCH`, `OPTIONS`
 - Planned browser headers: `Authorization`, `Content-Type`
 - Browser API calls use bearer tokens in the `Authorization` header, not
@@ -83,11 +85,12 @@ Later frontend follow-ups:
 - dashboard summary UI
 - due reminders UI
 - notifications list and mark-read UI
-- S3 + CloudFront hosting path
+- hosted asset upload and validation workflow
 
 ## Follow-Up Tickets
 
-- `#93` Add the later S3 + CloudFront hosting path for the frontend.
+- Add dashboard, due reminders, and notifications UI after the hosted browser
+  path is validated.
 
 ## Guardrails
 

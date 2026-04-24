@@ -1,6 +1,6 @@
 locals {
   name_prefix            = "${var.project_name}-${var.environment}"
-  frontend_hosted_origin = trimsuffix(trimspace(var.frontend_hosted_origin), "/")
+  frontend_hosted_origin = module.frontend_hosting.cloudfront_url
   frontend_local_origin  = trimsuffix(trimspace(var.frontend_local_origin), "/")
   frontend_allowed_origins = compact([
     local.frontend_local_origin,
@@ -31,6 +31,13 @@ module "network" {
   vpc_cidr             = var.vpc_cidr
   private_subnet_cidrs = var.private_subnet_cidrs
   tags                 = local.common_tags
+}
+
+module "frontend_hosting" {
+  source = "../../modules/frontend_hosting"
+
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
 }
 
 resource "random_password" "db_master" {
