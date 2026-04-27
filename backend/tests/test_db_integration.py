@@ -975,9 +975,9 @@ def test_update_lease_changes_due_reminder_candidates(integration_settings: Sett
     db = Database(integration_settings)
     tenant_id = f"test-local-{uuid4().hex}"
     actor_user_id = f"user-{uuid4().hex[:12]}"
-    today = date.today()
-    next_year = today.replace(year=today.year + 1)
-    original_due_day = today.day + 10 if today.day <= 18 else 28
+    as_of_date = date(2026, 4, 3)
+    original_due_day = 20
+    updated_due_day = 5
 
     try:
         property_record = db.create_property(
@@ -992,13 +992,13 @@ def test_update_lease_changes_due_reminder_candidates(integration_settings: Sett
             property_id=property_record.property_id,
             resident_name="Reminder Candidate Resident",
             rent_due_day_of_month=original_due_day,
-            start_date=today,
-            end_date=next_year,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
         )
 
         before = db.list_due_lease_reminders(
             tenant_id=tenant_id,
-            as_of_date=today,
+            as_of_date=as_of_date,
             days=7,
         )
 
@@ -1006,12 +1006,12 @@ def test_update_lease_changes_due_reminder_candidates(integration_settings: Sett
             tenant_id=tenant_id,
             actor_user_id=actor_user_id,
             lease_id=created.lease_id,
-            updates={"rent_due_day_of_month": today.day},
+            updates={"rent_due_day_of_month": updated_due_day},
         )
 
         after = db.list_due_lease_reminders(
             tenant_id=tenant_id,
-            as_of_date=today,
+            as_of_date=as_of_date,
             days=7,
         )
 
