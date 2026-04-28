@@ -22,12 +22,14 @@ local portfolio/demo tool and not the production-like frontend path.
   sign-in plus properties and leases list/create flows.
 - The dev Terraform stack now includes an S3 + CloudFront hosting path for the
   static SPA. Asset upload remains a local operator command.
+- Hosted frontend smoke validation is still an operator-run release validation
+  item, not an implemented CI deployment path.
 - Dashboard, reminders, and notifications UI are still follow-up work.
 
 ## Chosen Frontend Direction
 
 - Real frontend target: `React + Vite + TypeScript`
-- Real frontend location: future `frontend/` directory
+- Real frontend location: `frontend/` directory
 - Local development mode: Vite dev server on `http://localhost:5173`
 - Hosting target: static SPA assets in private S3 behind CloudFront
 - This phase does not add SSR, Next.js, or a separate backend-for-frontend
@@ -50,10 +52,10 @@ local portfolio/demo tool and not the production-like frontend path.
 ## CORS Contract
 
 - API Gateway CORS is allowlist-based, not wildcard-based.
-- Planned local origin: `http://localhost:5173`
+- Local origin: `http://localhost:5173`
 - Hosted origin: HTTPS CloudFront-backed SPA origin from Terraform output
-- Planned browser methods: `GET`, `POST`, `PATCH`, `OPTIONS`
-- Planned browser headers: `Authorization`, `Content-Type`
+- Browser methods: `GET`, `POST`, `PATCH`, `OPTIONS`
+- Browser headers: `Authorization`, `Content-Type`
 - Browser API calls use bearer tokens in the `Authorization` header, not
   cookie-based cross-site credentials.
 - Current Terraform uses `allow_credentials = false` for the browser path.
@@ -85,12 +87,14 @@ Later frontend follow-ups:
 - dashboard summary UI
 - due reminders UI
 - notifications list and mark-read UI
-- hosted asset upload and validation workflow
+- hosted asset upload and browser smoke validation before release
 
 ## Follow-Up Tickets
 
-- Add dashboard, due reminders, and notifications UI after the hosted browser
-  path is validated.
+- Complete hosted frontend smoke validation after the dev Terraform state
+  source of truth is restored.
+- Add property and lease update flows, then dashboard, due reminders, and
+  notifications UI.
 
 ## Guardrails
 
