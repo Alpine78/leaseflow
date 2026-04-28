@@ -19,7 +19,7 @@ local portfolio/demo tool and not the production-like frontend path.
 - The dev Terraform stack now configures allowlisted browser CORS on the HTTP
   API for approved frontend origins.
 - The first local browser frontend slice now exists under `frontend/` with
-  sign-in plus properties and leases list/create flows.
+  sign-in plus properties and leases list/create/update flows.
 - The dev Terraform stack now includes an S3 + CloudFront hosting path for the
   static SPA. Asset upload remains a local operator command.
 - Hosted frontend smoke validation is still an operator-run release validation
@@ -77,10 +77,8 @@ Current implemented slice:
 
 - sign in / sign out
 - app shell and navigation
-- properties list and create flow
-- leases list and create flow
-- properties and leases structure remains update-ready for later PATCH route
-  support
+- properties list, create, and update flow
+- leases list, create, and update flow
 
 Later frontend follow-ups:
 
@@ -93,8 +91,7 @@ Later frontend follow-ups:
 
 - Complete hosted frontend smoke validation after the dev Terraform state
   source of truth is restored.
-- Add property and lease update flows, then dashboard, due reminders, and
-  notifications UI.
+- Add dashboard, due reminders, and notifications UI.
 
 ## Guardrails
 

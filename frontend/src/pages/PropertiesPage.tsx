@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { usePropertiesPageState } from "../features/properties/usePropertiesPage";
+import type { Property } from "../lib/api";
 
 type PropertyForm = {
   address: string;
@@ -12,18 +13,40 @@ const INITIAL_FORM: PropertyForm = {
 };
 
 export function PropertiesPage() {
-  const { createProperty, error, isLoading, isSubmitting, properties } =
+  const { createProperty, error, isLoading, isSubmitting, properties, updateProperty } =
     usePropertiesPageState();
   const [form, setForm] = useState<PropertyForm>(INITIAL_FORM);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+
+  const isEditing = editingPropertyId !== null;
+
+  function resetForm() {
+    setEditingPropertyId(null);
+    setForm(INITIAL_FORM);
+  }
+
+  function startEdit(property: Property) {
+    setEditingPropertyId(property.property_id);
+    setForm({
+      address: property.address,
+      name: property.name,
+    });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const input = {
+      address: form.address.trim(),
+      name: form.name.trim(),
+    };
+
     try {
-      await createProperty({
-        address: form.address.trim(),
-        name: form.name.trim(),
-      });
-      setForm(INITIAL_FORM);
+      if (editingPropertyId) {
+        await updateProperty(editingPropertyId, input);
+      } else {
+        await createProperty(input);
+      }
+      resetForm();
     } catch {
       // The hook already exposes the user-facing error message.
     }
@@ -60,8 +83,13 @@ export function PropertiesPage() {
             value={form.address}
           />
           <button className="primary-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : "Create property"}
+            {isSubmitting ? "Saving..." : isEditing ? "Update property" : "Create property"}
           </button>
+          {isEditing ? (
+            <button className="ghost-button" onClick={resetForm} type="button">
+              Cancel edit
+            </button>
+          ) : null}
         </form>
         <p className="supporting-copy">
           The browser never sends `tenant_id`. Tenant context comes from the
@@ -93,9 +121,19 @@ export function PropertiesPage() {
                   <p className="resource-title">{property.name}</p>
                   <p className="resource-subtitle">{property.address}</p>
                 </div>
-                <time className="resource-meta" dateTime={property.created_at}>
-                  {new Date(property.created_at).toLocaleDateString("en-GB")}
-                </time>
+                <div className="resource-actions">
+                  <time className="resource-meta" dateTime={property.created_at}>
+                    {new Date(property.created_at).toLocaleDateString("en-GB")}
+                  </time>
+                  <button
+                    aria-label={`Edit ${property.name}`}
+                    className="ghost-button resource-edit-button"
+                    onClick={() => startEdit(property)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

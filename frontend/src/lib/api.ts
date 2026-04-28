@@ -33,6 +33,15 @@ export type CreateLeaseInput = {
   start_date: string;
 };
 
+export type UpdatePropertyInput = CreatePropertyInput;
+
+export type UpdateLeaseInput = {
+  end_date: string;
+  rent_due_day_of_month: number;
+  resident_name: string;
+  start_date: string;
+};
+
 type ListResponse<T> = {
   items: T[];
 };
@@ -115,6 +124,18 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
     },
     listProperties() {
       return request<ListResponse<Property>>("/properties");
+    },
+    updateLease(leaseId: string, input: UpdateLeaseInput) {
+      return request<Lease>(`/leases/${encodeURIComponent(leaseId)}`, {
+        body: JSON.stringify(input),
+        method: "PATCH",
+      });
+    },
+    updateProperty(propertyId: string, input: UpdatePropertyInput) {
+      return request<Property>(`/properties/${encodeURIComponent(propertyId)}`, {
+        body: JSON.stringify(input),
+        method: "PATCH",
+      });
     },
   };
 }
