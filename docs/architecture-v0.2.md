@@ -73,7 +73,7 @@ LeaseFlow is a serverless, multi-tenant rental management MVP on AWS. The archit
 - Dev Terraform now provides allowlisted browser CORS on the HTTP API for
   approved frontend origins.
 - The browser frontend slice covers sign-in plus properties and leases
-  list/create flows.
+  list/create/update flows.
 - Terraform now defines a private S3 + CloudFront hosting path for the static
   SPA.
 - Hosted asset upload and browser smoke validation are operator-run release

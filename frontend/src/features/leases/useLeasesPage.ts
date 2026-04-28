@@ -8,6 +8,7 @@ import {
   type Lease,
   type Property,
   UnauthorizedApiError,
+  type UpdateLeaseInput,
 } from "../../lib/api";
 import { getRuntimeConfig } from "../../lib/config";
 
@@ -18,6 +19,7 @@ type LeasesPageState = {
   isSubmitting: boolean;
   leases: Lease[];
   properties: Property[];
+  updateLease: (leaseId: string, input: UpdateLeaseInput) => Promise<void>;
 };
 
 export function useLeasesPageState(): LeasesPageState {
@@ -109,6 +111,39 @@ export function useLeasesPageState(): LeasesPageState {
     }
   }
 
+  async function updateLease(leaseId: string, input: UpdateLeaseInput) {
+    if (!auth.session) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const client = createApiClient({
+        config: getRuntimeConfig(),
+        onUnauthorized: auth.markSessionExpired,
+        session: auth.session,
+      });
+      const updated = await client.updateLease(leaseId, input);
+      setLeases((current) =>
+        current.map((lease) => (lease.lease_id === updated.lease_id ? updated : lease))
+      );
+    } catch (errorValue) {
+      if (errorValue instanceof UnauthorizedApiError) {
+        navigate("/", { replace: true });
+        return;
+      }
+      setError(
+        errorValue instanceof ApiError ? errorValue.message : "Could not update the lease."
+      );
+      throw errorValue;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return {
     createLease,
     error,
@@ -116,5 +151,6 @@ export function useLeasesPageState(): LeasesPageState {
     isSubmitting,
     leases,
     properties,
+    updateLease,
   };
 }

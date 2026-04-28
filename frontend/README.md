@@ -11,8 +11,8 @@ tool.
 - Cognito Hosted UI sign in and sign out
 - OAuth authorization code flow with PKCE
 - protected browser routes
-- properties list and create
-- leases list and create
+- properties list, create, and update
+- leases list, create, and update
 
 This slice does not include dashboard, reminders, or notifications UI yet.
 

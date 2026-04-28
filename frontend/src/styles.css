@@ -219,6 +219,18 @@ button {
   align-items: start;
 }
 
+.resource-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: flex-end;
+}
+
+.resource-edit-button {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.86rem;
+}
+
 .resource-title {
   margin: 0 0 0.35rem;
   font-weight: 700;

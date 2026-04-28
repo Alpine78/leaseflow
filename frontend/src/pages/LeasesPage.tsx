@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useLeasesPageState } from "../features/leases/useLeasesPage";
+import type { Lease } from "../lib/api";
 
 type LeaseForm = {
   endDate: string;
@@ -25,30 +26,60 @@ function createInitialLeaseForm(propertyId = ""): LeaseForm {
 }
 
 export function LeasesPage() {
-  const { createLease, error, isLoading, isSubmitting, leases, properties } =
+  const { createLease, error, isLoading, isSubmitting, leases, properties, updateLease } =
     useLeasesPageState();
   const [form, setForm] = useState<LeaseForm>(() => createInitialLeaseForm());
+  const [editingLeaseId, setEditingLeaseId] = useState<string | null>(null);
 
+  const isEditing = editingLeaseId !== null;
   const hasProperties = properties.length > 0;
   const selectedPropertyId =
     form.propertyId || (hasProperties ? properties[0].property_id : "");
+  const linkedPropertyName =
+    properties.find((property) => property.property_id === form.propertyId)?.name ||
+    (form.propertyId ? `property ${form.propertyId.slice(0, 8)}` : "Unknown property");
+  const canSubmit = hasProperties || isEditing;
+
+  function resetForm(propertyId = selectedPropertyId) {
+    setEditingLeaseId(null);
+    setForm(createInitialLeaseForm(propertyId));
+  }
+
+  function startEdit(lease: Lease) {
+    setEditingLeaseId(lease.lease_id);
+    setForm({
+      endDate: lease.end_date,
+      propertyId: lease.property_id,
+      rentDueDayOfMonth: String(lease.rent_due_day_of_month ?? ""),
+      residentName: lease.resident_name,
+      startDate: lease.start_date,
+    });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasProperties) {
+    if (!canSubmit) {
       return;
     }
 
     try {
-      await createLease({
+      const input = {
         end_date: form.endDate,
-        property_id: selectedPropertyId,
         rent_due_day_of_month: Number(form.rentDueDayOfMonth),
         resident_name: form.residentName.trim(),
         start_date: form.startDate,
-      });
+      };
 
-      setForm(createInitialLeaseForm(selectedPropertyId));
+      if (editingLeaseId) {
+        await updateLease(editingLeaseId, input);
+      } else {
+        await createLease({
+          ...input,
+          property_id: selectedPropertyId,
+        });
+      }
+
+      resetForm(selectedPropertyId);
     } catch {
       // The hook already exposes the user-facing error message.
     }
@@ -62,30 +93,36 @@ export function LeasesPage() {
           <h2 className="section-title">Attach live residents to real properties.</h2>
         </div>
         <form className="stack-form" onSubmit={handleSubmit}>
-          <label className="field-label" htmlFor="lease-property">
-            Property
-          </label>
-          <select
-            disabled={!hasProperties}
-            id="lease-property"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, propertyId: event.target.value }))
-            }
-            value={selectedPropertyId}
-          >
-            {hasProperties ? null : <option value="">Create a property first</option>}
-            {properties.map((property) => (
-              <option key={property.property_id} value={property.property_id}>
-                {property.name}
-              </option>
-            ))}
-          </select>
+          {isEditing ? (
+            <p className="supporting-copy">Linked property: {linkedPropertyName}</p>
+          ) : (
+            <>
+              <label className="field-label" htmlFor="lease-property">
+                Property
+              </label>
+              <select
+                disabled={!hasProperties}
+                id="lease-property"
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, propertyId: event.target.value }))
+                }
+                value={selectedPropertyId}
+              >
+                {hasProperties ? null : <option value="">Create a property first</option>}
+                {properties.map((property) => (
+                  <option key={property.property_id} value={property.property_id}>
+                    {property.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           <label className="field-label" htmlFor="lease-resident-name">
             Resident name
           </label>
           <input
-            disabled={!hasProperties}
+            disabled={!canSubmit}
             id="lease-resident-name"
             onChange={(event) =>
               setForm((current) => ({ ...current, residentName: event.target.value }))
@@ -101,7 +138,7 @@ export function LeasesPage() {
                 Rent due day
               </label>
               <input
-                disabled={!hasProperties}
+                disabled={!canSubmit}
                 id="lease-rent-day"
                 max="31"
                 min="1"
@@ -121,7 +158,7 @@ export function LeasesPage() {
                 Start date
               </label>
               <input
-                disabled={!hasProperties}
+                disabled={!canSubmit}
                 id="lease-start-date"
                 onChange={(event) =>
                   setForm((current) => ({ ...current, startDate: event.target.value }))
@@ -137,7 +174,7 @@ export function LeasesPage() {
             End date
           </label>
           <input
-            disabled={!hasProperties}
+            disabled={!canSubmit}
             id="lease-end-date"
             onChange={(event) =>
               setForm((current) => ({ ...current, endDate: event.target.value }))
@@ -147,11 +184,16 @@ export function LeasesPage() {
             value={form.endDate}
           />
 
-          <button className="primary-button" disabled={!hasProperties || isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : "Create lease"}
+          <button className="primary-button" disabled={!canSubmit || isSubmitting} type="submit">
+            {isSubmitting ? "Saving..." : isEditing ? "Update lease" : "Create lease"}
           </button>
+          {isEditing ? (
+            <button className="ghost-button" onClick={() => resetForm()} type="button">
+              Cancel edit
+            </button>
+          ) : null}
         </form>
-        {!hasProperties ? (
+        {!hasProperties && !isEditing ? (
           <p className="supporting-copy">
             Lease creation stays disabled until the tenant has at least one property.
           </p>
@@ -184,7 +226,17 @@ export function LeasesPage() {
                     Due day {lease.rent_due_day_of_month} | {lease.start_date} to {lease.end_date}
                   </p>
                 </div>
-                <code className="resource-meta">property {lease.property_id.slice(0, 8)}</code>
+                <div className="resource-actions">
+                  <code className="resource-meta">property {lease.property_id.slice(0, 8)}</code>
+                  <button
+                    aria-label={`Edit ${lease.resident_name}`}
+                    className="ghost-button resource-edit-button"
+                    onClick={() => startEdit(lease)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

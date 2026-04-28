@@ -74,14 +74,14 @@ Implemented now:
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 - Local portfolio demo client for the deployed MVP flow
 - Real browser frontend slice with Hosted UI auth plus properties and leases
-  list/create flows
+  list/create/update flows
 - Terraform-managed S3 + CloudFront hosting path for the frontend SPA
 
 Planned next:
 
 - Complete hosted frontend smoke validation after the dev Terraform remote
   state source of truth is fixed.
-- Extend the browser frontend with reminders and notifications.
+- Extend the browser frontend with dashboard, reminders, and notifications.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
