@@ -20,6 +20,26 @@ export type Lease = {
   tenant_id: string;
 };
 
+export type LeaseReminderCandidate = {
+  days_until_due: number;
+  due_date: string;
+  lease_id: string;
+  property_id: string;
+  rent_due_day_of_month: number;
+  resident_name: string;
+};
+
+export type NotificationItem = {
+  created_at: string;
+  due_date: string;
+  lease_id: string;
+  message: string;
+  notification_id: string;
+  read_at: string | null;
+  title: string;
+  type: string;
+};
+
 export type CreatePropertyInput = {
   address: string;
   name: string;
@@ -119,11 +139,25 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
         method: "POST",
       });
     },
+    listDueLeaseReminders() {
+      return request<ListResponse<LeaseReminderCandidate>>("/lease-reminders/due-soon");
+    },
     listLeases() {
       return request<ListResponse<Lease>>("/leases");
     },
+    listNotifications() {
+      return request<ListResponse<NotificationItem>>("/notifications");
+    },
     listProperties() {
       return request<ListResponse<Property>>("/properties");
+    },
+    markNotificationRead(notificationId: string) {
+      return request<NotificationItem>(
+        `/notifications/${encodeURIComponent(notificationId)}/read`,
+        {
+          method: "PATCH",
+        }
+      );
     },
     updateLease(leaseId: string, input: UpdateLeaseInput) {
       return request<Lease>(`/leases/${encodeURIComponent(leaseId)}`, {
