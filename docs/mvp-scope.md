@@ -20,6 +20,11 @@
 - EventBridge Scheduler for daily invocation of the internal reminder scan.
 - Infrastructure provisioning with Terraform modules.
 - Dev-focused deployment architecture on AWS Lambda + API Gateway.
+- Real browser frontend slice under `frontend/` with Cognito Hosted UI
+  sign-in/sign-out, protected routes, and properties/leases list/create flows.
+- Terraform-managed static SPA hosting path with private S3 and CloudFront.
+  Hosted asset upload and browser smoke validation remain operator-run release
+  validation, not a CI deploy pipeline.
 
 ## Data Scope (Current MVP)
 
@@ -45,4 +50,6 @@
 - Email delivery and external notification integrations.
 - PostgreSQL Row-Level Security (future hardening).
 - NAT Gateway and non-essential managed services.
-- Frontend implementation.
+- Dashboard summary UI.
+- Due reminders and notifications UI.
+- Custom domain, CI-based frontend deployment, and production readiness.
