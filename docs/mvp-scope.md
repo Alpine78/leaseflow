@@ -21,8 +21,8 @@
 - Infrastructure provisioning with Terraform modules.
 - Dev-focused deployment architecture on AWS Lambda + API Gateway.
 - Real browser frontend slice under `frontend/` with Cognito Hosted UI
-  sign-in/sign-out, protected routes, and properties/leases
-  list/create/update flows.
+  sign-in/sign-out, protected routes, properties/leases list/create/update
+  flows, due-soon reminder display, and notifications list/mark-read UI.
 - Terraform-managed static SPA hosting path with private S3 and CloudFront.
   Hosted asset upload and browser smoke validation remain operator-run release
   validation, not a CI deploy pipeline.
@@ -52,5 +52,5 @@
 - PostgreSQL Row-Level Security (future hardening).
 - NAT Gateway and non-essential managed services.
 - Dashboard summary UI.
-- Due reminders and notifications UI.
+- Notification creation from the browser.
 - Custom domain, CI-based frontend deployment, and production readiness.

@@ -33,6 +33,14 @@ export function AppShell({ children }: PropsWithChildren) {
         >
           Leases
         </NavLink>
+        <NavLink
+          className={({ isActive }) =>
+            isActive ? "nav-link nav-link-active" : "nav-link"
+          }
+          to="/notifications"
+        >
+          Notifications
+        </NavLink>
       </nav>
       <main>{children}</main>
     </div>

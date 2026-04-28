@@ -237,9 +237,38 @@ button {
   color: var(--ink-strong);
 }
 
+.notification-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.notification-title-row .resource-title {
+  margin: 0;
+}
+
 .resource-meta {
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  background: rgba(19, 38, 31, 0.08);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.status-pill-unread {
+  background: rgba(232, 152, 83, 0.22);
+  color: #7a3f17;
 }
 
 .panel-card {

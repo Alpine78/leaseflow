@@ -13,8 +13,11 @@ tool.
 - protected browser routes
 - properties list, create, and update
 - leases list, create, and update
+- due-soon reminder candidate list
+- persisted notifications list and mark-read action
 
-This slice does not include dashboard, reminders, or notifications UI yet.
+This slice does not include a dashboard, notification creation, email delivery,
+or hosted CI deploy automation.
 
 ## Prerequisites
 

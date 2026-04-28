@@ -92,4 +92,50 @@ describe("createApiClient", () => {
     expect(JSON.parse(String(init.body))).not.toHaveProperty("tenant_id");
     expect(JSON.parse(String(init.body))).not.toHaveProperty("property_id");
   });
+
+  it("lists due lease reminders without tenant query params", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.listDueLeaseReminders();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/lease-reminders/due-soon",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer id-token",
+        }),
+      })
+    );
+  });
+
+  it("lists notifications", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.listNotifications();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/notifications",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer id-token",
+        }),
+      })
+    );
+  });
+
+  it("marks a notification read without tenant_id or request body", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.markNotificationRead("notification-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/notifications/notification-1/read",
+      expect.objectContaining({
+        method: "PATCH",
+      })
+    );
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.body).toBeUndefined();
+  });
 });

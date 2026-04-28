@@ -62,26 +62,30 @@ Implemented now:
 - `GET /properties`
 - `POST /leases`
 - `GET /leases`
+- `PATCH /properties/{property_id}`
+- `PATCH /leases/{lease_id}`
+- `GET /lease-reminders/due-soon`
 - `GET /notifications`
+- `PATCH /notifications/{notification_id}/read`
 - Internal due reminder scan flow that writes notification records idempotently
 - Daily EventBridge Scheduler invocation for the internal reminder scan
 - JWT claim extraction with tenant-aware request context
 - Tenant-scoped PostgreSQL access
 - Explicit `rent_due_day_of_month` on leases to prepare future reminder flows
 - Notification persistence for due-soon rent reminders
-- Audit logging for property and lease creation
+- Audit logging for property and lease writes
 - Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 - Local portfolio demo client for the deployed MVP flow
-- Real browser frontend slice with Hosted UI auth plus properties and leases
-  list/create/update flows
+- Real browser frontend slice with Hosted UI auth, properties and leases
+  list/create/update flows, due-soon reminders, and notifications mark-read UI
 - Terraform-managed S3 + CloudFront hosting path for the frontend SPA
 
 Planned next:
 
 - Complete hosted frontend smoke validation after the dev Terraform remote
   state source of truth is fixed.
-- Extend the browser frontend with dashboard, reminders, and notifications.
+- Extend the browser frontend with a dashboard summary UI.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
