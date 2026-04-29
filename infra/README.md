@@ -41,6 +41,87 @@ the real frontend.
 - Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
   and temporary Cognito demo user setup.
 
+## Scripted first-time dev setup
+
+The WSL/Linux operator scripts under `scripts/dev/` package the manual dev
+setup path into small reviewable steps. They do not destroy resources, commit
+files, make RDS public, or hide Terraform approval.
+
+What it does: creates the Terraform remote state bucket and writes the ignored
+dev backend config.
+Target service: Terraform bootstrap state bucket and
+`infra/environments/dev/backend.hcl`.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/bootstrap-state.sh
+```
+
+What it does: creates the ignored dev variable file from the example.
+Target filename/service: `infra/environments/dev/terraform.tfvars`.
+
+```bash
+cp infra/environments/dev/terraform.tfvars.example infra/environments/dev/terraform.tfvars
+```
+
+Edit `infra/environments/dev/terraform.tfvars` before applying. At minimum,
+replace `cognito_hosted_ui_domain_prefix` with a globally unique Cognito managed
+domain prefix.
+
+What it does: builds the Linux-compatible backend Lambda artifact.
+Target filename/service: `dist/leaseflow-backend.zip`.
+
+```bash
+bash scripts/dev/build-lambda.sh
+```
+
+What it does: initializes, validates, and interactively applies the dev stack.
+Target service: Terraform-managed LeaseFlow dev environment.
+
+```bash
+bash scripts/dev/apply-stack.sh
+```
+
+What it does: runs deployed DB migrations through the backend Lambda internal
+migration event.
+Target service: AWS Lambda function `leaseflow-dev-backend`.
+
+```bash
+bash scripts/dev/run-migrations.sh
+```
+
+What it does: writes browser frontend `.env.local` from Terraform outputs.
+Target filename/service: `frontend/.env.local`.
+
+```bash
+bash scripts/dev/write-frontend-env.sh
+```
+
+What it does: creates a temporary Cognito browser login user for local Hosted UI
+validation.
+Target service: Amazon Cognito user pool.
+
+```bash
+bash scripts/dev/create-demo-user.sh
+```
+
+What it does: prints the deployed dev outputs as named safe lines.
+Target service: Terraform-managed LeaseFlow dev environment.
+
+```bash
+bash scripts/dev/print-outputs.sh
+```
+
+Optional hosted frontend upload:
+
+What it does: builds `frontend/`, uploads `dist/` to the Terraform-created S3
+bucket, and invalidates CloudFront.
+Target service: S3 frontend hosting bucket and CloudFront distribution.
+
+```bash
+bash scripts/dev/upload-frontend.sh
+```
+
 ## DB password handling
 
 - The dev environment now generates the RDS master password in Terraform.
