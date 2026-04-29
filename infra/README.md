@@ -413,7 +413,9 @@ Then invoke the migration path directly:
 
 ```bash
 cd ~/leaseflow-preflight
-cat > migration-payload.json <<'JSON'
+MIGRATION_TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${MIGRATION_TMP_DIR}"' EXIT
+cat > "${MIGRATION_TMP_DIR}/migration-payload.json" <<'JSON'
 {"source":"leaseflow.internal","detail-type":"run_db_migrations","detail":{}}
 JSON
 
@@ -422,11 +424,13 @@ aws lambda invoke \
   --region eu-north-1 \
   --function-name leaseflow-dev-backend \
   --cli-binary-format raw-in-base64-out \
-  --payload fileb://migration-payload.json \
-  migration-response.json
+  --payload "fileb://${MIGRATION_TMP_DIR}/migration-payload.json" \
+  "${MIGRATION_TMP_DIR}/migration-response.json"
 
-cat migration-response.json
+cat "${MIGRATION_TMP_DIR}/migration-response.json"
 aws logs tail /aws/lambda/leaseflow-dev-backend --since 10m --region eu-north-1 --format short
+rm -rf "${MIGRATION_TMP_DIR}"
+trap - EXIT
 ```
 
 Expected result:
