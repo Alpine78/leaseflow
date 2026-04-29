@@ -32,6 +32,17 @@ deploy automation.
 
 Copy `.env.example` to `.env.local` and fill the values from Terraform outputs.
 
+What it does: writes `frontend/.env.local` from the deployed dev Terraform
+outputs.
+Target filename/service: `frontend/.env.local`.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/write-frontend-env.sh
+```
+
+The manual commands below are useful when troubleshooting individual values.
+
 What it does: reads the deployed API, Cognito, and hosted frontend values as
 named lines so the values are easy to copy without mixing them together.
 Target filename/service: `infra/environments/dev` / Terraform outputs.
@@ -84,6 +95,17 @@ invalidation after env changes.
 
 No browser login email/password exists by default. Create a temporary Cognito
 user in the deployed dev user pool before browser smoke testing.
+
+What it does: creates a temporary Cognito Hosted UI user and prints only the
+local email/password values needed for browser login.
+Target service: Amazon Cognito user pool.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/create-demo-user.sh
+```
+
+The manual commands below are useful when troubleshooting user creation.
 
 What it does: loads the Cognito user pool and app client IDs needed for local
 operator setup.
@@ -162,6 +184,17 @@ Then open `http://localhost:5173`.
 Terraform creates the S3 bucket and CloudFront distribution. Frontend asset
 upload remains a local operator step. If any `VITE_*` value changes, rebuild
 and upload the frontend again because the static assets contain those values.
+
+What it does: builds and uploads the hosted frontend, then invalidates
+CloudFront.
+Target service: S3 frontend hosting bucket and CloudFront distribution.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/upload-frontend.sh
+```
+
+The manual commands below are useful when troubleshooting hosted upload steps.
 
 What it does: reads hosted frontend deployment outputs.
 Target filename/service: `infra/environments/dev` / Terraform outputs.
