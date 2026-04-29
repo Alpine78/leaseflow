@@ -100,6 +100,35 @@ Target service: Amazon Cognito, API Gateway, Lambda, and private RDS.
 bash scripts/dev/seed-demo-data.sh
 ```
 
+Optional tenant data export/import:
+
+What it does: exports the current Cognito user's tenant-scoped properties,
+leases, and a notifications snapshot into an ignored local JSON file before a
+cost-saving stack destroy.
+Target filename/service: `.local/leaseflow-export/` and the deployed dev API.
+
+```bash
+export EXPORT_EMAIL="<source-cognito-user-email>"
+export EXPORT_PASSWORD="<source-cognito-user-password>"
+bash scripts/dev/export-tenant-data.sh
+```
+
+What it does: imports a previously exported tenant file into a target Cognito
+user's tenant by recreating properties and leases through the deployed dev API,
+then regenerates due notifications through the internal reminder scan.
+Target service: deployed dev API and AWS Lambda function `leaseflow-dev-backend`.
+
+```bash
+export IMPORT_FILE=".local/leaseflow-export/<export-file>.json"
+export IMPORT_EMAIL="<target-cognito-user-email>"
+export IMPORT_PASSWORD="<target-cognito-user-password>"
+bash scripts/dev/import-tenant-data.sh
+```
+
+The export file is local dev portability data, not a production backup. It may
+contain tenant-scoped demo names, addresses, residents, and notification text.
+Do not commit it or paste its contents into evidence.
+
 What it does: writes browser frontend `.env.local` from Terraform outputs.
 Target filename/service: `frontend/.env.local`.
 
@@ -329,6 +358,7 @@ CI runs Terraform checks without AWS credentials.
 - Use the same AWS profile and region that were used during `apply`.
 - Do not delete Terraform state before destroying the environment.
 - The current dev RDS config uses `skip_final_snapshot = true`, so destroying the stack will permanently delete the dev database contents.
+- If you need to keep portfolio/demo tenant data, run `scripts/dev/export-tenant-data.sh` before destroy and store the ignored export file locally.
 
 ```bash
 cd infra/environments/dev
@@ -342,6 +372,17 @@ Quick checks before destroy:
 - verify the active AWS account with `aws sts get-caller-identity`
 - verify the intended region
 - review the destroy plan before applying it
+
+Cost-saving rebuild flow after destroy:
+
+- recreate/apply the dev stack and run migrations
+- create a target Cognito login user or use `scripts/dev/seed-demo-data.sh`
+- run `scripts/dev/import-tenant-data.sh` with the saved export file
+- run browser verification from the local or hosted frontend
+
+Notifications are exported as a snapshot only. They are not inserted directly on
+import because there is no notification-create API; due notifications are
+regenerated from imported leases by the reminder scan.
 
 ## RDS engine version note
 

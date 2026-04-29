@@ -37,6 +37,7 @@ build/
 *.zip
 
 # Local operator smoke artifacts
+/.local/leaseflow-export/
 /migration-payload.json
 /migration-response.json
 /property-request.json
