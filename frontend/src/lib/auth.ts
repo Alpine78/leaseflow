@@ -203,7 +203,7 @@ export async function completeHostedUiSignIn(
   const session = buildStoredSession(tokenResponse);
   saveAuthSession(session);
 
-  const returnPath = getPendingValue(RETURN_PATH_KEY) || "/properties";
+  const returnPath = getPendingValue(RETURN_PATH_KEY) || "/dashboard";
   clearPendingSignIn();
 
   return { returnPath, session };

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AuthContext, type AuthContextValue } from "../app/AuthContext";
@@ -61,6 +61,8 @@ describe("AuthCallbackPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Callback failed")).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Try sign-in again" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try sign-in again" }));
+
+    expect(authValue.signIn).toHaveBeenCalledWith("/dashboard");
   });
 });

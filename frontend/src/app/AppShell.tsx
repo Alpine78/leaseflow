@@ -21,6 +21,14 @@ export function AppShell({ children }: PropsWithChildren) {
           className={({ isActive }) =>
             isActive ? "nav-link nav-link-active" : "nav-link"
           }
+          to="/dashboard"
+        >
+          Dashboard
+        </NavLink>
+        <NavLink
+          className={({ isActive }) =>
+            isActive ? "nav-link nav-link-active" : "nav-link"
+          }
           to="/properties"
         >
           Properties
