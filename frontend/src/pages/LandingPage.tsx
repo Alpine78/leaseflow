@@ -8,7 +8,7 @@ export function LandingPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (auth.isAuthenticated) {
-    return <Navigate replace to="/properties" />;
+    return <Navigate replace to="/dashboard" />;
   }
 
   const returnPath =
@@ -17,7 +17,7 @@ export function LandingPage() {
     "from" in location.state &&
     typeof location.state.from === "string"
       ? location.state.from
-      : "/properties";
+      : "/dashboard";
 
   async function handleSignIn() {
     try {
@@ -54,8 +54,9 @@ export function LandingPage() {
           <h2>In scope now</h2>
           <ul className="info-list">
             <li>Hosted UI sign in and sign out</li>
-            <li>Properties list and create</li>
-            <li>Leases list and create</li>
+            <li>Operational dashboard summaries</li>
+            <li>Properties and leases workflows</li>
+            <li>Reminder and notification status</li>
           </ul>
         </article>
         <article className="info-card">

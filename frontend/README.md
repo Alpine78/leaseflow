@@ -11,13 +11,14 @@ tool.
 - Cognito Hosted UI sign in and sign out
 - OAuth authorization code flow with PKCE
 - protected browser routes
+- authenticated dashboard summary
 - properties list, create, and update
 - leases list, create, and update
 - due-soon reminder candidate list
 - persisted notifications list and mark-read action
 
-This slice does not include a dashboard, notification creation, email delivery,
-or hosted CI deploy automation.
+This slice does not include notification creation, email delivery, or hosted CI
+deploy automation.
 
 ## Prerequisites
 

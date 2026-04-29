@@ -77,15 +77,15 @@ Implemented now:
 - Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
 - Local portfolio demo client for the deployed MVP flow
-- Real browser frontend slice with Hosted UI auth, properties and leases
-  list/create/update flows, due-soon reminders, and notifications mark-read UI
+- Real browser frontend slice with Hosted UI auth, dashboard summaries,
+  properties and leases list/create/update flows, due-soon reminders, and
+  notifications mark-read UI
 - Terraform-managed S3 + CloudFront hosting path for the frontend SPA
 
 Planned next:
 
 - Complete hosted frontend smoke validation after the dev Terraform remote
   state source of truth is fixed.
-- Extend the browser frontend with a dashboard summary UI.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring

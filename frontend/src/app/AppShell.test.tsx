@@ -22,7 +22,7 @@ function createAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContext
 }
 
 describe("AppShell", () => {
-  it("shows notifications in authenticated navigation", () => {
+  it("shows dashboard and feature routes in authenticated navigation", () => {
     render(
       <AuthContext.Provider value={createAuthValue()}>
         <MemoryRouter>
@@ -33,6 +33,18 @@ describe("AppShell", () => {
       </AuthContext.Provider>
     );
 
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard"
+    );
+    expect(screen.getByRole("link", { name: "Properties" })).toHaveAttribute(
+      "href",
+      "/properties"
+    );
+    expect(screen.getByRole("link", { name: "Leases" })).toHaveAttribute(
+      "href",
+      "/leases"
+    );
     expect(screen.getByRole("link", { name: "Notifications" })).toHaveAttribute(
       "href",
       "/notifications"

@@ -42,7 +42,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         clearAuthSession();
         setSession(null);
       },
-      async signIn(returnPath = "/properties") {
+      async signIn(returnPath = "/dashboard") {
         await redirectToHostedUiSignIn(getRuntimeConfig(), returnPath);
       },
       signOut() {

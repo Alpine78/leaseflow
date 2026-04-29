@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AuthCallbackPage } from "../pages/AuthCallbackPage";
+import { DashboardPage } from "../pages/DashboardPage";
 import { LandingPage } from "../pages/LandingPage";
 import { LeasesPage } from "../pages/LeasesPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
@@ -12,6 +13,16 @@ export function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <AppShell>
+              <DashboardPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/properties"
         element={

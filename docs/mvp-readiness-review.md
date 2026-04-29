@@ -137,9 +137,8 @@ Other valid next phases:
 
 - Production-readiness hardening: remote Terraform state, stronger operational alerting, production-like DR design, and stricter runtime controls.
 - AWS SAA-C03 study extraction: turn the project decisions into exam-focused notes about serverless, private networking, RDS, IAM, monitoring, and operational tradeoffs.
-- Frontend MVP: continue the browser frontend in slices, adding dashboard
-  summary UI and hosted validation after auth, properties, leases, reminders,
-  and notifications.
+- Frontend MVP: continue hosted validation after auth, dashboard, properties,
+  leases, reminders, and notifications.
 
 Production-readiness hardening is scoped in
 `docs/production-readiness-hardening.md`.

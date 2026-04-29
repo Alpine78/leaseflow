@@ -44,7 +44,7 @@ export function AuthCallbackPage() {
             <p className="error-text">{error}</p>
             <button
               className="primary-button"
-              onClick={() => auth.signIn("/properties")}
+              onClick={() => auth.signIn("/dashboard")}
               type="button"
             >
               Try sign-in again
