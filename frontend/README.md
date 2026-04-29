@@ -105,6 +105,22 @@ cd /mnt/c/Repos/LeaseFlow
 bash scripts/dev/create-demo-user.sh
 ```
 
+`create-demo-user.sh` creates an empty tenant for manual browser testing. If you
+want a ready portfolio/demo tenant with synthetic properties, leases, and
+notifications, use the seed script instead:
+
+What it does: creates a temporary Cognito login user and synthetic demo data
+through the deployed dev API.
+Target service: Amazon Cognito and LeaseFlow deployed dev API.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/seed-demo-data.sh
+```
+
+Seeded data is disposable dev/demo data. It is removed when the dev database is
+destroyed with the stack.
+
 The manual commands below are useful when troubleshooting user creation.
 
 What it does: loads the Cognito user pool and app client IDs needed for local

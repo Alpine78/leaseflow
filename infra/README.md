@@ -90,6 +90,16 @@ Target service: AWS Lambda function `leaseflow-dev-backend`.
 bash scripts/dev/run-migrations.sh
 ```
 
+Optional seeded demo tenant:
+
+What it does: creates a temporary Cognito login user plus synthetic properties,
+leases, and reminder notifications through the deployed dev API.
+Target service: Amazon Cognito, API Gateway, Lambda, and private RDS.
+
+```bash
+bash scripts/dev/seed-demo-data.sh
+```
+
 What it does: writes browser frontend `.env.local` from Terraform outputs.
 Target filename/service: `frontend/.env.local`.
 
