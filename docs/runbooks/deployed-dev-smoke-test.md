@@ -41,11 +41,14 @@ export API_URL=$(terraform output -raw api_stage_invoke_url)
 export USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)
 export APP_CLIENT_ID=$(terraform output -raw cognito_user_pool_client_id)
 export BACKEND_FUNCTION=leaseflow-dev-backend
+export SMOKE_TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${SMOKE_TMP_DIR}"' EXIT
 ```
 
 Expected result:
 
 - `$API_URL`, `$USER_POOL_ID`, and `$APP_CLIENT_ID` are populated.
+- `$SMOKE_TMP_DIR` points to a temporary local directory outside the repo.
 - Do not paste Cognito tokens or future passwords into evidence.
 
 ## Step 2: Run Deployed DB Migrations
@@ -54,8 +57,7 @@ What it does: invokes the backend Lambda internal migration event.
 Target service: AWS Lambda function `leaseflow-dev-backend`.
 
 ```bash
-cd /mnt/c/Repos/LeaseFlow
-cat > migration-payload.json <<'JSON'
+cat > "${SMOKE_TMP_DIR}/migration-payload.json" <<'JSON'
 {"source":"leaseflow.internal","detail-type":"run_db_migrations","detail":{}}
 JSON
 
@@ -63,10 +65,10 @@ aws lambda invoke \
   --region "$AWS_REGION" \
   --function-name "$BACKEND_FUNCTION" \
   --cli-binary-format raw-in-base64-out \
-  --payload fileb://migration-payload.json \
-  migration-response.json
+  --payload "fileb://${SMOKE_TMP_DIR}/migration-payload.json" \
+  "${SMOKE_TMP_DIR}/migration-response.json"
 
-jq '{statusCode, body}' migration-response.json
+jq '{statusCode, body}' "${SMOKE_TMP_DIR}/migration-response.json"
 ```
 
 Expected result:
@@ -141,7 +143,7 @@ ignored in favor of the JWT tenant claim.
 Target service: LeaseFlow deployed backend API.
 
 ```bash
-cat > property-request.json <<'JSON'
+cat > "${SMOKE_TMP_DIR}/property-request.json" <<'JSON'
 {
   "tenant_id": "client-supplied-tenant-must-be-ignored",
   "name": "Smoke Property",
@@ -152,13 +154,13 @@ JSON
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   -H "Content-Type: application/json" \
-  -d @property-request.json \
+  -d @"${SMOKE_TMP_DIR}/property-request.json" \
   "$API_URL/properties" \
-  -o property-response.json
+  -o "${SMOKE_TMP_DIR}/property-response.json"
 
-export PROPERTY_ID=$(jq -r '.property_id' property-response.json)
+export PROPERTY_ID=$(jq -r '.property_id' "${SMOKE_TMP_DIR}/property-response.json")
 jq -e --arg tenant "$TEST_TENANT" '.tenant_id == $tenant and .property_id != null' \
-  property-response.json
+  "${SMOKE_TMP_DIR}/property-response.json"
 ```
 
 Expected result:
@@ -191,19 +193,19 @@ jq -n \
     rent_due_day_of_month: $rent_due_day,
     start_date: $start_date,
     end_date: $end_date
-  }' > lease-request.json
+  }' > "${SMOKE_TMP_DIR}/lease-request.json"
 
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   -H "Content-Type: application/json" \
-  -d @lease-request.json \
+  -d @"${SMOKE_TMP_DIR}/lease-request.json" \
   "$API_URL/leases" \
-  -o lease-response.json
+  -o "${SMOKE_TMP_DIR}/lease-response.json"
 
-export LEASE_ID=$(jq -r '.lease_id' lease-response.json)
+export LEASE_ID=$(jq -r '.lease_id' "${SMOKE_TMP_DIR}/lease-response.json")
 jq -e --arg tenant "$TEST_TENANT" --arg property "$PROPERTY_ID" \
   '.tenant_id == $tenant and .property_id == $property and .lease_id != null' \
-  lease-response.json
+  "${SMOKE_TMP_DIR}/lease-response.json"
 ```
 
 Expected result:
@@ -220,17 +222,17 @@ Target service: LeaseFlow deployed backend API.
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   "$API_URL/properties" \
-  -o properties-list-response.json
+  -o "${SMOKE_TMP_DIR}/properties-list-response.json"
 
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   "$API_URL/leases" \
-  -o leases-list-response.json
+  -o "${SMOKE_TMP_DIR}/leases-list-response.json"
 
 jq -e --arg property "$PROPERTY_ID" '.items | any(.property_id == $property)' \
-  properties-list-response.json
+  "${SMOKE_TMP_DIR}/properties-list-response.json"
 jq -e --arg lease "$LEASE_ID" '.items | any(.lease_id == $lease)' \
-  leases-list-response.json
+  "${SMOKE_TMP_DIR}/leases-list-response.json"
 ```
 
 Expected result:
@@ -247,10 +249,10 @@ Target service: LeaseFlow deployed backend API.
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   "$API_URL/lease-reminders/due-soon?days=7" \
-  -o reminder-candidates-response.json
+  -o "${SMOKE_TMP_DIR}/reminder-candidates-response.json"
 
 jq -e --arg lease "$LEASE_ID" '.items | any(.lease_id == $lease)' \
-  reminder-candidates-response.json
+  "${SMOKE_TMP_DIR}/reminder-candidates-response.json"
 ```
 
 Expected result:
@@ -276,28 +278,28 @@ jq -n \
       days: 7,
       as_of_date: $as_of_date
     }
-  }' > reminder-scan-payload.json
+  }' > "${SMOKE_TMP_DIR}/reminder-scan-payload.json"
 
 aws lambda invoke \
   --region "$AWS_REGION" \
   --function-name "$BACKEND_FUNCTION" \
   --cli-binary-format raw-in-base64-out \
-  --payload fileb://reminder-scan-payload.json \
-  reminder-scan-response.json
+  --payload "fileb://${SMOKE_TMP_DIR}/reminder-scan-payload.json" \
+  "${SMOKE_TMP_DIR}/reminder-scan-response.json"
 
-jq -e '.statusCode == 200' reminder-scan-response.json
+jq -e '.statusCode == 200' "${SMOKE_TMP_DIR}/reminder-scan-response.json"
 jq -r '.body | fromjson | {candidate_count, created_count, duplicate_count}' \
-  reminder-scan-response.json
+  "${SMOKE_TMP_DIR}/reminder-scan-response.json"
 
 curl -sS \
   -H "Authorization: Bearer $ID_TOKEN" \
   "$API_URL/notifications" \
-  -o notifications-response.json
+  -o "${SMOKE_TMP_DIR}/notifications-response.json"
 
 export NOTIFICATION_ID=$(
   jq -r --arg lease "$LEASE_ID" \
     '.items[] | select(.lease_id == $lease and .type == "rent_due_soon") | .notification_id' \
-    notifications-response.json | head -n 1
+    "${SMOKE_TMP_DIR}/notifications-response.json" | head -n 1
 )
 
 test -n "$NOTIFICATION_ID"
@@ -306,9 +308,9 @@ curl -sS \
   -X PATCH \
   -H "Authorization: Bearer $ID_TOKEN" \
   "$API_URL/notifications/$NOTIFICATION_ID/read" \
-  -o notification-read-response.json
+  -o "${SMOKE_TMP_DIR}/notification-read-response.json"
 
-jq -e '.read_at != null' notification-read-response.json
+jq -e '.read_at != null' "${SMOKE_TMP_DIR}/notification-read-response.json"
 ```
 
 Expected result:
@@ -342,32 +344,19 @@ captured.
 
 ## Step 11: Clean Up Local Smoke Files
 
-What it does: removes local request and response files that may contain
-synthetic tenant-scoped values.
+What it does: removes the temporary local request and response directory that
+may contain synthetic tenant-scoped values.
 Target service: local WSL/Linux working copy.
 
 ```bash
-rm -f \
-  migration-payload.json \
-  migration-response.json \
-  property-request.json \
-  property-response.json \
-  lease-request.json \
-  lease-response.json \
-  properties-list-response.json \
-  leases-list-response.json \
-  reminder-candidates-response.json \
-  reminder-scan-payload.json \
-  reminder-scan-response.json \
-  notifications-response.json \
-  notification-read-response.json
-
-unset ID_TOKEN TEST_PASSWORD TEST_EMAIL TEST_TENANT
+rm -rf "$SMOKE_TMP_DIR"
+trap - EXIT
+unset ID_TOKEN TEST_PASSWORD TEST_EMAIL TEST_TENANT SMOKE_TMP_DIR
 ```
 
 Expected result:
 
-- Local smoke files are removed.
+- Local smoke files are removed from the temp directory.
 - Sensitive shell variables are cleared from the active shell.
 - No tenant-scoped smoke payloads are accidentally committed.
 

@@ -36,5 +36,20 @@ dist/
 build/
 *.zip
 
+# Local operator smoke artifacts
+/migration-payload.json
+/migration-response.json
+/property-request.json
+/property-response.json
+/lease-request.json
+/lease-response.json
+/properties-list-response.json
+/leases-list-response.json
+/reminder-candidates-response.json
+/reminder-scan-payload.json
+/reminder-scan-response.json
+/notifications-response.json
+/notification-read-response.json
+
 docs/reference/raw/
 .tmp-edge-profile/
