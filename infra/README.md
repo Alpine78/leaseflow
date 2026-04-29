@@ -38,6 +38,8 @@ the real frontend.
 - Terraform creates the hosting bucket/distribution; `aws s3 sync` uploads
   built frontend assets.
 - The existing `demo-client` remains a separate local demo/operator tool.
+- Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
+  and temporary Cognito demo user setup.
 
 ## DB password handling
 
