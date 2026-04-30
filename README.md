@@ -48,7 +48,7 @@ For the real browser frontend slice:
 
 ```bash
 cd frontend
-npm install
+npm ci --ignore-scripts
 npm run dev
 ```
 
@@ -84,8 +84,8 @@ Implemented now:
 
 Planned next:
 
-- Complete hosted frontend smoke validation after the dev Terraform remote
-  state source of truth is fixed.
+- Complete or explicitly gate hosted frontend smoke validation for the
+  `v0.3.0` release checkpoint.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
