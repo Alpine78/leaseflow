@@ -342,6 +342,12 @@ When creating a Pull Request (PR):
   - cost validation: explicitly state if new AWS services were added and justify them
   - remaining risks or TODOs
 
+Default commit/PR handoff:
+
+- After finishing ticket implementation, do not commit automatically unless the user explicitly asks for a commit.
+- Instead, provide a proposed commit message and PR description so the developer can review changes in the editor first.
+- If the user explicitly asks to commit, keep the commit focused and use the PR description requirements above.
+
 ### Review priorities
 
 #### Correctness
