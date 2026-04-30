@@ -23,8 +23,9 @@ local portfolio/demo tool and not the production-like frontend path.
   due-soon reminder display, and notifications list/mark-read UI.
 - The dev Terraform stack now includes an S3 + CloudFront hosting path for the
   static SPA. Asset upload remains a local operator command.
-- Hosted frontend smoke validation is still an operator-run release validation
-  item, not an implemented CI deployment path.
+- Hosted frontend smoke validation has passed from the CloudFront origin, but
+  hosted deployment remains an operator-run path, not an implemented CI
+  deployment path.
 - The dashboard is the authenticated browser app entry point.
 
 ## Chosen Frontend Direction
@@ -86,13 +87,13 @@ Current implemented slice:
 
 Later frontend follow-ups:
 
-- hosted asset upload and browser smoke validation remains an operator-run
-  release check until a CI deploy path is intentionally added
+- CI-based hosted frontend deployment when the project needs deployment
+  automation beyond the current operator-run path
 
 ## Follow-Up Tickets
 
-- Complete or explicitly gate hosted frontend smoke validation for the
-  `v0.3.0` release checkpoint.
+- Add CI-based hosted frontend deployment if deployment automation becomes a
+  release goal.
 
 ## Guardrails
 

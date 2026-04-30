@@ -84,8 +84,7 @@ Implemented now:
 
 Planned next:
 
-- Complete or explicitly gate hosted frontend smoke validation for the
-  `v0.3.0` release checkpoint.
+- Publish the `v0.3.0` frontend MVP release checkpoint.
 - Add delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
