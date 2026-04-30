@@ -81,6 +81,8 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.7"
 
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra
@@ -115,6 +117,8 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.7"
 
       - name: Initialize module
         working-directory: ${{ matrix.module }}
