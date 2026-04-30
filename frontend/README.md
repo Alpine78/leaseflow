@@ -183,8 +183,13 @@ Target filename/service: `frontend/package.json`.
 
 ```bash
 cd frontend
-npm install
+npm ci --ignore-scripts
 ```
+
+`frontend/.npmrc` sets `ignore-scripts=true`, so dependency install lifecycle
+scripts are disabled by default. Explicit project commands such as
+`npm run dev`, `npm run lint`, `npm run test`, and `npm run build` still run
+intentionally.
 
 What it does: starts the local Vite dev server.
 Target filename/service: `frontend/` browser app.
@@ -260,6 +265,14 @@ settings:
 
 ## Checks
 
+What it does: checks installed frontend dependencies for high-severity npm audit
+findings.
+Target filename/service: `frontend/package-lock.json`.
+
+```bash
+npm audit --audit-level=high
+```
+
 What it does: runs the frontend linter.
 Target filename/service: `frontend/`.
 
@@ -289,4 +302,9 @@ npm run build
 - Hosted UI requests `openid email profile` so readable custom attributes can
   be included in the ID token.
 - Session state is stored in `sessionStorage`.
+- Dependency install lifecycle scripts are disabled by default with
+  `ignore-scripts=true`.
+- Review `package-lock.json` diffs when adding npm packages, avoid unnecessary
+  dependencies, and document any deliberate lifecycle-script exception in the
+  PR.
 - Do not commit `.env.local`, tokens, tenant IDs, or any real user data.
