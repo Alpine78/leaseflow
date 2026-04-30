@@ -86,12 +86,13 @@ Current implemented slice:
 
 Later frontend follow-ups:
 
-- hosted asset upload and browser smoke validation before release
+- hosted asset upload and browser smoke validation remains an operator-run
+  release check until a CI deploy path is intentionally added
 
 ## Follow-Up Tickets
 
-- Complete hosted frontend smoke validation after the dev Terraform state
-  source of truth is restored.
+- Complete or explicitly gate hosted frontend smoke validation for the
+  `v0.3.0` release checkpoint.
 
 ## Guardrails
 
