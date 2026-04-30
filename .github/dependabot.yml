@@ -34,9 +34,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 5
-      semver-major-days: 30
-      semver-minor-days: 7
-      semver-patch-days: 3
     labels:
       - type:chore
       - area:infra
@@ -48,9 +45,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 5
-      semver-major-days: 30
-      semver-minor-days: 7
-      semver-patch-days: 3
     labels:
       - type:chore
       - area:ci
