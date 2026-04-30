@@ -157,6 +157,10 @@ Mitigations:
 - Audit events should be stored in PostgreSQL for business and security traceability.
 - Baseline CloudWatch alarms should exist for backend Lambda errors, backend Lambda throttles, HTTP API 5xx responses, and reminder scheduler target failures.
 - Baseline alarms publish to an environment SNS topic; optional dev email delivery starts only after the recipient confirms the SNS subscription email.
+- Future tenant notification email delivery must log only sanitized delivery
+  status, aggregate counts, and non-sensitive failure categories. Do not log
+  recipient email addresses, notification message contents, SMTP credentials,
+  SES credentials, tenant IDs, or raw provider responses.
 
 Examples of auditable events:
 
@@ -213,6 +217,9 @@ The MVP does not require a full incident management platform, but it does requir
 
 - PostgreSQL Row Level Security for defense-in-depth tenant enforcement
 - Cognito MFA rollout for higher-risk roles
+- SES-backed delivery for persisted tenant notifications, with a tenant-scoped
+  recipient model, private connectivity from the backend runtime, and sanitized
+  smoke evidence before release claims.
 - Backup retention review when recovery expectations outgrow the one-day dev window
 - Lightweight alerting for suspicious login or API abuse patterns
 - Periodic dependency and IAM permission review

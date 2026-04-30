@@ -84,8 +84,7 @@ Implemented now:
 
 Planned next:
 
-- Publish the `v0.3.0` frontend MVP release checkpoint.
-- Add delivery behavior on top of persisted notifications
+- Plan and implement SES-backed delivery behavior on top of persisted notifications
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 

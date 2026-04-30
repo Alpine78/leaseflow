@@ -54,3 +54,12 @@
 - NAT Gateway and non-essential managed services.
 - Notification creation from the browser.
 - Custom domain, CI-based frontend deployment, and production readiness.
+
+## Planned Next Notification Phase
+
+- SES-backed email delivery is the preferred future delivery path.
+- The plan for that phase is documented in
+  `docs/notification-email-delivery-mvp.md`.
+- Email delivery remains out of current scope until the recipient model, SES
+  infrastructure, delivery worker, and sanitized smoke evidence are implemented
+  in follow-up tickets.
