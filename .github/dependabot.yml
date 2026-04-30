@@ -4,15 +4,39 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - type:chore
       - area:backend
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    labels:
+      - type:chore
+      - area:frontend
     open-pull-requests-limit: 5
 
   - package-ecosystem: terraform
     directory: /infra/environments/dev
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - type:chore
       - area:infra
@@ -22,6 +46,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - type:chore
       - area:ci
