@@ -12,9 +12,9 @@ def extract_auth_context(event: dict) -> AuthContext:
     if not claims:
         raise AuthError("Missing JWT claims.")
 
-    user_id = claims.get("sub")
-    tenant_id = claims.get("custom:tenant_id")
+    user_id = str(claims.get("sub") or "").strip()
+    tenant_id = str(claims.get("custom:tenant_id") or "").strip()
     if not user_id or not tenant_id:
         raise AuthError("JWT must include 'sub' and 'custom:tenant_id' claims.")
 
-    return AuthContext(user_id=str(user_id), tenant_id=str(tenant_id))
+    return AuthContext(user_id=user_id, tenant_id=tenant_id)

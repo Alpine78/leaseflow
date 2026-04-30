@@ -462,6 +462,30 @@ def test_update_lease_rejects_unsupported_fields() -> None:
     assert db.update_calls == []
 
 
+def test_update_lease_rejects_body_tenant_id() -> None:
+    leases = _leases_module()
+    db = _FakeDb()
+    event = _event_with_auth(tenant_id="tenant-auth", user_id="user-auth")
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Only fields 'resident_name', 'rent_due_day_of_month', "
+            "'start_date', and 'end_date' can be updated."
+        ),
+    ):
+        leases.update_lease(
+            {
+                **event,
+                "body": '{"tenant_id":"tenant-body-should-be-rejected"}',
+            },
+            db,
+            UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        )
+
+    assert db.update_calls == []
+
+
 def test_update_lease_rejects_blank_trimmed_resident_name() -> None:
     leases = _leases_module()
     db = _FakeDb()

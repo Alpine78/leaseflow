@@ -4,6 +4,15 @@ from types import SimpleNamespace
 from app import handler
 
 
+class _PropertiesDb:
+    def __init__(self) -> None:
+        self.list_calls: list[str] = []
+
+    def list_properties(self, tenant_id: str) -> list:
+        self.list_calls.append(tenant_id)
+        return []
+
+
 def test_health_endpoint() -> None:
     event = {
         "rawPath": "/health",
@@ -60,6 +69,71 @@ def test_list_properties_accepts_stage_prefixed_raw_path(monkeypatch) -> None:
 
     assert response["statusCode"] == 200
     assert json.loads(response["body"]) == {"items": []}
+
+
+def test_protected_route_rejects_missing_tenant_claim(monkeypatch) -> None:
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: _PropertiesDb())
+
+    event = {
+        "rawPath": "/dev/properties",
+        "queryStringParameters": {"tenant_id": "tenant-from-client"},
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "GET"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {
+        "error": "JWT must include 'sub' and 'custom:tenant_id' claims."
+    }
+
+
+def test_handler_uses_jwt_tenant_not_query_tenant_for_protected_route(monkeypatch) -> None:
+    fake_db = _PropertiesDb()
+    monkeypatch.setattr(
+        handler,
+        "load_settings",
+        lambda: SimpleNamespace(log_level="INFO"),
+    )
+    monkeypatch.setattr(handler, "Database", lambda settings: fake_db)
+
+    event = {
+        "rawPath": "/dev/properties",
+        "queryStringParameters": {"tenant_id": "tenant-from-client"},
+        "requestContext": {
+            "stage": "dev",
+            "http": {"method": "GET"},
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "sub": "user-123",
+                        "custom:tenant_id": "tenant-from-jwt",
+                    }
+                }
+            },
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"items": []}
+    assert fake_db.list_calls == ["tenant-from-jwt"]
 
 
 def test_list_leases_accepts_stage_prefixed_raw_path(monkeypatch) -> None:

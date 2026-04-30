@@ -122,6 +122,7 @@ def test_mark_notification_read_uses_auth_tenant_and_returns_updated_record() ->
     notification_id = UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
     event = _event_with_auth(tenant_id="tenant-auth", user_id="user-auth")
     event["queryStringParameters"] = {"tenant_id": "tenant-from-client-should-be-ignored"}
+    event["body"] = '{"tenant_id":"tenant-from-body-should-be-ignored"}'
 
     payload = notifications.mark_notification_read(event, db, notification_id)
 
