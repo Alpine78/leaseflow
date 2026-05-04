@@ -68,9 +68,7 @@ class _FakeDb:
         enabled: bool,
         audit_source: str = "api",
     ) -> _Contact:
-        self.enable_calls.append(
-            (tenant_id, actor_user_id, contact_id, enabled, audit_source)
-        )
+        self.enable_calls.append((tenant_id, actor_user_id, contact_id, enabled, audit_source))
         for index, contact in enumerate(self.contacts):
             if contact.tenant_id == tenant_id and contact.contact_id == contact_id:
                 updated = _Contact(
