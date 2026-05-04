@@ -34,6 +34,7 @@ class Database:
         actor_user_id: str,
         email: str,
         enabled: bool = True,
+        audit_source: str = "api",
     ) -> NotificationContact:
         normalized_email = _normalize_notification_contact_email(email)
         if not normalized_email:
@@ -66,7 +67,7 @@ class Database:
                             "notification_contact.create",
                             "notification_contact",
                             contact_row["contact_id"],
-                            json.dumps({"source": "api", "enabled": enabled}),
+                            json.dumps({"source": audit_source, "enabled": enabled}),
                         ),
                     )
         except psycopg.errors.UniqueViolation as exc:
@@ -104,6 +105,7 @@ class Database:
         actor_user_id: str,
         contact_id: UUID,
         enabled: bool,
+        audit_source: str = "api",
     ) -> NotificationContact:
         contact_sql = """
             UPDATE notification_contacts
@@ -132,7 +134,7 @@ class Database:
                         "notification_contact.update",
                         "notification_contact",
                         contact_id,
-                        json.dumps({"source": "api", "enabled": enabled}),
+                        json.dumps({"source": audit_source, "enabled": enabled}),
                     ),
                 )
 

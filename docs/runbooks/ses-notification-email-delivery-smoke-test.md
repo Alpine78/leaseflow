@@ -24,17 +24,13 @@ monitoring, a browser feature, or an automated scheduler.
 - Disable delivery and the SES SMTP VPC endpoint after validation unless more
   dev testing is planned.
 
-## Current Limitation
+## Contact Setup Path
 
 Successful smoke validation requires an enabled `notification_contacts` row for
-the smoke tenant. The current app has the DB model and backend data-access
-methods, but no browser route, public API, or internal operator event for
-creating contacts.
-
-If the controlled dev tenant does not already have an enabled contact row, stop
-this runbook and create a separate follow-up ticket for a safe operator contact
-setup path. Do not work around this by making RDS public or committing local DB
-payloads.
+the smoke tenant. Use the dev/operator script in this runbook to configure that
+contact through the backend internal Lambda event. Do not work around contact
+setup by making RDS public, using direct DB access, or adding browser controls
+for scan or delivery.
 
 ## Preconditions
 
@@ -175,12 +171,23 @@ Expected result:
 
 - `$SMOKE_TENANT` is set locally but not printed into evidence.
 - The tenant has due-soon reminder source data.
-- The tenant already has at least one enabled `notification_contacts` row.
+- The target Cognito username is known locally for contact setup.
 
-Stop condition:
+Configure one enabled notification contact for the smoke tenant:
 
-- If no enabled contact exists for this tenant, stop. Do not mark smoke as
-  passed.
+```bash
+cd /mnt/c/Repos/LeaseFlow
+export CONTACT_COGNITO_USERNAME="$SMOKE_COGNITO_USERNAME"
+export CONTACT_EMAIL="<verified-recipient-email>"
+
+bash scripts/dev/create-notification-contact.sh
+```
+
+Expected result:
+
+- The script prints safe status lines such as `CONTACT_CONFIGURED=true`.
+- No recipient email, Cognito username, tenant ID, contact ID, token, SSM value,
+  DB endpoint, or raw Lambda response is printed into evidence.
 
 ## Step 5: Load Safe Dev Runtime Values
 

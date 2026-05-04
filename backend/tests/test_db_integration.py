@@ -1490,6 +1490,44 @@ def test_create_notification_contact_stores_normalized_email_and_audit_log(
         _cleanup_test_tenant(integration_settings, tenant_id)
 
 
+def test_create_notification_contact_supports_internal_audit_source(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+
+    try:
+        created = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"internal-contact-{uuid4().hex[:8]}@example.com",
+            audit_source="leaseflow.internal",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT actor_user_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_contact.create'
+                """,
+                (tenant_id, created.contact_id),
+            ).fetchall()
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["metadata"] == {
+            "source": "leaseflow.internal",
+            "enabled": True,
+        }
+        assert "email" not in audit_rows[0]["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
 def test_create_notification_contact_rejects_blank_email(
     integration_settings: Settings,
 ) -> None:
