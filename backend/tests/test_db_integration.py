@@ -32,6 +32,7 @@ def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
     with psycopg.connect(settings.db_dsn(), row_factory=dict_row) as conn:
         with conn.transaction():
             conn.execute("DELETE FROM notifications WHERE tenant_id = %s", (tenant_id,))
+            conn.execute("DELETE FROM notification_contacts WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM leases WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM properties WHERE tenant_id = %s", (tenant_id,))
@@ -1427,6 +1428,237 @@ def test_mark_notification_read_rejects_cross_tenant_access(
                 tenant_id=tenant_id,
                 notification_id=notification_id,
             )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_create_notification_contact_stores_normalized_email_and_audit_log(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email="  Contact.One+Rent@Example.COM  ",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            contact_rows = conn.execute(
+                """
+                SELECT contact_id, tenant_id, email, enabled
+                FROM notification_contacts
+                WHERE tenant_id = %s AND contact_id = %s
+                """,
+                (tenant_id, created.contact_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_contact.create'
+                """,
+                (tenant_id, created.contact_id),
+            ).fetchall()
+
+        assert created.tenant_id == tenant_id
+        assert created.email == "contact.one+rent@example.com"
+        assert created.enabled is True
+
+        assert len(contact_rows) == 1
+        assert contact_rows[0]["email"] == "contact.one+rent@example.com"
+        assert contact_rows[0]["enabled"] is True
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["tenant_id"] == tenant_id
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["entity_type"] == "notification_contact"
+        assert audit_rows[0]["entity_id"] == created.contact_id
+        assert audit_rows[0]["metadata"] == {"source": "api", "enabled": True}
+        assert "email" not in audit_rows[0]["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_create_notification_contact_rejects_blank_email(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        with pytest.raises(ValueError, match="Notification contact email must not be empty."):
+            db.create_notification_contact(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                email="   ",
+            )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_list_notification_contacts_returns_requested_tenant_and_filters_enabled(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        enabled = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"enabled-{uuid4().hex[:8]}@example.com",
+        )
+        disabled = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"disabled-{uuid4().hex[:8]}@example.com",
+            enabled=False,
+        )
+        db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=enabled.email,
+        )
+
+        all_contacts = db.list_notification_contacts(tenant_id=tenant_id)
+        enabled_contacts = db.list_notification_contacts(tenant_id=tenant_id, enabled_only=True)
+
+        assert {item.contact_id for item in all_contacts} == {
+            enabled.contact_id,
+            disabled.contact_id,
+        }
+        assert {item.email for item in all_contacts} == {enabled.email, disabled.email}
+        assert [item.contact_id for item in enabled_contacts] == [enabled.contact_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_create_notification_contact_rejects_duplicate_email_case_insensitive_per_tenant(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email="Recipient.Dupe@Example.COM",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Notification contact already exists for tenant.",
+        ):
+            db.create_notification_contact(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                email=" recipient.dupe@example.com ",
+            )
+
+        other_created = db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email="recipient.dupe@example.com",
+        )
+
+        assert created.email == "recipient.dupe@example.com"
+        assert other_created.email == "recipient.dupe@example.com"
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_set_notification_contact_enabled_updates_tenant_contact_and_audit_log(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        created = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"toggle-{uuid4().hex[:8]}@example.com",
+        )
+
+        updated = db.set_notification_contact_enabled(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=created.contact_id,
+            enabled=False,
+        )
+        enabled_contacts = db.list_notification_contacts(tenant_id=tenant_id, enabled_only=True)
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_contact.update'
+                """,
+                (tenant_id, created.contact_id),
+            ).fetchall()
+
+        assert updated.contact_id == created.contact_id
+        assert updated.enabled is False
+        assert enabled_contacts == []
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["tenant_id"] == tenant_id
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["entity_type"] == "notification_contact"
+        assert audit_rows[0]["entity_id"] == created.contact_id
+        assert audit_rows[0]["metadata"] == {"source": "api", "enabled": False}
+        assert "email" not in audit_rows[0]["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_set_notification_contact_enabled_rejects_cross_tenant_access(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        other_contact = db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"cross-tenant-{uuid4().hex[:8]}@example.com",
+        )
+
+        with pytest.raises(LookupError, match="Notification contact not found for tenant."):
+            db.set_notification_contact_enabled(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                contact_id=other_contact.contact_id,
+                enabled=False,
+            )
+
+        other_contacts = db.list_notification_contacts(tenant_id=other_tenant_id)
+
+        assert len(other_contacts) == 1
+        assert other_contacts[0].contact_id == other_contact.contact_id
+        assert other_contacts[0].enabled is True
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)
