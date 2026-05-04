@@ -30,6 +30,9 @@ SES deliverability.
 - SMTP credentials are operator-created outside Terraform and referenced by SSM
   SecureString parameter names. Terraform does not create or output SMTP
   credential values.
+- Dev smoke validation is documented in
+  `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, but successful
+  evidence remains operator-run and must be captured separately.
 
 ## Chosen Direction
 
@@ -138,7 +141,8 @@ The implementation should be split into separate reviewable tickets:
   Terraform foundation.
 - Implement idempotent notification email delivery. Completed as a
   disabled-by-default internal backend worker.
-- Add SES delivery smoke runbook and sanitized evidence.
+- Add SES delivery smoke runbook and sanitized evidence. Runbook added;
+  successful evidence remains operator-run.
 
 ## References
 

@@ -69,6 +69,8 @@ is explicitly enabled and operator-provided SES SMTP credentials are configured.
 - External SMTP delivery is not exactly-once: if Lambda crashes after SES
   accepts a message but before `sent_at` is persisted, a later retry can send
   another email for the same notification/contact pair.
+- Use `docs/runbooks/ses-notification-email-delivery-smoke-test.md` for the
+  operator-run SES SMTP delivery smoke flow and sanitized evidence rules.
 
 ## Scripted first-time dev setup
 
