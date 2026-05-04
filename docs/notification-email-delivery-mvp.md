@@ -20,8 +20,10 @@ current MVP.
   external delivery.
 - A tenant-scoped notification contact model exists as the future recipient
   source.
-- There is no email delivery status, SES infrastructure, or email-sending code
-  yet.
+- A dev SES infrastructure foundation exists with an optional sender identity
+  and opt-in SES SMTP VPC endpoint.
+- There is no email delivery status, SMTP credential storage, or email-sending
+  code yet.
 
 ## Chosen Direction
 
@@ -90,14 +92,17 @@ Delivery must be idempotent and retry-safe:
 - Do not add a NAT Gateway by default.
 - The current backend Lambda runs in private subnets. SES delivery therefore
   needs an explicit private connectivity design before implementation.
-- The preferred private path to evaluate first is an SES SMTP interface VPC
-  endpoint with credentials stored outside the repository.
+- The preferred private path is an SES SMTP interface VPC endpoint. Terraform
+  includes this endpoint as disabled-by-default dev infrastructure so it does
+  not create idle endpoint cost before delivery code exists.
 - If a future implementation chooses a different SES access path, the PR must
   justify the network, security, and cost tradeoff explicitly.
 - SES requires verified sending identities. In the SES sandbox, recipient
   restrictions also apply unless using supported simulator addresses.
 - Sending limits, sandbox removal, bounce/complaint handling, and domain
   verification are rollout concerns, not browser features.
+- SMTP credentials are not created yet. A future delivery implementation must
+  define credential storage, rotation, and least-privilege access explicitly.
 
 ## Security And Tenant Isolation
 
@@ -117,8 +122,9 @@ Delivery must be idempotent and retry-safe:
 
 The implementation should be split into separate reviewable tickets:
 
-- Add notification recipient contact model.
-- Add SES dev infrastructure foundation.
+- Add notification recipient contact model. Completed.
+- Add SES dev infrastructure foundation. Completed as disabled-by-default
+  Terraform foundation.
 - Implement idempotent notification email delivery.
 - Add SES delivery smoke runbook and sanitized evidence.
 

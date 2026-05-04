@@ -98,6 +98,19 @@ module "lambda_backend" {
   tags                     = local.common_tags
 }
 
+module "ses_email_foundation" {
+  source = "../../modules/ses_email_foundation"
+
+  name_prefix               = local.name_prefix
+  aws_region                = var.aws_region
+  sender_email              = var.ses_sender_email
+  smtp_vpc_endpoint_enabled = var.ses_smtp_vpc_endpoint_enabled
+  vpc_id                    = module.network.vpc_id
+  private_subnet_ids        = module.network.private_subnet_ids
+  lambda_security_group_id  = module.network.lambda_security_group_id
+  tags                      = local.common_tags
+}
+
 module "reminder_scheduler" {
   source = "../../modules/reminder_scheduler"
 

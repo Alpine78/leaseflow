@@ -77,3 +77,23 @@ output "baseline_alarm_email_subscription_configured" {
   description = "Whether a dev baseline alarm email subscription is configured."
   value       = length(aws_sns_topic_subscription.baseline_alarm_email) > 0
 }
+
+output "ses_sender_identity_configured" {
+  description = "Whether an optional SES sender identity is configured for future dev email delivery validation."
+  value       = module.ses_email_foundation.sender_identity_configured
+}
+
+output "ses_smtp_vpc_endpoint_enabled" {
+  description = "Whether the optional SES SMTP interface VPC endpoint is configured."
+  value       = module.ses_email_foundation.smtp_vpc_endpoint_enabled
+}
+
+output "ses_smtp_vpc_endpoint_id" {
+  description = "SES SMTP interface VPC endpoint ID when enabled."
+  value       = module.ses_email_foundation.smtp_vpc_endpoint_id
+}
+
+output "ses_smtp_vpc_endpoint_security_group_id" {
+  description = "SES SMTP interface VPC endpoint security group ID when enabled."
+  value       = module.ses_email_foundation.smtp_vpc_endpoint_security_group_id
+}

@@ -122,6 +122,23 @@ variable "baseline_alarm_notification_email" {
   default     = ""
 }
 
+variable "ses_sender_email" {
+  type        = string
+  description = "Optional SES sender email identity for future dev notification email delivery validation."
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.ses_sender_email) == "" || can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", trimspace(var.ses_sender_email)))
+    error_message = "ses_sender_email must be empty or a single email-like value."
+  }
+}
+
+variable "ses_smtp_vpc_endpoint_enabled" {
+  type        = bool
+  description = "Whether to create the SES SMTP interface VPC endpoint for private-subnet email delivery validation."
+  default     = false
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."

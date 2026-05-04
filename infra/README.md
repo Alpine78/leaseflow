@@ -10,6 +10,7 @@ Terraform code is split into reusable modules and environment composition.
 - `modules/cognito`: user pool, app client, and managed Hosted UI domain.
 - `modules/frontend_hosting`: private S3 bucket and CloudFront distribution for the SPA.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
+- `modules/ses_email_foundation`: optional SES sender identity and SES SMTP PrivateLink foundation.
 - `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
 - `environments/dev`: MVP dev environment composition.
@@ -41,6 +42,27 @@ the real frontend.
 - Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
   and temporary Cognito demo user setup.
 
+## SES email foundation
+
+The dev stack includes a Terraform foundation for future notification email
+delivery, but it does not send email yet.
+
+- `ses_sender_email` defaults to empty. Set it only when you are ready to
+  verify that sender address in Amazon SES.
+- If set, the sender address exists in local `terraform.tfvars` and Terraform
+  state. Do not commit it or paste it into evidence.
+- `ses_smtp_vpc_endpoint_enabled` defaults to `false`. Keep it disabled until
+  backend email delivery code exists and you intentionally want to test private
+  SMTP connectivity.
+- The SES SMTP endpoint uses AWS PrivateLink when enabled, so Lambda can reach
+  SES from private subnets without adding a NAT Gateway.
+- The endpoint is billable while provisioned because interface VPC endpoint
+  hourly and data-processing charges apply.
+- SES sandbox and verified-identity limits still apply. In sandbox mode, test
+  sending is constrained until identities and production access are handled.
+- Terraform does not create SMTP credentials, IAM users, delivery status tables,
+  browser delivery actions, or production email readiness in this slice.
+
 ## Scripted first-time dev setup
 
 The WSL/Linux operator scripts under `scripts/dev/` package the manual dev
@@ -66,7 +88,8 @@ cp infra/environments/dev/terraform.tfvars.example infra/environments/dev/terraf
 
 Edit `infra/environments/dev/terraform.tfvars` before applying. At minimum,
 replace `cognito_hosted_ui_domain_prefix` with a globally unique Cognito managed
-domain prefix.
+domain prefix. Leave SES variables at their defaults unless you are explicitly
+validating future email delivery infrastructure.
 
 What it does: builds the Linux-compatible backend Lambda artifact.
 Target filename/service: `dist/leaseflow-backend.zip`.
@@ -345,6 +368,7 @@ CI runs Terraform checks without AWS credentials.
   - `20 GB` allocated storage
   - automated backups
 - API Gateway, Lambda, Cognito, SSM Parameter Store, and CloudWatch are still real AWS resources, but for light learning use they are expected to be smaller cost contributors than RDS.
+- The optional SES SMTP interface VPC endpoint is disabled by default. If enabled, it adds PrivateLink endpoint hourly and data-processing charges.
 
 ## Apply and destroy rule
 

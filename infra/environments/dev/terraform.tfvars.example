@@ -24,3 +24,12 @@ frontend_hosted_origin = ""
 
 # Optional. AWS sends a confirmation email before SNS starts delivery.
 baseline_alarm_notification_email = ""
+
+# Optional. Creates an SES sender identity verification request for future
+# notification email delivery validation. Keep empty unless you are ready to
+# verify this address in SES.
+ses_sender_email = ""
+
+# Optional. Creates a billable SES SMTP interface VPC endpoint for private
+# subnet delivery validation. Keep false until email delivery code exists.
+ses_smtp_vpc_endpoint_enabled = false
