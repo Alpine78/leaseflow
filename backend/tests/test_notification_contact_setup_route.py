@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
@@ -111,7 +111,7 @@ def _contact(
         tenant_id=tenant_id,
         email=email,
         enabled=enabled,
-        created_at=datetime(2026, 5, 4, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 4, tzinfo=UTC),
     )
 
 
