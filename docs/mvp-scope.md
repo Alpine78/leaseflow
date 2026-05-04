@@ -17,6 +17,8 @@
 - Cognito JWT-based authentication and tenant claim extraction.
 - PostgreSQL persistence for domain data and audit logs.
 - Internal reminder scan flow for creating due-soon notification records.
+- Disabled-by-default internal notification email delivery worker for persisted
+  due reminder notifications.
 - EventBridge Scheduler for daily invocation of the internal reminder scan.
 - Infrastructure provisioning with Terraform modules.
 - Dev-focused deployment architecture on AWS Lambda + API Gateway.
@@ -34,6 +36,9 @@
 - `leases` table for tenant-owned rental agreements linked to properties.
 - lease contract data includes explicit `rent_due_day_of_month` for future reminder workflows.
 - `notifications` table for tenant-owned reminder records, including nullable `read_at` for read acknowledgment.
+- `notification_contacts` table for tenant-owned email recipients.
+- `notification_email_deliveries` table for tenant-scoped delivery status,
+  retry attempts, sanitized failure codes, and sent timestamps.
 - `audit_logs` table for basic traceability of critical actions.
 - `tenant_id` enforced in all tenant-owned rows.
 
@@ -45,21 +50,23 @@
 - Structured logs in CloudWatch.
 - Least-privilege baseline IAM.
 - Scheduled reminder jobs invoke Lambda through an internal event payload, not a public endpoint.
+- Notification email delivery is triggered only by an internal Lambda event and
+  remains disabled until SES identity, SMTP credentials, and smoke validation
+  are ready.
 
 ## Out of Scope (Current Phase)
 
 - Complex role hierarchy beyond one landlord user per tenant.
-- Email delivery and external notification integrations.
+- Production email readiness and external notification integrations.
 - PostgreSQL Row-Level Security (future hardening).
 - NAT Gateway and non-essential managed services.
 - Notification creation from the browser.
+- Browser-triggered reminder scans or email delivery.
 - Custom domain, CI-based frontend deployment, and production readiness.
 
 ## Planned Next Notification Phase
 
-- SES-backed email delivery is the preferred future delivery path.
-- The plan for that phase is documented in
+- SES-backed email delivery internals are documented in
   `docs/notification-email-delivery-mvp.md`.
-- Email delivery remains out of current scope until the recipient model, SES
-  infrastructure, delivery worker, and sanitized smoke evidence are implemented
-  in follow-up tickets.
+- Remaining follow-up work is SES delivery smoke evidence, production-access
+  readiness, and any future contact-management API/UI.

@@ -84,6 +84,54 @@ variable "db_password_ssm_param" {
   description = "SSM parameter path for DB password. Example: /leaseflow/dev/db/password"
 }
 
+variable "notification_email_delivery_enabled" {
+  type        = bool
+  description = "Whether internal notification email delivery is enabled."
+  default     = false
+}
+
+variable "notification_email_sender" {
+  type        = string
+  description = "SES-verified sender email address for notification email delivery."
+  default     = ""
+}
+
+variable "notification_email_smtp_host" {
+  type        = string
+  description = "SES SMTP endpoint host used by internal notification email delivery."
+  default     = ""
+}
+
+variable "notification_email_smtp_port" {
+  type        = number
+  description = "SES SMTP endpoint port used by internal notification email delivery."
+  default     = 587
+}
+
+variable "notification_email_smtp_username_ssm_param" {
+  type        = string
+  description = "SSM SecureString parameter name containing the SES SMTP username."
+  default     = ""
+}
+
+variable "notification_email_smtp_password_ssm_param" {
+  type        = string
+  description = "SSM SecureString parameter name containing the SES SMTP password."
+  default     = ""
+}
+
+variable "notification_email_batch_size" {
+  type        = number
+  description = "Maximum notification email deliveries attempted per internal invocation."
+  default     = 25
+}
+
+variable "notification_email_max_attempts" {
+  type        = number
+  description = "Maximum SMTP attempts per notification email delivery row."
+  default     = 3
+}
+
 variable "tags" {
   type        = map(string)
   description = "Common tags."

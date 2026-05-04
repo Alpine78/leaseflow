@@ -31,5 +31,20 @@ baseline_alarm_notification_email = ""
 ses_sender_email = ""
 
 # Optional. Creates a billable SES SMTP interface VPC endpoint for private
-# subnet delivery validation. Keep false until email delivery code exists.
+# subnet delivery validation. Keep false until you are ready to test delivery.
 ses_smtp_vpc_endpoint_enabled = false
+
+# Internal notification email delivery is disabled by default. Before enabling,
+# verify the SES identity, create SES SMTP credentials manually, store them in
+# SSM SecureString parameters, and enable the SES SMTP VPC endpoint above.
+notification_email_delivery_enabled = false
+notification_email_sender           = ""
+notification_email_smtp_host        = ""
+notification_email_smtp_port        = 587
+
+# Parameter names only. Do not put SMTP credential values in Terraform files.
+notification_email_smtp_username_ssm_param = ""
+notification_email_smtp_password_ssm_param = ""
+
+notification_email_batch_size   = 25
+notification_email_max_attempts = 3

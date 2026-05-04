@@ -17,6 +17,8 @@ from app.models import (
     LeaseReminderCandidate,
     Notification,
     NotificationContact,
+    NotificationEmailDelivery,
+    NotificationEmailDeliveryPreparationResult,
     Property,
     ReminderScanResult,
 )
@@ -135,6 +137,201 @@ class Database:
                 )
 
         return self._row_to_notification_contact(contact_row)
+
+    def create_missing_notification_email_deliveries(
+        self,
+        tenant_id: str | None,
+    ) -> NotificationEmailDeliveryPreparationResult:
+        select_sql = """
+            SELECT n.tenant_id, n.notification_id, c.contact_id
+            FROM notifications n
+            JOIN notification_contacts c
+              ON c.tenant_id = n.tenant_id
+             AND c.enabled = true
+            WHERE n.type = 'rent_due_soon'
+        """
+        params: tuple[object, ...]
+        if tenant_id:
+            select_sql += """
+              AND n.tenant_id = %s
+            """
+            params = (tenant_id,)
+        else:
+            params = ()
+
+        insert_sql = """
+            INSERT INTO notification_email_deliveries (
+                tenant_id,
+                notification_id,
+                contact_id
+            ) VALUES (%s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_notification_email_deliveries_tenant_notification_contact
+            DO NOTHING
+            RETURNING delivery_id
+        """
+
+        created_count = 0
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                candidates = conn.execute(select_sql, params).fetchall()
+                for candidate in candidates:
+                    created_row = conn.execute(
+                        insert_sql,
+                        (
+                            candidate["tenant_id"],
+                            candidate["notification_id"],
+                            candidate["contact_id"],
+                        ),
+                    ).fetchone()
+                    if created_row:
+                        created_count += 1
+
+        return NotificationEmailDeliveryPreparationResult(
+            tenant_id=tenant_id,
+            candidate_count=len(candidates),
+            created_count=created_count,
+            duplicate_count=len(candidates) - created_count,
+        )
+
+    def list_pending_notification_email_deliveries(
+        self,
+        tenant_id: str | None,
+        max_attempts: int,
+        limit: int,
+    ) -> list[NotificationEmailDelivery]:
+        sql = """
+            SELECT
+                d.delivery_id,
+                d.tenant_id,
+                d.notification_id,
+                d.contact_id,
+                c.email AS recipient_email,
+                n.title AS subject,
+                n.message AS body,
+                n.due_date,
+                d.status,
+                d.attempt_count,
+                d.last_attempt_at,
+                d.sent_at,
+                d.last_error_code,
+                d.created_at,
+                d.updated_at
+            FROM notification_email_deliveries d
+            JOIN notifications n
+              ON n.tenant_id = d.tenant_id
+             AND n.notification_id = d.notification_id
+            JOIN notification_contacts c
+              ON c.tenant_id = d.tenant_id
+             AND c.contact_id = d.contact_id
+            WHERE d.status != 'sent'
+              AND d.attempt_count < %s
+              AND c.enabled = true
+              AND n.type = 'rent_due_soon'
+        """
+        params: tuple[object, ...]
+        if tenant_id:
+            sql += """
+              AND d.tenant_id = %s
+            """
+            params = (max_attempts, tenant_id, limit)
+        else:
+            params = (max_attempts, limit)
+        sql += """
+            ORDER BY d.created_at ASC, d.delivery_id ASC
+            LIMIT %s
+        """
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._row_to_notification_email_delivery(row) for row in rows]
+
+    def mark_notification_email_delivery_sent(
+        self,
+        tenant_id: str,
+        delivery_id: UUID,
+    ) -> None:
+        delivery_sql = """
+            UPDATE notification_email_deliveries
+            SET
+                status = 'sent',
+                attempt_count = attempt_count + 1,
+                last_attempt_at = now(),
+                sent_at = COALESCE(sent_at, now()),
+                last_error_code = NULL,
+                updated_at = now()
+            WHERE tenant_id = %s
+              AND delivery_id = %s
+              AND status != 'sent'
+            RETURNING delivery_id
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                row = conn.execute(delivery_sql, (tenant_id, delivery_id)).fetchone()
+                if row is None:
+                    raise LookupError("Notification email delivery not found for tenant.")
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        "leaseflow.internal",
+                        "notification_email_delivery.sent",
+                        "notification_email_delivery",
+                        delivery_id,
+                        json.dumps({"source": "internal", "status": "sent"}),
+                    ),
+                )
+
+    def mark_notification_email_delivery_failed(
+        self,
+        tenant_id: str,
+        delivery_id: UUID,
+        error_code: str,
+    ) -> None:
+        delivery_sql = """
+            UPDATE notification_email_deliveries
+            SET
+                status = 'failed',
+                attempt_count = attempt_count + 1,
+                last_attempt_at = now(),
+                last_error_code = %s,
+                updated_at = now()
+            WHERE tenant_id = %s
+              AND delivery_id = %s
+              AND status != 'sent'
+            RETURNING delivery_id
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                row = conn.execute(delivery_sql, (error_code, tenant_id, delivery_id)).fetchone()
+                if row is None:
+                    raise LookupError("Notification email delivery not found for tenant.")
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        "leaseflow.internal",
+                        "notification_email_delivery.failed",
+                        "notification_email_delivery",
+                        delivery_id,
+                        json.dumps(
+                            {
+                                "source": "internal",
+                                "status": "failed",
+                                "error_code": error_code,
+                            }
+                        ),
+                    ),
+                )
 
     def create_due_lease_reminder_notifications(
         self,
@@ -663,6 +860,26 @@ class Database:
             email=row["email"],
             enabled=row["enabled"],
             created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def _row_to_notification_email_delivery(row: dict[str, Any]) -> NotificationEmailDelivery:
+        return NotificationEmailDelivery(
+            delivery_id=row["delivery_id"],
+            tenant_id=row["tenant_id"],
+            notification_id=row["notification_id"],
+            contact_id=row["contact_id"],
+            recipient_email=row["recipient_email"],
+            subject=row["subject"],
+            body=row["body"],
+            due_date=row["due_date"],
+            status=row["status"],
+            attempt_count=row["attempt_count"],
+            last_attempt_at=row["last_attempt_at"],
+            sent_at=row["sent_at"],
+            last_error_code=row["last_error_code"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
 

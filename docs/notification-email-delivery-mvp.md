@@ -2,13 +2,14 @@
 
 ## Purpose
 
-This document defines the next notification phase after the current persisted
-notification UI. The goal is to add production-like email delivery later without
-weakening tenant isolation, exposing internal jobs to the browser, or adding
-uncontrolled AWS cost.
+This document defines the notification email delivery direction after the
+persisted notification UI. The goal is to add production-like email delivery
+without weakening tenant isolation, exposing internal jobs to the browser, or
+adding uncontrolled AWS cost.
 
-This is a planning document only. Email delivery is not implemented in the
-current MVP.
+Email delivery now exists as a disabled-by-default internal backend worker. It
+is not a browser feature, automatic schedule, production mail setup, or proof of
+SES deliverability.
 
 ## Current State
 
@@ -22,15 +23,20 @@ current MVP.
   source.
 - A dev SES infrastructure foundation exists with an optional sender identity
   and opt-in SES SMTP VPC endpoint.
-- There is no email delivery status, SMTP credential storage, or email-sending
-  code yet.
+- A tenant-scoped `notification_email_deliveries` table tracks delivery status,
+  attempts, sanitized failure codes, and sent timestamps.
+- The backend has an internal `deliver_notification_emails` event handler that
+  can send due reminder notifications through SES SMTP when explicitly enabled.
+- SMTP credentials are operator-created outside Terraform and referenced by SSM
+  SecureString parameter names. Terraform does not create or output SMTP
+  credential values.
 
 ## Chosen Direction
 
-- Amazon SES is the preferred future email delivery service for LeaseFlow.
+- Amazon SES is the preferred email delivery service for LeaseFlow.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
-- Recipient addresses will come from a LeaseFlow-owned tenant-scoped contact
+- Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
   model, not from Cognito user enumeration.
 - Email delivery remains a backend/internal workflow. No browser route should
   trigger scan or delivery execution.
@@ -38,9 +44,9 @@ current MVP.
   mail, billing mail, digest preferences, unsubscribe management, and external
   notification providers are out of scope for the first delivery slice.
 
-## Future Data Model
+## Data Model
 
-The first implementation added a tenant-scoped notification contact model with:
+The recipient model is `notification_contacts`:
 
 - `tenant_id`
 - contact identifier
@@ -51,9 +57,7 @@ The first implementation added a tenant-scoped notification contact model with:
 Disabled contacts remain stored but must be excluded from delivery candidate
 selection.
 
-Future work should add delivery tracking for notification email attempts. This
-can be a dedicated delivery table or explicit delivery columns, but it must
-support:
+Delivery tracking is stored in `notification_email_deliveries` and supports:
 
 - notification relationship
 - tenant scope
@@ -64,19 +68,21 @@ support:
 - sent timestamp
 - non-sensitive failure category or code
 
-Do not store SES raw responses, SMTP transcripts, message bodies, or secrets in
-delivery rows.
+Do not store SES raw responses, SMTP transcripts, recipient email addresses,
+message bodies, or secrets in delivery rows.
 
 ## Delivery Flow
 
-The target flow for the later implementation is:
+The implemented backend flow is:
 
 1. EventBridge Scheduler invokes the internal due reminder scan.
 2. The scan creates missing persisted due reminder `notifications` rows.
-3. A backend-only delivery worker selects unsent eligible notification/contact
-   pairs.
-4. The worker sends email through SES.
-5. The worker records delivery success or a sanitized failure category.
+3. An operator or future internal automation invokes the backend-only
+   `deliver_notification_emails` event.
+4. The delivery worker creates missing delivery rows for enabled contacts.
+5. The worker selects unsent eligible notification/contact pairs.
+6. The worker sends email through SES SMTP when delivery is enabled.
+7. The worker records delivery success or a sanitized failure category.
 
 Delivery must be idempotent and retry-safe:
 
@@ -86,6 +92,8 @@ Delivery must be idempotent and retry-safe:
 - failed attempts may be retried with a bounded attempt limit.
 - read acknowledgement in the browser must not be treated as proof that email
   was delivered.
+- exactly-once external SMTP delivery cannot be guaranteed if Lambda crashes
+  after SES accepts a message but before `sent_at` is persisted.
 
 ## Infrastructure And Cost Boundaries
 
@@ -101,8 +109,11 @@ Delivery must be idempotent and retry-safe:
   restrictions also apply unless using supported simulator addresses.
 - Sending limits, sandbox removal, bounce/complaint handling, and domain
   verification are rollout concerns, not browser features.
-- SMTP credentials are not created yet. A future delivery implementation must
-  define credential storage, rotation, and least-privilege access explicitly.
+- SMTP credentials are operator-provided through SSM SecureString parameter
+  names. Terraform grants Lambda read/decrypt access only to the configured
+  parameter ARNs.
+- Delivery remains disabled by default until SES identity, sandbox restrictions,
+  SMTP credentials, endpoint connectivity, and smoke validation are ready.
 
 ## Security And Tenant Isolation
 
@@ -125,7 +136,8 @@ The implementation should be split into separate reviewable tickets:
 - Add notification recipient contact model. Completed.
 - Add SES dev infrastructure foundation. Completed as disabled-by-default
   Terraform foundation.
-- Implement idempotent notification email delivery.
+- Implement idempotent notification email delivery. Completed as a
+  disabled-by-default internal backend worker.
 - Add SES delivery smoke runbook and sanitized evidence.
 
 ## References

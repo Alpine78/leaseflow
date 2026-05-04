@@ -84,18 +84,26 @@ module "cognito" {
 module "lambda_backend" {
   source = "../../modules/lambda_backend"
 
-  name_prefix              = local.name_prefix
-  function_name            = "${local.name_prefix}-backend"
-  package_file             = var.lambda_package_file
-  private_subnet_ids       = module.network.private_subnet_ids
-  lambda_security_group_id = module.network.lambda_security_group_id
-  environment              = var.environment
-  db_host                  = module.rds_postgres.endpoint
-  db_port                  = module.rds_postgres.port
-  db_name                  = var.db_name
-  db_user                  = var.db_username
-  db_password_ssm_param    = var.db_password_ssm_param
-  tags                     = local.common_tags
+  name_prefix                                = local.name_prefix
+  function_name                              = "${local.name_prefix}-backend"
+  package_file                               = var.lambda_package_file
+  private_subnet_ids                         = module.network.private_subnet_ids
+  lambda_security_group_id                   = module.network.lambda_security_group_id
+  environment                                = var.environment
+  db_host                                    = module.rds_postgres.endpoint
+  db_port                                    = module.rds_postgres.port
+  db_name                                    = var.db_name
+  db_user                                    = var.db_username
+  db_password_ssm_param                      = var.db_password_ssm_param
+  notification_email_delivery_enabled        = var.notification_email_delivery_enabled
+  notification_email_sender                  = var.notification_email_sender
+  notification_email_smtp_host               = var.notification_email_smtp_host
+  notification_email_smtp_port               = var.notification_email_smtp_port
+  notification_email_smtp_username_ssm_param = var.notification_email_smtp_username_ssm_param
+  notification_email_smtp_password_ssm_param = var.notification_email_smtp_password_ssm_param
+  notification_email_batch_size              = var.notification_email_batch_size
+  notification_email_max_attempts            = var.notification_email_max_attempts
+  tags                                       = local.common_tags
 }
 
 module "ses_email_foundation" {

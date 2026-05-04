@@ -20,6 +20,14 @@ def _settings(**overrides: object) -> config.Settings:
         "db_user": "leaseflow_app",
         "db_password": "direct-password",
         "db_password_ssm_param": "/leaseflow/dev/db/password",
+        "notification_email_delivery_enabled": False,
+        "notification_email_sender": "",
+        "notification_email_smtp_host": "email-smtp.eu-north-1.amazonaws.com",
+        "notification_email_smtp_port": 587,
+        "notification_email_smtp_username_ssm_param": None,
+        "notification_email_smtp_password_ssm_param": None,
+        "notification_email_batch_size": 25,
+        "notification_email_max_attempts": 3,
     }
     values.update(overrides)
     return config.Settings(**values)
@@ -112,6 +120,84 @@ def test_load_settings_reads_ssm_password_configuration_from_environment(
         assert settings.db_user == "leaseflow_app"
         assert settings.db_password is None
         assert settings.db_password_ssm_param == "/leaseflow/dev/db/password"
+        assert settings.notification_email_delivery_enabled is False
+        assert settings.notification_email_sender == ""
+        assert settings.notification_email_smtp_host == "email-smtp.eu-west-1.amazonaws.com"
+        assert settings.notification_email_smtp_port == 587
+        assert settings.notification_email_smtp_username_ssm_param is None
+        assert settings.notification_email_smtp_password_ssm_param is None
+        assert settings.notification_email_batch_size == 25
+        assert settings.notification_email_max_attempts == 3
+
+
+def test_load_settings_reads_notification_email_delivery_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _fresh_load_settings_cache():
+        _set_valid_load_settings_env(monkeypatch)
+        monkeypatch.setenv("NOTIFICATION_EMAIL_DELIVERY_ENABLED", "true")
+        monkeypatch.setenv("NOTIFICATION_EMAIL_SENDER", "sender@example.test")
+        monkeypatch.setenv("NOTIFICATION_EMAIL_SMTP_HOST", "smtp.example.test")
+        monkeypatch.setenv("NOTIFICATION_EMAIL_SMTP_PORT", "2525")
+        monkeypatch.setenv(
+            "NOTIFICATION_EMAIL_SMTP_USERNAME_SSM_PARAM",
+            "/leaseflow/dev/notification-email/smtp/username",
+        )
+        monkeypatch.setenv(
+            "NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM",
+            "/leaseflow/dev/notification-email/smtp/password",
+        )
+        monkeypatch.setenv("NOTIFICATION_EMAIL_BATCH_SIZE", "10")
+        monkeypatch.setenv("NOTIFICATION_EMAIL_MAX_ATTEMPTS", "5")
+
+        settings = config.load_settings()
+
+        assert settings.notification_email_delivery_enabled is True
+        assert settings.notification_email_sender == "sender@example.test"
+        assert settings.notification_email_smtp_host == "smtp.example.test"
+        assert settings.notification_email_smtp_port == 2525
+        assert (
+            settings.notification_email_smtp_username_ssm_param
+            == "/leaseflow/dev/notification-email/smtp/username"
+        )
+        assert (
+            settings.notification_email_smtp_password_ssm_param
+            == "/leaseflow/dev/notification-email/smtp/password"
+        )
+        assert settings.notification_email_batch_size == 10
+        assert settings.notification_email_max_attempts == 5
+
+
+def test_resolve_notification_email_smtp_credentials_loads_username_and_password_from_ssm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ssm_client = Mock()
+    ssm_client.get_parameter.side_effect = [
+        {"Parameter": {"Value": "smtp-user"}},
+        {"Parameter": {"Value": "smtp-password"}},
+    ]
+    boto_client = Mock(return_value=ssm_client)
+    monkeypatch.setattr(config.boto3, "client", boto_client)
+
+    settings = _settings(
+        aws_region="eu-north-1",
+        notification_email_smtp_username_ssm_param="/leaseflow/dev/smtp/username",
+        notification_email_smtp_password_ssm_param="/leaseflow/dev/smtp/password",
+    )
+
+    assert settings.resolve_notification_email_smtp_credentials() == (
+        "smtp-user",
+        "smtp-password",
+    )
+    boto_client.assert_called_once_with("ssm", region_name="eu-north-1")
+    assert ssm_client.get_parameter.call_args_list[0].kwargs == {
+        "Name": "/leaseflow/dev/smtp/username",
+        "WithDecryption": True,
+    }
+    assert ssm_client.get_parameter.call_args_list[1].kwargs == {
+        "Name": "/leaseflow/dev/smtp/password",
+        "WithDecryption": True,
+    }
 
 
 @pytest.mark.parametrize("missing_name", ["DB_HOST", "DB_NAME", "DB_USER"])
