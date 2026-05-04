@@ -14,6 +14,7 @@ from app.routes.db_migrations import run_db_migrations
 from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases, update_lease
+from app.routes.notification_email_delivery import deliver_notification_emails
 from app.routes.notifications import list_notifications, mark_notification_read
 from app.routes.properties import create_property, list_properties, update_property
 from app.routes.reminder_scans import scan_due_lease_reminders
@@ -119,6 +120,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             and event.get("detail-type") == "scan_due_lease_reminders"
         ):
             return _response(HTTPStatus.OK, scan_due_lease_reminders(event, db))
+        if (
+            event.get("source") == "leaseflow.internal"
+            and event.get("detail-type") == "deliver_notification_emails"
+        ):
+            return _response(HTTPStatus.OK, deliver_notification_emails(event, db, settings))
         if method == "PATCH" and notification_id is not None:
             return _response(HTTPStatus.OK, mark_notification_read(event, db, notification_id))
         if method == "PATCH" and property_id is not None:

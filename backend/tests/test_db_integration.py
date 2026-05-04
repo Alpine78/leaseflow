@@ -31,6 +31,10 @@ def integration_settings() -> Settings:
 def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
     with psycopg.connect(settings.db_dsn(), row_factory=dict_row) as conn:
         with conn.transaction():
+            conn.execute(
+                "DELETE FROM notification_email_deliveries WHERE tenant_id = %s",
+                (tenant_id,),
+            )
             conn.execute("DELETE FROM notifications WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM notification_contacts WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
@@ -1805,6 +1809,262 @@ def test_create_due_lease_reminder_notifications_scans_all_tenants_when_unscoped
             (tenant_id, lease_record.lease_id, "rent_due_soon", date(2026, 4, 5)),
             (other_tenant_id, other_lease.lease_id, "rent_due_soon", date(2026, 4, 6)),
         }
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_notification_email_delivery_rows_are_idempotent_and_retry_safe(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Delivery HQ {uuid4().hex[:8]}",
+            address=f"Delivery Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Delivery User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"delivery-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+
+        first_prepare = db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        second_prepare = db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+
+        assert first_prepare.tenant_id == tenant_id
+        assert first_prepare.candidate_count == 1
+        assert first_prepare.created_count == 1
+        assert first_prepare.duplicate_count == 0
+        assert second_prepare.candidate_count == 1
+        assert second_prepare.created_count == 0
+        assert second_prepare.duplicate_count == 1
+        assert len(pending) == 1
+        assert pending[0].tenant_id == tenant_id
+        assert pending[0].contact_id == contact.contact_id
+        assert pending[0].recipient_email == contact.email
+        assert pending[0].subject == "Rent due soon"
+        assert pending[0].body == "Rent is due in 2 days."
+
+        db.mark_notification_email_delivery_sent(
+            tenant_id=tenant_id,
+            delivery_id=pending[0].delivery_id,
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT action, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_email_delivery.sent'
+                """,
+                (tenant_id, pending[0].delivery_id),
+            ).fetchall()
+
+        assert (
+            db.list_pending_notification_email_deliveries(
+                tenant_id=tenant_id,
+                max_attempts=3,
+                limit=10,
+            )
+            == []
+        )
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["metadata"] == {"source": "internal", "status": "sent"}
+        assert "email" not in audit_rows[0]["metadata"]
+        assert "message" not in audit_rows[0]["metadata"]
+        assert "body" not in audit_rows[0]["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_notification_email_delivery_excludes_disabled_contacts_and_stops_after_max_attempts(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Delivery Retry HQ {uuid4().hex[:8]}",
+            address=f"Delivery Retry Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Delivery Retry User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        enabled_contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"enabled-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"disabled-{uuid4().hex[:8]}@example.com",
+            enabled=False,
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=2,
+            limit=10,
+        )
+
+        assert len(pending) == 1
+        assert pending[0].contact_id == enabled_contact.contact_id
+
+        db.mark_notification_email_delivery_failed(
+            tenant_id=tenant_id,
+            delivery_id=pending[0].delivery_id,
+            error_code="smtp_transient_error",
+        )
+        retry_pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=2,
+            limit=10,
+        )
+        assert [item.delivery_id for item in retry_pending] == [pending[0].delivery_id]
+
+        db.mark_notification_email_delivery_failed(
+            tenant_id=tenant_id,
+            delivery_id=pending[0].delivery_id,
+            error_code="smtp_transient_error",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_email_delivery.failed'
+                ORDER BY created_at ASC
+                """,
+                (tenant_id, pending[0].delivery_id),
+            ).fetchall()
+
+        assert (
+            db.list_pending_notification_email_deliveries(
+                tenant_id=tenant_id,
+                max_attempts=2,
+                limit=10,
+            )
+            == []
+        )
+        assert [row["metadata"] for row in audit_rows] == [
+            {
+                "source": "internal",
+                "status": "failed",
+                "error_code": "smtp_transient_error",
+            },
+            {
+                "source": "internal",
+                "status": "failed",
+                "error_code": "smtp_transient_error",
+            },
+        ]
+        for row in audit_rows:
+            assert "email" not in row["metadata"]
+            assert "message" not in row["metadata"]
+            assert "body" not in row["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_notification_email_delivery_rejects_cross_tenant_status_update(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Cross Delivery HQ {uuid4().hex[:8]}",
+            address=f"Cross Delivery Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Cross Delivery User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"cross-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=other_tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_missing_notification_email_deliveries(tenant_id=other_tenant_id)
+        other_delivery = db.list_pending_notification_email_deliveries(
+            tenant_id=other_tenant_id,
+            max_attempts=3,
+            limit=10,
+        )[0]
+
+        with pytest.raises(LookupError, match="Notification email delivery not found for tenant."):
+            db.mark_notification_email_delivery_sent(
+                tenant_id=tenant_id,
+                delivery_id=other_delivery.delivery_id,
+            )
+
+        with pytest.raises(LookupError, match="Notification email delivery not found for tenant."):
+            db.mark_notification_email_delivery_failed(
+                tenant_id=tenant_id,
+                delivery_id=other_delivery.delivery_id,
+                error_code="smtp_transient_error",
+            )
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)

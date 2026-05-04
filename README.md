@@ -73,6 +73,8 @@ Implemented now:
 - Tenant-scoped PostgreSQL access
 - Explicit `rent_due_day_of_month` on leases to prepare future reminder flows
 - Notification persistence for due-soon rent reminders
+- Tenant-scoped notification contacts and disabled-by-default internal SES SMTP
+  delivery worker for persisted due reminder notifications
 - Audit logging for property and lease writes
 - Alembic migrations for property, lease, and notification tables
 - Terraform modules for network, RDS, Cognito, Lambda, and API Gateway
@@ -84,7 +86,7 @@ Implemented now:
 
 Planned next:
 
-- Plan and implement SES-backed delivery behavior on top of persisted notifications
+- Add SES delivery smoke runbook/evidence and production-readiness guardrails
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 

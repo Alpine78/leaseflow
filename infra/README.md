@@ -44,24 +44,31 @@ the real frontend.
 
 ## SES email foundation
 
-The dev stack includes a Terraform foundation for future notification email
-delivery, but it does not send email yet.
+The dev stack includes a Terraform foundation and disabled-by-default backend
+worker for notification email delivery. It does not send email unless delivery
+is explicitly enabled and operator-provided SES SMTP credentials are configured.
 
 - `ses_sender_email` defaults to empty. Set it only when you are ready to
   verify that sender address in Amazon SES.
 - If set, the sender address exists in local `terraform.tfvars` and Terraform
   state. Do not commit it or paste it into evidence.
 - `ses_smtp_vpc_endpoint_enabled` defaults to `false`. Keep it disabled until
-  backend email delivery code exists and you intentionally want to test private
-  SMTP connectivity.
+  you intentionally want to test private SMTP connectivity.
 - The SES SMTP endpoint uses AWS PrivateLink when enabled, so Lambda can reach
   SES from private subnets without adding a NAT Gateway.
 - The endpoint is billable while provisioned because interface VPC endpoint
   hourly and data-processing charges apply.
 - SES sandbox and verified-identity limits still apply. In sandbox mode, test
   sending is constrained until identities and production access are handled.
-- Terraform does not create SMTP credentials, IAM users, delivery status tables,
-  browser delivery actions, or production email readiness in this slice.
+- `notification_email_delivery_enabled` defaults to `false`.
+- SMTP username/password values are created outside Terraform and stored in SSM
+  SecureString parameters. Terraform receives only parameter names and grants
+  Lambda least-privilege read/decrypt access to those configured parameters.
+- Terraform does not create SMTP credentials, IAM users, browser delivery
+  actions, automatic delivery schedules, or production email readiness.
+- External SMTP delivery is not exactly-once: if Lambda crashes after SES
+  accepts a message but before `sent_at` is persisted, a later retry can send
+  another email for the same notification/contact pair.
 
 ## Scripted first-time dev setup
 
@@ -88,8 +95,8 @@ cp infra/environments/dev/terraform.tfvars.example infra/environments/dev/terraf
 
 Edit `infra/environments/dev/terraform.tfvars` before applying. At minimum,
 replace `cognito_hosted_ui_domain_prefix` with a globally unique Cognito managed
-domain prefix. Leave SES variables at their defaults unless you are explicitly
-validating future email delivery infrastructure.
+domain prefix. Leave SES and notification email delivery variables at their
+defaults unless you are explicitly validating SMTP delivery.
 
 What it does: builds the Linux-compatible backend Lambda artifact.
 Target filename/service: `dist/leaseflow-backend.zip`.

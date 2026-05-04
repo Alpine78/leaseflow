@@ -6,45 +6,82 @@ data "aws_region" "current" {}
 
 locals {
   db_password_parameter_arn = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
-  lambda_policy = {
-    Version = "2012-10-17"
-    Statement = [
+  notification_email_smtp_parameter_names = compact([
+    var.notification_email_smtp_username_ssm_param,
+    var.notification_email_smtp_password_ssm_param
+  ])
+  notification_email_smtp_parameter_arns = [
+    for name in local.notification_email_smtp_parameter_names :
+    "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${name}"
+  ]
+  notification_email_smtp_host = (
+    trimspace(var.notification_email_smtp_host) == ""
+    ? "email-smtp.${data.aws_region.current.region}.amazonaws.com"
+    : trimspace(var.notification_email_smtp_host)
+  )
+  notification_email_smtp_policy_statements = [
+    for statement in [
       {
-        Sid      = "CloudWatchLogs"
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "${aws_cloudwatch_log_group.this.arn}:*"
-      },
-      {
-        Sid    = "VpcNetworkingForLambda"
-        Effect = "Allow"
-        Action = [
-          "ec2:CreateNetworkInterface",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DeleteNetworkInterface",
-          "ec2:AssignPrivateIpAddresses",
-          "ec2:UnassignPrivateIpAddresses"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "ReadDbPasswordParameter"
+        Sid      = "ReadNotificationEmailSmtpCredentialParameters"
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
-        Resource = local.db_password_parameter_arn
+        Resource = local.notification_email_smtp_parameter_arns
       },
       {
-        Sid      = "DecryptDbPasswordParameter"
+        Sid      = "DecryptNotificationEmailSmtpCredentialParameters"
         Effect   = "Allow"
         Action   = ["kms:Decrypt"]
         Resource = data.aws_kms_alias.ssm.target_key_arn
         Condition = {
-          StringEquals = {
-            "kms:EncryptionContext:PARAMETER_ARN" = local.db_password_parameter_arn
+          "ForAnyValue:StringEquals" = {
+            "kms:EncryptionContext:PARAMETER_ARN" = local.notification_email_smtp_parameter_arns
           }
         }
       }
-    ]
+    ] : statement if length(local.notification_email_smtp_parameter_arns) > 0
+  ]
+  lambda_policy = {
+    Version = "2012-10-17"
+    Statement = concat(
+      [
+        {
+          Sid      = "CloudWatchLogs"
+          Effect   = "Allow"
+          Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+          Resource = "${aws_cloudwatch_log_group.this.arn}:*"
+        },
+        {
+          Sid    = "VpcNetworkingForLambda"
+          Effect = "Allow"
+          Action = [
+            "ec2:CreateNetworkInterface",
+            "ec2:DescribeNetworkInterfaces",
+            "ec2:DeleteNetworkInterface",
+            "ec2:AssignPrivateIpAddresses",
+            "ec2:UnassignPrivateIpAddresses"
+          ]
+          Resource = "*"
+        },
+        {
+          Sid      = "ReadDbPasswordParameter"
+          Effect   = "Allow"
+          Action   = ["ssm:GetParameter"]
+          Resource = local.db_password_parameter_arn
+        },
+        {
+          Sid      = "DecryptDbPasswordParameter"
+          Effect   = "Allow"
+          Action   = ["kms:Decrypt"]
+          Resource = data.aws_kms_alias.ssm.target_key_arn
+          Condition = {
+            StringEquals = {
+              "kms:EncryptionContext:PARAMETER_ARN" = local.db_password_parameter_arn
+            }
+          }
+        }
+      ],
+      local.notification_email_smtp_policy_statements
+    )
   }
 }
 
@@ -106,6 +143,15 @@ resource "aws_lambda_function" "this" {
       DB_NAME               = var.db_name
       DB_USER               = var.db_user
       DB_PASSWORD_SSM_PARAM = var.db_password_ssm_param
+
+      NOTIFICATION_EMAIL_DELIVERY_ENABLED        = tostring(var.notification_email_delivery_enabled)
+      NOTIFICATION_EMAIL_SENDER                  = var.notification_email_sender
+      NOTIFICATION_EMAIL_SMTP_HOST               = local.notification_email_smtp_host
+      NOTIFICATION_EMAIL_SMTP_PORT               = tostring(var.notification_email_smtp_port)
+      NOTIFICATION_EMAIL_SMTP_USERNAME_SSM_PARAM = var.notification_email_smtp_username_ssm_param
+      NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM = var.notification_email_smtp_password_ssm_param
+      NOTIFICATION_EMAIL_BATCH_SIZE              = tostring(var.notification_email_batch_size)
+      NOTIFICATION_EMAIL_MAX_ATTEMPTS            = tostring(var.notification_email_max_attempts)
     }
   }
 

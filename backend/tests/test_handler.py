@@ -669,6 +669,40 @@ def test_scan_due_lease_reminders_accepts_internal_event(monkeypatch) -> None:
     }
 
 
+def test_deliver_notification_emails_accepts_internal_event(monkeypatch) -> None:
+    settings = SimpleNamespace(log_level="INFO")
+    db = object()
+    monkeypatch.setattr(handler, "load_settings", lambda: settings)
+    monkeypatch.setattr(handler, "Database", lambda loaded_settings: db)
+    monkeypatch.setattr(
+        handler,
+        "deliver_notification_emails",
+        lambda event, database, loaded_settings: {
+            "enabled": True,
+            "attempted_count": 1,
+            "sent_count": 1,
+            "failed_count": 0,
+        },
+        raising=False,
+    )
+
+    event = {
+        "source": "leaseflow.internal",
+        "detail-type": "deliver_notification_emails",
+        "detail": {"tenant_id": "tenant-123"},
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "enabled": True,
+        "attempted_count": 1,
+        "sent_count": 1,
+        "failed_count": 0,
+    }
+
+
 def test_run_db_migrations_accepts_internal_event(monkeypatch) -> None:
     monkeypatch.setattr(
         handler,

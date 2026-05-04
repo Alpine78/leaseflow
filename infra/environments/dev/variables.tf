@@ -139,6 +139,59 @@ variable "ses_smtp_vpc_endpoint_enabled" {
   default     = false
 }
 
+variable "notification_email_delivery_enabled" {
+  type        = bool
+  description = "Whether internal notification email delivery is enabled for the dev Lambda."
+  default     = false
+}
+
+variable "notification_email_sender" {
+  type        = string
+  description = "SES-verified sender email address used by internal notification email delivery."
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.notification_email_sender) == "" || can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", trimspace(var.notification_email_sender)))
+    error_message = "notification_email_sender must be empty or a single email-like value."
+  }
+}
+
+variable "notification_email_smtp_host" {
+  type        = string
+  description = "SES SMTP endpoint host used by internal notification email delivery. Empty uses the regional default."
+  default     = ""
+}
+
+variable "notification_email_smtp_port" {
+  type        = number
+  description = "SES SMTP endpoint port used by internal notification email delivery."
+  default     = 587
+}
+
+variable "notification_email_smtp_username_ssm_param" {
+  type        = string
+  description = "SSM SecureString parameter name containing the operator-created SES SMTP username."
+  default     = ""
+}
+
+variable "notification_email_smtp_password_ssm_param" {
+  type        = string
+  description = "SSM SecureString parameter name containing the operator-created SES SMTP password."
+  default     = ""
+}
+
+variable "notification_email_batch_size" {
+  type        = number
+  description = "Maximum notification email deliveries attempted per internal invocation."
+  default     = 25
+}
+
+variable "notification_email_max_attempts" {
+  type        = number
+  description = "Maximum SMTP attempts per notification email delivery row."
+  default     = 3
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."
