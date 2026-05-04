@@ -110,6 +110,7 @@ jobs:
           - infra/modules/lambda_backend
           - infra/modules/network
           - infra/modules/reminder_scheduler
+          - infra/modules/ses_email_foundation
 
     steps:
       - name: Check out repository
