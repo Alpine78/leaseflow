@@ -18,8 +18,10 @@ current MVP.
 - The browser frontend can list notifications and mark them read.
 - The browser cannot create notifications, run the reminder scan, or trigger
   external delivery.
-- There is no recipient/contact data model, email delivery status, SES
-  infrastructure, or email-sending code yet.
+- A tenant-scoped notification contact model exists as the future recipient
+  source.
+- There is no email delivery status, SES infrastructure, or email-sending code
+  yet.
 
 ## Chosen Direction
 
@@ -36,8 +38,7 @@ current MVP.
 
 ## Future Data Model
 
-The first implementation should add a tenant-scoped notification contact model.
-At minimum, it should capture:
+The first implementation added a tenant-scoped notification contact model with:
 
 - `tenant_id`
 - contact identifier
@@ -45,9 +46,12 @@ At minimum, it should capture:
 - enabled/disabled state
 - creation timestamp
 
-The first implementation should also add delivery tracking for notification
-email attempts. This can be a dedicated delivery table or explicit delivery
-columns, but it must support:
+Disabled contacts remain stored but must be excluded from delivery candidate
+selection.
+
+Future work should add delivery tracking for notification email attempts. This
+can be a dedicated delivery table or explicit delivery columns, but it must
+support:
 
 - notification relationship
 - tenant scope

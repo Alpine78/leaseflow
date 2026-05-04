@@ -12,12 +12,129 @@ from psycopg.rows import dict_row
 from psycopg.sql import SQL, Identifier
 
 from app.config import Settings
-from app.models import Lease, LeaseReminderCandidate, Notification, Property, ReminderScanResult
+from app.models import (
+    Lease,
+    LeaseReminderCandidate,
+    Notification,
+    NotificationContact,
+    Property,
+    ReminderScanResult,
+)
 
 
 class Database:
     def __init__(self, settings: Settings) -> None:
         self._dsn = settings.db_dsn()
+
+    def create_notification_contact(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        email: str,
+        enabled: bool = True,
+    ) -> NotificationContact:
+        normalized_email = _normalize_notification_contact_email(email)
+        if not normalized_email:
+            raise ValueError("Notification contact email must not be empty.")
+
+        contact_sql = """
+            INSERT INTO notification_contacts (tenant_id, email, enabled)
+            VALUES (%s, %s, %s)
+            RETURNING contact_id, tenant_id, email, enabled, created_at
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        try:
+            with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+                with conn.transaction():
+                    contact_row = conn.execute(
+                        contact_sql,
+                        (tenant_id, normalized_email, enabled),
+                    ).fetchone()
+                    if not contact_row:
+                        raise RuntimeError("Failed to create notification contact.")
+                    conn.execute(
+                        audit_sql,
+                        (
+                            tenant_id,
+                            actor_user_id,
+                            "notification_contact.create",
+                            "notification_contact",
+                            contact_row["contact_id"],
+                            json.dumps({"source": "api", "enabled": enabled}),
+                        ),
+                    )
+        except psycopg.errors.UniqueViolation as exc:
+            raise ValueError("Notification contact already exists for tenant.") from exc
+
+        return self._row_to_notification_contact(contact_row)
+
+    def list_notification_contacts(
+        self,
+        tenant_id: str,
+        enabled_only: bool = False,
+    ) -> list[NotificationContact]:
+        sql = """
+            SELECT contact_id, tenant_id, email, enabled, created_at
+            FROM notification_contacts
+            WHERE tenant_id = %s
+        """
+        params: tuple[object, ...]
+        if enabled_only:
+            sql += """
+              AND enabled = true
+            """
+        sql += """
+            ORDER BY created_at DESC, contact_id DESC
+        """
+        params = (tenant_id,)
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._row_to_notification_contact(row) for row in rows]
+
+    def set_notification_contact_enabled(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        contact_id: UUID,
+        enabled: bool,
+    ) -> NotificationContact:
+        contact_sql = """
+            UPDATE notification_contacts
+            SET enabled = %s
+            WHERE tenant_id = %s AND contact_id = %s
+            RETURNING contact_id, tenant_id, email, enabled, created_at
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                contact_row = conn.execute(
+                    contact_sql,
+                    (enabled, tenant_id, contact_id),
+                ).fetchone()
+                if contact_row is None:
+                    raise LookupError("Notification contact not found for tenant.")
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "notification_contact.update",
+                        "notification_contact",
+                        contact_id,
+                        json.dumps({"source": "api", "enabled": enabled}),
+                    ),
+                )
+
+        return self._row_to_notification_contact(contact_row)
 
     def create_due_lease_reminder_notifications(
         self,
@@ -538,6 +655,16 @@ class Database:
             read_at=row["read_at"],
         )
 
+    @staticmethod
+    def _row_to_notification_contact(row: dict[str, Any]) -> NotificationContact:
+        return NotificationContact(
+            contact_id=row["contact_id"],
+            tenant_id=row["tenant_id"],
+            email=row["email"],
+            enabled=row["enabled"],
+            created_at=row["created_at"],
+        )
+
 
 def notification_to_dict(item: Notification) -> dict[str, Any]:
     return {
@@ -627,3 +754,7 @@ def _rent_due_soon_message(days_until_due: int) -> str:
     if days_until_due == 1:
         return "Rent is due in 1 day."
     return f"Rent is due in {days_until_due} days."
+
+
+def _normalize_notification_contact_email(email: str) -> str:
+    return email.strip().lower()

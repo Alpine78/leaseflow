@@ -61,6 +61,15 @@ class Notification:
 
 
 @dataclass(slots=True)
+class NotificationContact:
+    contact_id: UUID
+    tenant_id: str
+    email: str
+    enabled: bool
+    created_at: datetime
+
+
+@dataclass(slots=True)
 class ReminderScanResult:
     tenant_id: str | None
     as_of_date: date
