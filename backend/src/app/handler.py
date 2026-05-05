@@ -15,6 +15,11 @@ from app.routes.health import get_health
 from app.routes.lease_reminders import list_due_lease_reminders
 from app.routes.leases import create_lease, list_leases, update_lease
 from app.routes.notification_contact_setup import configure_notification_contact
+from app.routes.notification_contacts import (
+    create_notification_contact,
+    list_notification_contacts,
+    update_notification_contact,
+)
 from app.routes.notification_email_delivery import deliver_notification_emails
 from app.routes.notifications import list_notifications, mark_notification_read
 from app.routes.properties import create_property, list_properties, update_property
@@ -23,6 +28,7 @@ from app.routes.reminder_scans import scan_due_lease_reminders
 setup_logging()
 LOGGER = get_logger(__name__)
 _LEASE_PATH = re.compile(r"^/leases/(?P<lease_id>[^/]+)$")
+_NOTIFICATION_CONTACT_PATH = re.compile(r"^/notification-contacts/(?P<contact_id>[^/]+)$")
 _NOTIFICATION_READ_PATH = re.compile(r"^/notifications/(?P<notification_id>[^/]+)/read$")
 _PROPERTY_PATH = re.compile(r"^/properties/(?P<property_id>[^/]+)$")
 
@@ -70,6 +76,17 @@ def _notification_read_id(path: str) -> UUID | None:
         raise ValueError("Invalid notification ID.") from exc
 
 
+def _notification_contact_id(path: str) -> UUID | None:
+    match = _NOTIFICATION_CONTACT_PATH.fullmatch(path)
+    if match is None:
+        return None
+
+    try:
+        return UUID(match.group("contact_id"))
+    except ValueError as exc:
+        raise ValueError("Invalid notification contact ID.") from exc
+
+
 def _property_id(path: str) -> UUID | None:
     match = _PROPERTY_PATH.fullmatch(path)
     if match is None:
@@ -106,6 +123,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return _response(HTTPStatus.OK, get_health())
 
         lease_id = _lease_id(path) if method == "PATCH" else None
+        notification_contact_id = _notification_contact_id(path) if method == "PATCH" else None
         notification_id = _notification_read_id(path) if method == "PATCH" else None
         property_id = _property_id(path) if method == "PATCH" else None
         settings = load_settings()
@@ -131,6 +149,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             and event.get("detail-type") == "configure_notification_contact"
         ):
             return _response(HTTPStatus.OK, configure_notification_contact(event, db))
+        if method == "PATCH" and notification_contact_id is not None:
+            return _response(
+                HTTPStatus.OK,
+                update_notification_contact(event, db, notification_contact_id),
+            )
         if method == "PATCH" and notification_id is not None:
             return _response(HTTPStatus.OK, mark_notification_read(event, db, notification_id))
         if method == "PATCH" and property_id is not None:
@@ -139,6 +162,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             return _response(HTTPStatus.OK, update_lease(event, db, lease_id))
         if method == "GET" and path == "/notifications":
             return _response(HTTPStatus.OK, list_notifications(event, db))
+        if method == "GET" and path == "/notification-contacts":
+            return _response(HTTPStatus.OK, list_notification_contacts(event, db))
+        if method == "POST" and path == "/notification-contacts":
+            return _response(
+                HTTPStatus.CREATED,
+                create_notification_contact(event, db, _json_body(event)),
+            )
         if method == "GET" and path == "/lease-reminders/due-soon":
             return _response(HTTPStatus.OK, list_due_lease_reminders(event, db))
         if method == "GET" and path == "/leases":

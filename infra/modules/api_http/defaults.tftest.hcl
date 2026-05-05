@@ -41,6 +41,21 @@ run "exposes_backend_route_parity" {
   }
 
   assert {
+    condition     = aws_apigatewayv2_route.list_notification_contacts.route_key == "GET /notification-contacts"
+    error_message = "API module should expose GET /notification-contacts."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.create_notification_contact.route_key == "POST /notification-contacts"
+    error_message = "API module should expose POST /notification-contacts."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.update_notification_contact.route_key == "PATCH /notification-contacts/{contact_id}"
+    error_message = "API module should expose PATCH /notification-contacts/{contact_id}."
+  }
+
+  assert {
     condition     = aws_apigatewayv2_route.mark_notification_read.route_key == "PATCH /notifications/{notification_id}/read"
     error_message = "API module should expose PATCH /notifications/{notification_id}/read."
   }
@@ -63,6 +78,21 @@ run "exposes_backend_route_parity" {
   assert {
     condition     = aws_apigatewayv2_route.list_notifications.authorization_type == "JWT"
     error_message = "Notification route should require JWT auth."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.list_notification_contacts.authorization_type == "JWT"
+    error_message = "Notification contact list route should require JWT auth."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.create_notification_contact.authorization_type == "JWT"
+    error_message = "Notification contact create route should require JWT auth."
+  }
+
+  assert {
+    condition     = aws_apigatewayv2_route.update_notification_contact.authorization_type == "JWT"
+    error_message = "Notification contact update route should require JWT auth."
   }
 
   assert {
