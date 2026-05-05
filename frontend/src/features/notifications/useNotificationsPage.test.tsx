@@ -38,17 +38,29 @@ function createAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContext
 function renderHookConsumer() {
   function HookConsumer() {
     const {
+      createNotificationContact,
       dueReminders,
       error,
       isLoading,
       markNotificationRead,
+      notificationContacts,
       notifications,
       readingNotificationId,
+      updatingContactId,
+      updateNotificationContact,
     } = useNotificationsPageState();
 
     async function handleMarkRead(notificationId: string) {
       try {
         await markNotificationRead(notificationId);
+      } catch {
+        // Page submit/click handlers consume hook rethrows after error state is set.
+      }
+    }
+
+    async function handleToggleContact(contactId: string, enabled: boolean) {
+      try {
+        await updateNotificationContact(contactId, { enabled });
       } catch {
         // Page submit/click handlers consume hook rethrows after error state is set.
       }
@@ -62,6 +74,7 @@ function renderHookConsumer() {
       <div>
         {error ? <p>{error}</p> : null}
         <p>Reminders: {dueReminders.length}</p>
+        <p>Contacts: {notificationContacts.length}</p>
         {notifications.map((notification) => (
           <article key={notification.notification_id}>
             <h2>{notification.title}</h2>
@@ -75,6 +88,25 @@ function renderHookConsumer() {
             </button>
           </article>
         ))}
+        {notificationContacts.map((contact) => (
+          <article key={contact.contact_id}>
+            <h2>{contact.email}</h2>
+            <p>{contact.enabled ? "Enabled" : "Disabled"}</p>
+            <button
+              disabled={updatingContactId === contact.contact_id}
+              onClick={() => void handleToggleContact(contact.contact_id, !contact.enabled)}
+              type="button"
+            >
+              Toggle contact
+            </button>
+          </article>
+        ))}
+        <button
+          onClick={() => void createNotificationContact({ email: "new@example.test" })}
+          type="button"
+        >
+          Add contact
+        </button>
       </div>
     );
   }
@@ -130,6 +162,7 @@ describe("useNotificationsPageState", () => {
           ],
         })
       )
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
       .mockResolvedValueOnce(
         jsonResponse({
           created_at: "2026-04-28T10:00:00Z",
@@ -172,6 +205,7 @@ describe("useNotificationsPageState", () => {
           ],
         })
       )
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
       .mockResolvedValueOnce(jsonResponse({ error: "Could not mark read." }, 500));
 
     renderHookConsumer();
@@ -183,5 +217,118 @@ describe("useNotificationsPageState", () => {
       expect(screen.getByText("Could not mark read.")).toBeInTheDocument();
     });
     expect(screen.getByText("Unread")).toBeInTheDocument();
+  });
+
+  it("loads notification contacts with reminders and notifications", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              contact_id: "contact-1",
+              created_at: "2026-05-05T10:00:00Z",
+              email: "ops@example.test",
+              enabled: true,
+            },
+          ],
+        })
+      );
+
+    renderHookConsumer();
+
+    await screen.findByText("ops@example.test");
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+  });
+
+  it("adds a created notification contact to local state", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          contact_id: "contact-2",
+          created_at: "2026-05-05T11:00:00Z",
+          email: "new@example.test",
+          enabled: true,
+        })
+      );
+
+    renderHookConsumer();
+
+    await screen.findByText("Contacts: 0");
+    fireEvent.click(screen.getByRole("button", { name: "Add contact" }));
+
+    await screen.findByText("new@example.test");
+    const [, init] = fetchMock.mock.calls[3];
+    expect(JSON.parse(String(init.body))).toEqual({ email: "new@example.test" });
+    expect(JSON.parse(String(init.body))).not.toHaveProperty("tenant_id");
+  });
+
+  it("updates local notification contact state after enablement changes", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              contact_id: "contact-1",
+              created_at: "2026-05-05T10:00:00Z",
+              email: "ops@example.test",
+              enabled: true,
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          contact_id: "contact-1",
+          created_at: "2026-05-05T10:00:00Z",
+          email: "ops@example.test",
+          enabled: false,
+        })
+      );
+
+    renderHookConsumer();
+
+    await screen.findByText("ops@example.test");
+    fireEvent.click(screen.getByRole("button", { name: "Toggle contact" }));
+
+    await screen.findByText("Disabled");
+    const [, init] = fetchMock.mock.calls[3];
+    expect(JSON.parse(String(init.body))).toEqual({ enabled: false });
+    expect(JSON.parse(String(init.body))).not.toHaveProperty("tenant_id");
+  });
+
+  it("preserves visible contact state and exposes an error when update fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              contact_id: "contact-1",
+              created_at: "2026-05-05T10:00:00Z",
+              email: "ops@example.test",
+              enabled: true,
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "Could not update notification contact." }, 500)
+      );
+
+    renderHookConsumer();
+
+    await screen.findByText("ops@example.test");
+    fireEvent.click(screen.getByRole("button", { name: "Toggle contact" }));
+
+    await screen.findByText("Could not update notification contact.");
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
   });
 });

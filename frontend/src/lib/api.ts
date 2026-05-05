@@ -40,6 +40,13 @@ export type NotificationItem = {
   type: string;
 };
 
+export type NotificationContact = {
+  contact_id: string;
+  created_at: string;
+  email: string;
+  enabled: boolean;
+};
+
 export type CreatePropertyInput = {
   address: string;
   name: string;
@@ -60,6 +67,14 @@ export type UpdateLeaseInput = {
   rent_due_day_of_month: number;
   resident_name: string;
   start_date: string;
+};
+
+export type CreateNotificationContactInput = {
+  email: string;
+};
+
+export type UpdateNotificationContactInput = {
+  enabled: boolean;
 };
 
 type ListResponse<T> = {
@@ -133,6 +148,12 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
         method: "POST",
       });
     },
+    createNotificationContact(input: CreateNotificationContactInput) {
+      return request<NotificationContact>("/notification-contacts", {
+        body: JSON.stringify(input),
+        method: "POST",
+      });
+    },
     createProperty(input: CreatePropertyInput) {
       return request<Property>("/properties", {
         body: JSON.stringify(input),
@@ -147,6 +168,9 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
     },
     listNotifications() {
       return request<ListResponse<NotificationItem>>("/notifications");
+    },
+    listNotificationContacts() {
+      return request<ListResponse<NotificationContact>>("/notification-contacts");
     },
     listProperties() {
       return request<ListResponse<Property>>("/properties");
@@ -164,6 +188,15 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
         body: JSON.stringify(input),
         method: "PATCH",
       });
+    },
+    updateNotificationContact(contactId: string, input: UpdateNotificationContactInput) {
+      return request<NotificationContact>(
+        `/notification-contacts/${encodeURIComponent(contactId)}`,
+        {
+          body: JSON.stringify(input),
+          method: "PATCH",
+        }
+      );
     },
     updateProperty(propertyId: string, input: UpdatePropertyInput) {
       return request<Property>(`/properties/${encodeURIComponent(propertyId)}`, {

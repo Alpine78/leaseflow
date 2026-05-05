@@ -14,6 +14,9 @@
   - `GET /lease-reminders/due-soon`
   - `GET /notifications`
   - `PATCH /notifications/{notification_id}/read`
+  - `GET /notification-contacts`
+  - `POST /notification-contacts`
+  - `PATCH /notification-contacts/{contact_id}`
 - Cognito JWT-based authentication and tenant claim extraction.
 - PostgreSQL persistence for domain data and audit logs.
 - Internal reminder scan flow for creating due-soon notification records.
@@ -25,7 +28,7 @@
 - Real browser frontend slice under `frontend/` with Cognito Hosted UI
   sign-in/sign-out, protected routes, dashboard summaries,
   properties/leases list/create/update flows, due-soon reminder display, and
-  notifications list/mark-read UI.
+  notifications list/mark-read plus notification contact management UI.
 - Terraform-managed static SPA hosting path with private S3 and CloudFront.
   Hosted asset upload and browser smoke validation remain operator-run release
   validation, not a CI deploy pipeline.
@@ -69,4 +72,4 @@
 - SES-backed email delivery internals are documented in
   `docs/notification-email-delivery-mvp.md`.
 - Remaining follow-up work is SES delivery smoke evidence, production-access
-  readiness, and any future contact-management API/UI.
+  readiness, and future delivery operations hardening.

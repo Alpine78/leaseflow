@@ -92,6 +92,30 @@ resource "aws_apigatewayv2_route" "list_notifications" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "list_notification_contacts" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /notification-contacts"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "create_notification_contact" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "POST /notification-contacts"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "update_notification_contact" {
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "PATCH /notification-contacts/{contact_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.backend.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
 resource "aws_apigatewayv2_route" "mark_notification_read" {
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = "PATCH /notifications/{notification_id}/read"

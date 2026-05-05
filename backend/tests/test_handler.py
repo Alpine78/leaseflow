@@ -740,6 +740,81 @@ def test_configure_notification_contact_accepts_internal_event(monkeypatch) -> N
     }
 
 
+def test_list_notification_contacts_accepts_protected_route(monkeypatch) -> None:
+    settings = SimpleNamespace(log_level="INFO")
+    db = object()
+    monkeypatch.setattr(handler, "load_settings", lambda: settings)
+    monkeypatch.setattr(handler, "Database", lambda loaded_settings: db)
+    monkeypatch.setattr(
+        handler,
+        "list_notification_contacts",
+        lambda event, database: {"items": [{"contact_id": "contact-1"}]},
+        raising=False,
+    )
+
+    event = {
+        "requestContext": {"http": {"method": "GET"}},
+        "rawPath": "/notification-contacts",
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"items": [{"contact_id": "contact-1"}]}
+
+
+def test_create_notification_contact_accepts_protected_route(monkeypatch) -> None:
+    settings = SimpleNamespace(log_level="INFO")
+    db = object()
+    monkeypatch.setattr(handler, "load_settings", lambda: settings)
+    monkeypatch.setattr(handler, "Database", lambda loaded_settings: db)
+    monkeypatch.setattr(
+        handler,
+        "create_notification_contact",
+        lambda event, database, body: {"contact_id": "contact-1", "enabled": True},
+        raising=False,
+    )
+
+    event = {
+        "body": '{"email":"contact@example.test"}',
+        "requestContext": {"http": {"method": "POST"}},
+        "rawPath": "/notification-contacts",
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 201
+    assert json.loads(response["body"]) == {"contact_id": "contact-1", "enabled": True}
+
+
+def test_update_notification_contact_accepts_protected_route(monkeypatch) -> None:
+    settings = SimpleNamespace(log_level="INFO")
+    db = object()
+    contact_id = "11111111-1111-1111-1111-111111111111"
+    monkeypatch.setattr(handler, "load_settings", lambda: settings)
+    monkeypatch.setattr(handler, "Database", lambda loaded_settings: db)
+    monkeypatch.setattr(
+        handler,
+        "update_notification_contact",
+        lambda event, database, parsed_contact_id: {
+            "contact_id": str(parsed_contact_id),
+            "enabled": False,
+        },
+        raising=False,
+    )
+
+    event = {
+        "body": '{"enabled": false}',
+        "requestContext": {"http": {"method": "PATCH"}},
+        "rawPath": f"/notification-contacts/{contact_id}",
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {"contact_id": contact_id, "enabled": False}
+
+
 def test_run_db_migrations_accepts_internal_event(monkeypatch) -> None:
     monkeypatch.setattr(
         handler,

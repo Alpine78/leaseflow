@@ -138,4 +138,53 @@ describe("createApiClient", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(init.body).toBeUndefined();
   });
+
+  it("lists notification contacts without tenant query params", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.listNotificationContacts();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/notification-contacts",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer id-token",
+        }),
+      })
+    );
+  });
+
+  it("creates a notification contact without tenant_id", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.createNotificationContact({ email: "ops@example.test" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/notification-contacts",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init.body))).toEqual({ email: "ops@example.test" });
+    expect(JSON.parse(String(init.body))).not.toHaveProperty("tenant_id");
+  });
+
+  it("updates a notification contact without tenant_id", async () => {
+    const client = createApiClient(clientOptions);
+
+    await client.updateNotificationContact("contact-1", { enabled: false });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/dev/notification-contacts/contact-1",
+      expect.objectContaining({
+        method: "PATCH",
+      })
+    );
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init.body))).toEqual({ enabled: false });
+    expect(JSON.parse(String(init.body))).not.toHaveProperty("tenant_id");
+  });
 });

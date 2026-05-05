@@ -17,10 +17,10 @@ SES deliverability.
 - Notification creation is idempotent through the existing
   `tenant_id`, `lease_id`, `type`, and `due_date` uniqueness constraint.
 - The browser frontend can list notifications and mark them read.
+- The browser frontend can manage tenant-owned notification contacts.
 - The browser cannot create notifications, run the reminder scan, or trigger
   external delivery.
-- A tenant-scoped notification contact model exists as the future recipient
-  source.
+- Tenant-scoped notification contacts are the recipient source.
 - A dev SES infrastructure foundation exists with an optional sender identity
   and opt-in SES SMTP VPC endpoint.
 - A tenant-scoped `notification_email_deliveries` table tracks delivery status,
@@ -137,6 +137,7 @@ Delivery must be idempotent and retry-safe:
 The implementation should be split into separate reviewable tickets:
 
 - Add notification recipient contact model. Completed.
+- Add tenant notification contact management API/UI. Completed.
 - Add SES dev infrastructure foundation. Completed as disabled-by-default
   Terraform foundation.
 - Implement idempotent notification email delivery. Completed as a
