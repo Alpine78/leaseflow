@@ -35,12 +35,16 @@ SES deliverability.
   SecureString parameter names. Terraform does not create or output SMTP
   credential values.
 - Dev smoke validation is documented in
-  `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, but successful
-  evidence remains operator-run and must be captured separately.
+  `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, with sanitized
+  successful evidence in
+  `docs/runbooks/evidence/ses-notification-email-delivery-smoke-test-2026-05-05.md`.
+  This validates the dev SMTP path only; it is not production email readiness.
 
 ## Chosen Direction
 
 - Amazon SES is the preferred email delivery service for LeaseFlow.
+- Production delivery hardening is planned separately in
+  `docs/ses-production-delivery-hardening.md`.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
 - Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
@@ -151,7 +155,8 @@ The implementation should be split into separate reviewable tickets:
 - Expose safe notification email delivery status. Completed as read-only
   aggregate status on persisted notifications.
 - Add SES delivery smoke runbook and sanitized evidence. Runbook added;
-  successful evidence remains operator-run.
+- Add production-ready SES delivery hardening. Planned separately in
+  `docs/ses-production-delivery-hardening.md`.
 
 ## References
 
