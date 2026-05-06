@@ -221,8 +221,8 @@ The MVP does not require a full incident management platform, but it does requir
 - PostgreSQL Row Level Security for defense-in-depth tenant enforcement,
   following `docs/postgresql-rls-tenant-isolation-hardening.md`
 - Cognito MFA rollout for higher-risk roles
-- SES delivery smoke evidence and production-readiness guardrails for persisted
-  tenant notifications.
+- Production SES delivery hardening for persisted tenant notifications,
+  following `docs/ses-production-delivery-hardening.md`.
 - Backup retention review when recovery expectations outgrow the one-day dev window
 - Lightweight alerting for suspicious login or API abuse patterns
 - Periodic dependency and IAM permission review
