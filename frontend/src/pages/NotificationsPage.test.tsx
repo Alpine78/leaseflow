@@ -9,6 +9,29 @@ vi.mock("../features/notifications/useNotificationsPage", () => ({
   useNotificationsPageState: () => mockedUseNotificationsPageState(),
 }));
 
+function deliverySummary(
+  overrides: Partial<{
+    failed_count: number;
+    last_error_code: string | null;
+    latest_attempt_at: string | null;
+    latest_sent_at: string | null;
+    pending_count: number;
+    sent_count: number;
+    total_count: number;
+  }>
+) {
+  return {
+    failed_count: 0,
+    last_error_code: null,
+    latest_attempt_at: null,
+    latest_sent_at: null,
+    pending_count: 0,
+    sent_count: 0,
+    total_count: 1,
+    ...overrides,
+  };
+}
+
 describe("NotificationsPage", () => {
   beforeEach(() => {
     markNotificationRead.mockReset();
@@ -79,6 +102,7 @@ describe("NotificationsPage", () => {
       notifications: [
         {
           created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({ total_count: 0 }),
           due_date: "2026-04-30",
           lease_id: "lease-1",
           message: "Rent is due soon.",
@@ -115,6 +139,7 @@ describe("NotificationsPage", () => {
       notifications: [
         {
           created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({ total_count: 0 }),
           due_date: "2026-04-30",
           lease_id: "lease-1",
           message: "Rent is due soon.",
@@ -135,6 +160,131 @@ describe("NotificationsPage", () => {
     expect(screen.queryByRole("button", { name: /Mark Rent due soon read/i })).not.toBeInTheDocument();
   });
 
+  it("renders safe notification email delivery status summaries", () => {
+    mockedUseNotificationsPageState.mockReturnValue({
+      dueReminders: [],
+      error: null,
+      isLoading: false,
+      markNotificationRead,
+      notificationContacts: [],
+      notifications: [
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({ total_count: 0 }),
+          due_date: "2026-04-30",
+          lease_id: "lease-1",
+          message: "Rent is due soon.",
+          notification_id: "notification-1",
+          read_at: null,
+          title: "Not prepared notification",
+          type: "rent_due",
+        },
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({ pending_count: 1, total_count: 1 }),
+          due_date: "2026-04-30",
+          lease_id: "lease-2",
+          message: "Rent is due soon.",
+          notification_id: "notification-2",
+          read_at: null,
+          title: "Pending notification",
+          type: "rent_due",
+        },
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({
+            latest_sent_at: "2026-05-04T10:00:00Z",
+            sent_count: 1,
+            total_count: 1,
+          }),
+          due_date: "2026-04-30",
+          lease_id: "lease-3",
+          message: "Rent is due soon.",
+          notification_id: "notification-3",
+          read_at: null,
+          title: "Sent notification",
+          type: "rent_due",
+        },
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({
+            failed_count: 1,
+            last_error_code: "smtp_network_error",
+            latest_attempt_at: "2026-05-04T11:00:00Z",
+            total_count: 1,
+          }),
+          due_date: "2026-04-30",
+          lease_id: "lease-4",
+          message: "Rent is due soon.",
+          notification_id: "notification-4",
+          read_at: null,
+          title: "Failed notification",
+          type: "rent_due",
+        },
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({
+            failed_count: 1,
+            pending_count: 1,
+            sent_count: 1,
+            total_count: 3,
+          }),
+          due_date: "2026-04-30",
+          lease_id: "lease-5",
+          message: "Rent is due soon.",
+          notification_id: "notification-5",
+          read_at: null,
+          title: "Mixed notification",
+          type: "rent_due",
+        },
+      ],
+      readingNotificationId: null,
+      updatingContactId: null,
+      updateNotificationContact: vi.fn(),
+    });
+
+    render(<NotificationsPage />);
+
+    expect(screen.getByText("Email delivery: Not prepared")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery: Pending")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery: Sent")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery: Failed")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery: Mixed")).toBeInTheDocument();
+    expect(screen.getByText("1 sent | 1 failed | 1 pending")).toBeInTheDocument();
+    expect(screen.getByText("Last failure: smtp_network_error")).toBeInTheDocument();
+    expect(screen.queryByText(/@example/)).not.toBeInTheDocument();
+  });
+
+  it("falls back when an older notification response has no delivery summary", () => {
+    mockedUseNotificationsPageState.mockReturnValue({
+      dueReminders: [],
+      error: null,
+      isLoading: false,
+      markNotificationRead,
+      notificationContacts: [],
+      notifications: [
+        {
+          created_at: "2026-04-28T10:00:00Z",
+          due_date: "2026-04-30",
+          lease_id: "lease-1",
+          message: "Rent is due soon.",
+          notification_id: "notification-1",
+          read_at: null,
+          title: "Legacy notification",
+          type: "rent_due",
+        },
+      ],
+      readingNotificationId: null,
+      updatingContactId: null,
+      updateNotificationContact: vi.fn(),
+    });
+
+    render(<NotificationsPage />);
+
+    expect(screen.getByText("Legacy notification")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery: Not prepared")).toBeInTheDocument();
+  });
+
   it("preserves visible notification state when mark-read fails", async () => {
     markNotificationRead.mockRejectedValue(new Error("Mark read failed"));
     mockedUseNotificationsPageState.mockReturnValue({
@@ -146,6 +296,7 @@ describe("NotificationsPage", () => {
       notifications: [
         {
           created_at: "2026-04-28T10:00:00Z",
+          delivery_summary: deliverySummary({ total_count: 0 }),
           due_date: "2026-04-30",
           lease_id: "lease-1",
           message: "Rent is due soon.",

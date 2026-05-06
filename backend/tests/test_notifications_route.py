@@ -15,6 +15,17 @@ def _notifications_module():
 
 
 @dataclass(slots=True)
+class _DeliverySummaryRecord:
+    total_count: int
+    pending_count: int
+    sent_count: int
+    failed_count: int
+    latest_attempt_at: datetime | None
+    latest_sent_at: datetime | None
+    last_error_code: str | None
+
+
+@dataclass(slots=True)
 class _NotificationRecord:
     notification_id: UUID
     tenant_id: str
@@ -25,6 +36,7 @@ class _NotificationRecord:
     due_date: date
     created_at: datetime
     read_at: datetime | None
+    delivery_summary: _DeliverySummaryRecord
 
 
 class _FakeDb:
@@ -45,6 +57,15 @@ class _FakeDb:
                 due_date=date(2026, 4, 9),
                 created_at=datetime(2026, 4, 7, tzinfo=UTC),
                 read_at=None,
+                delivery_summary=_DeliverySummaryRecord(
+                    total_count=2,
+                    pending_count=0,
+                    sent_count=1,
+                    failed_count=1,
+                    latest_attempt_at=datetime(2026, 4, 8, 12, 0, tzinfo=UTC),
+                    latest_sent_at=datetime(2026, 4, 8, 10, 0, tzinfo=UTC),
+                    last_error_code="smtp_network_error",
+                ),
             )
         ]
 
@@ -64,6 +85,15 @@ class _FakeDb:
             due_date=date(2026, 4, 9),
             created_at=datetime(2026, 4, 7, tzinfo=UTC),
             read_at=datetime(2026, 4, 8, 10, 30, tzinfo=UTC),
+            delivery_summary=_DeliverySummaryRecord(
+                total_count=0,
+                pending_count=0,
+                sent_count=0,
+                failed_count=0,
+                latest_attempt_at=None,
+                latest_sent_at=None,
+                last_error_code=None,
+            ),
         )
 
 
@@ -95,7 +125,6 @@ def test_list_notifications_uses_auth_tenant_not_client_input() -> None:
         "items": [
             {
                 "notification_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-                "tenant_id": "tenant-auth",
                 "lease_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                 "type": "rent_due_soon",
                 "title": "Rent due soon",
@@ -103,9 +132,22 @@ def test_list_notifications_uses_auth_tenant_not_client_input() -> None:
                 "due_date": "2026-04-09",
                 "created_at": "2026-04-07T00:00:00+00:00",
                 "read_at": None,
+                "delivery_summary": {
+                    "total_count": 2,
+                    "pending_count": 0,
+                    "sent_count": 1,
+                    "failed_count": 1,
+                    "latest_attempt_at": "2026-04-08T12:00:00+00:00",
+                    "latest_sent_at": "2026-04-08T10:00:00+00:00",
+                    "last_error_code": "smtp_network_error",
+                },
             }
         ]
     }
+    serialized = payload["items"][0]
+    assert "tenant_id" not in serialized
+    assert "contact_id" not in str(serialized)
+    assert "recipient_email" not in str(serialized)
 
 
 def test_list_notifications_requires_jwt_claims() -> None:
@@ -129,7 +171,6 @@ def test_mark_notification_read_uses_auth_tenant_and_returns_updated_record() ->
     assert db.read_calls == [("tenant-auth", notification_id)]
     assert payload == {
         "notification_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        "tenant_id": "tenant-auth",
         "lease_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         "type": "rent_due_soon",
         "title": "Rent due soon",
@@ -137,6 +178,15 @@ def test_mark_notification_read_uses_auth_tenant_and_returns_updated_record() ->
         "due_date": "2026-04-09",
         "created_at": "2026-04-07T00:00:00+00:00",
         "read_at": "2026-04-08T10:30:00+00:00",
+        "delivery_summary": {
+            "total_count": 0,
+            "pending_count": 0,
+            "sent_count": 0,
+            "failed_count": 0,
+            "latest_attempt_at": None,
+            "latest_sent_at": None,
+            "last_error_code": None,
+        },
     }
 
 

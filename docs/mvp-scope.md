@@ -42,6 +42,8 @@
 - `notification_contacts` table for tenant-owned email recipients.
 - `notification_email_deliveries` table for tenant-scoped delivery status,
   retry attempts, sanitized failure codes, and sent timestamps.
+- Notification API responses expose safe aggregate delivery summaries without
+  recipient addresses, contact IDs, tenant IDs, or raw provider responses.
 - `audit_logs` table for basic traceability of critical actions.
 - `tenant_id` enforced in all tenant-owned rows.
 
@@ -65,11 +67,12 @@
 - NAT Gateway and non-essential managed services.
 - Notification creation from the browser.
 - Browser-triggered reminder scans or email delivery.
+- Recipient-level delivery details in browser responses.
 - Custom domain, CI-based frontend deployment, and production readiness.
 
 ## Planned Next Notification Phase
 
 - SES-backed email delivery internals are documented in
   `docs/notification-email-delivery-mvp.md`.
-- Remaining follow-up work is SES delivery smoke evidence, production-access
-  readiness, and future delivery operations hardening.
+- Remaining follow-up work is production-access readiness and future delivery
+  operations hardening.

@@ -81,12 +81,12 @@ Implemented now:
 - Local portfolio demo client for the deployed MVP flow
 - Real browser frontend slice with Hosted UI auth, dashboard summaries,
   properties and leases list/create/update flows, due-soon reminders, and
-  notifications mark-read UI
+  notifications mark-read UI with safe aggregate email delivery status
 - Terraform-managed S3 + CloudFront hosting path for the frontend SPA
 
 Planned next:
 
-- Add SES delivery smoke runbook/evidence and production-readiness guardrails
+- Refine SES production-readiness guardrails and delivery operations
 - Add more automated backend and tenant-isolation test coverage
 - Refine operational setup for scheduled workflows and monitoring
 

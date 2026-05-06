@@ -19,6 +19,7 @@ from app.models import (
     NotificationContact,
     NotificationEmailDelivery,
     NotificationEmailDeliveryPreparationResult,
+    NotificationEmailDeliverySummary,
     Property,
     ReminderScanResult,
 )
@@ -390,22 +391,52 @@ class Database:
 
     def list_notifications(self, tenant_id: str) -> list[Notification]:
         sql = """
+            WITH delivery_summary AS (
+                SELECT
+                    tenant_id,
+                    notification_id,
+                    COUNT(*)::int AS delivery_total_count,
+                    COUNT(*) FILTER (WHERE status = 'pending')::int AS delivery_pending_count,
+                    COUNT(*) FILTER (WHERE status = 'sent')::int AS delivery_sent_count,
+                    COUNT(*) FILTER (WHERE status = 'failed')::int AS delivery_failed_count,
+                    MAX(last_attempt_at) AS delivery_latest_attempt_at,
+                    MAX(sent_at) AS delivery_latest_sent_at,
+                    (
+                        array_agg(
+                            last_error_code
+                            ORDER BY last_attempt_at DESC NULLS LAST, updated_at DESC
+                        ) FILTER (WHERE last_error_code IS NOT NULL)
+                    )[1] AS delivery_last_error_code
+                FROM notification_email_deliveries
+                WHERE tenant_id = %s
+                GROUP BY tenant_id, notification_id
+            )
             SELECT
-                notification_id,
-                tenant_id,
-                lease_id,
-                type,
-                title,
-                message,
-                due_date,
-                created_at,
-                read_at
-            FROM notifications
-            WHERE tenant_id = %s
-            ORDER BY created_at DESC
+                n.notification_id,
+                n.tenant_id,
+                n.lease_id,
+                n.type,
+                n.title,
+                n.message,
+                n.due_date,
+                n.created_at,
+                n.read_at,
+                COALESCE(ds.delivery_total_count, 0) AS delivery_total_count,
+                COALESCE(ds.delivery_pending_count, 0) AS delivery_pending_count,
+                COALESCE(ds.delivery_sent_count, 0) AS delivery_sent_count,
+                COALESCE(ds.delivery_failed_count, 0) AS delivery_failed_count,
+                ds.delivery_latest_attempt_at,
+                ds.delivery_latest_sent_at,
+                ds.delivery_last_error_code
+            FROM notifications n
+            LEFT JOIN delivery_summary ds
+              ON ds.tenant_id = n.tenant_id
+             AND ds.notification_id = n.notification_id
+            WHERE n.tenant_id = %s
+            ORDER BY n.created_at DESC
         """
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            rows = conn.execute(sql, (tenant_id,)).fetchall()
+            rows = conn.execute(sql, (tenant_id, tenant_id)).fetchall()
         return [self._row_to_notification(row) for row in rows]
 
     def mark_notification_read(
@@ -431,6 +462,14 @@ class Database:
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
             with conn.transaction():
                 row = conn.execute(sql, (tenant_id, notification_id)).fetchone()
+                if row is not None:
+                    row.update(
+                        self._notification_email_delivery_summary_row(
+                            conn,
+                            tenant_id=tenant_id,
+                            notification_id=notification_id,
+                        )
+                    )
 
         if row is None:
             raise LookupError("Notification not found for tenant.")
@@ -852,6 +891,50 @@ class Database:
             due_date=row["due_date"],
             created_at=row["created_at"],
             read_at=row["read_at"],
+            delivery_summary=Database._row_to_notification_email_delivery_summary(row),
+        )
+
+    @staticmethod
+    def _notification_email_delivery_summary_row(
+        conn: psycopg.Connection[dict[str, Any]],
+        *,
+        tenant_id: str,
+        notification_id: UUID,
+    ) -> dict[str, Any]:
+        sql = """
+            SELECT
+                COUNT(*)::int AS delivery_total_count,
+                COUNT(*) FILTER (WHERE status = 'pending')::int AS delivery_pending_count,
+                COUNT(*) FILTER (WHERE status = 'sent')::int AS delivery_sent_count,
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS delivery_failed_count,
+                MAX(last_attempt_at) AS delivery_latest_attempt_at,
+                MAX(sent_at) AS delivery_latest_sent_at,
+                (
+                    array_agg(
+                        last_error_code
+                        ORDER BY last_attempt_at DESC NULLS LAST, updated_at DESC
+                    ) FILTER (WHERE last_error_code IS NOT NULL)
+                )[1] AS delivery_last_error_code
+            FROM notification_email_deliveries
+            WHERE tenant_id = %s AND notification_id = %s
+        """
+        row = conn.execute(sql, (tenant_id, notification_id)).fetchone()
+        if row is None:
+            return {}
+        return row
+
+    @staticmethod
+    def _row_to_notification_email_delivery_summary(
+        row: dict[str, Any],
+    ) -> NotificationEmailDeliverySummary:
+        return NotificationEmailDeliverySummary(
+            total_count=row.get("delivery_total_count", 0),
+            pending_count=row.get("delivery_pending_count", 0),
+            sent_count=row.get("delivery_sent_count", 0),
+            failed_count=row.get("delivery_failed_count", 0),
+            latest_attempt_at=row.get("delivery_latest_attempt_at"),
+            latest_sent_at=row.get("delivery_latest_sent_at"),
+            last_error_code=row.get("delivery_last_error_code"),
         )
 
     @staticmethod
@@ -888,7 +971,6 @@ class Database:
 def notification_to_dict(item: Notification) -> dict[str, Any]:
     return {
         "notification_id": str(item.notification_id),
-        "tenant_id": item.tenant_id,
         "lease_id": str(item.lease_id),
         "type": item.type,
         "title": item.title,
@@ -896,6 +978,19 @@ def notification_to_dict(item: Notification) -> dict[str, Any]:
         "due_date": item.due_date.isoformat(),
         "created_at": item.created_at.isoformat(),
         "read_at": item.read_at.isoformat() if item.read_at else None,
+        "delivery_summary": {
+            "total_count": item.delivery_summary.total_count,
+            "pending_count": item.delivery_summary.pending_count,
+            "sent_count": item.delivery_summary.sent_count,
+            "failed_count": item.delivery_summary.failed_count,
+            "latest_attempt_at": item.delivery_summary.latest_attempt_at.isoformat()
+            if item.delivery_summary.latest_attempt_at
+            else None,
+            "latest_sent_at": item.delivery_summary.latest_sent_at.isoformat()
+            if item.delivery_summary.latest_sent_at
+            else None,
+            "last_error_code": item.delivery_summary.last_error_code,
+        },
     }
 
 
