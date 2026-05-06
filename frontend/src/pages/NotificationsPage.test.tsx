@@ -390,7 +390,9 @@ describe("NotificationsPage", () => {
         email: "ops@example.test",
       });
     });
-    expect(input).toHaveValue("");
+    await waitFor(() => {
+      expect(input).toHaveValue("");
+    });
   });
 
   it("preserves contact email input when create fails", async () => {
