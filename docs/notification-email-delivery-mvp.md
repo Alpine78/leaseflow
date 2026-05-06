@@ -16,7 +16,8 @@ SES deliverability.
 - The internal due reminder scan creates tenant-owned `notifications` rows.
 - Notification creation is idempotent through the existing
   `tenant_id`, `lease_id`, `type`, and `due_date` uniqueness constraint.
-- The browser frontend can list notifications and mark them read.
+- The browser frontend can list notifications, mark them read, and view safe
+  aggregate email delivery status per notification.
 - The browser frontend can manage tenant-owned notification contacts.
 - The browser cannot create notifications, run the reminder scan, or trigger
   external delivery.
@@ -25,6 +26,9 @@ SES deliverability.
   and opt-in SES SMTP VPC endpoint.
 - A tenant-scoped `notification_email_deliveries` table tracks delivery status,
   attempts, sanitized failure codes, and sent timestamps.
+- `GET /notifications` includes delivery summary counts and sanitized status
+  fields, but never recipient addresses, contact IDs, tenant IDs, or raw
+  provider responses.
 - The backend has an internal `deliver_notification_emails` event handler that
   can send due reminder notifications through SES SMTP when explicitly enabled.
 - SMTP credentials are operator-created outside Terraform and referenced by SSM
@@ -95,6 +99,8 @@ Delivery must be idempotent and retry-safe:
 - failed attempts may be retried with a bounded attempt limit.
 - read acknowledgement in the browser must not be treated as proof that email
   was delivered.
+- browser-visible delivery status is read-only and must not trigger retries,
+  scans, or delivery execution.
 - exactly-once external SMTP delivery cannot be guaranteed if Lambda crashes
   after SES accepts a message but before `sent_at` is persisted.
 
@@ -142,6 +148,8 @@ The implementation should be split into separate reviewable tickets:
   Terraform foundation.
 - Implement idempotent notification email delivery. Completed as a
   disabled-by-default internal backend worker.
+- Expose safe notification email delivery status. Completed as read-only
+  aggregate status on persisted notifications.
 - Add SES delivery smoke runbook and sanitized evidence. Runbook added;
   successful evidence remains operator-run.
 

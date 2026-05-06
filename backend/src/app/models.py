@@ -48,6 +48,17 @@ class LeaseReminderCandidate:
 
 
 @dataclass(slots=True)
+class NotificationEmailDeliverySummary:
+    total_count: int
+    pending_count: int
+    sent_count: int
+    failed_count: int
+    latest_attempt_at: datetime | None
+    latest_sent_at: datetime | None
+    last_error_code: str | None
+
+
+@dataclass(slots=True)
 class Notification:
     notification_id: UUID
     tenant_id: str
@@ -58,6 +69,7 @@ class Notification:
     due_date: date
     created_at: datetime
     read_at: datetime | None
+    delivery_summary: NotificationEmailDeliverySummary
 
 
 @dataclass(slots=True)

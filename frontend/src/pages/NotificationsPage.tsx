@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNotificationsPageState } from "../features/notifications/useNotificationsPage";
-import type { NotificationContact, NotificationItem } from "../lib/api";
+import type {
+  NotificationContact,
+  NotificationEmailDeliverySummary,
+  NotificationItem,
+} from "../lib/api";
 
 function formatDaysUntilDue(days: number) {
   if (days === 0) {
@@ -10,6 +14,50 @@ function formatDaysUntilDue(days: number) {
     return "1 day from now";
   }
   return `${days} days from now`;
+}
+
+const EMPTY_DELIVERY_SUMMARY: NotificationEmailDeliverySummary = {
+  failed_count: 0,
+  last_error_code: null,
+  latest_attempt_at: null,
+  latest_sent_at: null,
+  pending_count: 0,
+  sent_count: 0,
+  total_count: 0,
+};
+
+function notificationDeliverySummary(notification: NotificationItem) {
+  return notification.delivery_summary ?? EMPTY_DELIVERY_SUMMARY;
+}
+
+function emailDeliveryLabel(summary: NotificationEmailDeliverySummary) {
+  if (summary.total_count === 0) {
+    return "Not prepared";
+  }
+  if (summary.sent_count === summary.total_count) {
+    return "Sent";
+  }
+  if (summary.failed_count === summary.total_count) {
+    return "Failed";
+  }
+  if (summary.pending_count === summary.total_count) {
+    return "Pending";
+  }
+  return "Mixed";
+}
+
+function emailDeliveryCounts(summary: NotificationEmailDeliverySummary) {
+  const parts = [
+    summary.sent_count > 0 ? `${summary.sent_count} sent` : null,
+    summary.failed_count > 0 ? `${summary.failed_count} failed` : null,
+    summary.pending_count > 0 ? `${summary.pending_count} pending` : null,
+  ].filter(Boolean);
+
+  if (parts.length === 0) {
+    return `${summary.total_count} delivery rows`;
+  }
+
+  return parts.join(" | ");
 }
 
 export function NotificationsPage() {
@@ -170,6 +218,7 @@ export function NotificationsPage() {
           <ul className="resource-list">
             {notifications.map((notification) => {
               const isRead = notification.read_at !== null;
+              const deliverySummary = notificationDeliverySummary(notification);
 
               return (
                 <li className="resource-card notification-card" key={notification.notification_id}>
@@ -185,6 +234,17 @@ export function NotificationsPage() {
                       Due {notification.due_date} | Created{" "}
                       {new Date(notification.created_at).toLocaleDateString("en-GB")}
                     </p>
+                    <p className="resource-meta">
+                      Email delivery: {emailDeliveryLabel(deliverySummary)}
+                    </p>
+                    {deliverySummary.total_count > 0 ? (
+                      <p className="resource-meta">{emailDeliveryCounts(deliverySummary)}</p>
+                    ) : null}
+                    {deliverySummary.last_error_code ? (
+                      <p className="resource-meta">
+                        Last failure: {deliverySummary.last_error_code}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="resource-actions">
                     {isRead ? (

@@ -10,7 +10,7 @@ from psycopg.rows import dict_row
 from psycopg.sql import SQL, Identifier, Literal
 
 from app.config import Settings, load_settings
-from app.db import Database
+from app.db import Database, notification_to_dict
 
 
 def _integration_enabled() -> bool:
@@ -2103,6 +2103,127 @@ def test_notification_email_delivery_rejects_cross_tenant_status_update(
                 delivery_id=other_delivery.delivery_id,
                 error_code="smtp_transient_error",
             )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_list_notifications_includes_tenant_scoped_email_delivery_summary(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Delivery Summary HQ {uuid4().hex[:8]}",
+            address=f"Delivery Summary Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Delivery Summary HQ {uuid4().hex[:8]}",
+            address=f"Other Delivery Summary Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Delivery Summary User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Delivery Summary User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        contact_one = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"summary-one-{uuid4().hex[:8]}@example.com",
+        )
+        contact_two = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"summary-two-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"summary-other-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=other_tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        db.create_missing_notification_email_deliveries(tenant_id=other_tenant_id)
+
+        notifications = db.list_notifications(tenant_id=tenant_id)
+        summary = notifications[0].delivery_summary
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            conn.execute(
+                """
+                UPDATE notification_email_deliveries
+                SET status = 'sent',
+                    attempt_count = 1,
+                    last_attempt_at = '2026-05-04T10:00:00+00:00'::timestamptz,
+                    sent_at = '2026-05-04T10:00:00+00:00'::timestamptz,
+                    updated_at = '2026-05-04T10:00:00+00:00'::timestamptz
+                WHERE tenant_id = %s AND contact_id = %s
+                """,
+                (tenant_id, contact_one.contact_id),
+            )
+            conn.execute(
+                """
+                UPDATE notification_email_deliveries
+                SET status = 'failed',
+                    attempt_count = 1,
+                    last_attempt_at = '2026-05-04T11:00:00+00:00'::timestamptz,
+                    last_error_code = 'smtp_network_error',
+                    updated_at = '2026-05-04T11:00:00+00:00'::timestamptz
+                WHERE tenant_id = %s AND contact_id = %s
+                """,
+                (tenant_id, contact_two.contact_id),
+            )
+
+        notifications = db.list_notifications(tenant_id=tenant_id)
+        summary = notifications[0].delivery_summary
+
+        assert len(notifications) == 1
+        assert summary.total_count == 2
+        assert summary.pending_count == 0
+        assert summary.sent_count == 1
+        assert summary.failed_count == 1
+        assert summary.latest_attempt_at is not None
+        assert summary.latest_attempt_at.isoformat() == "2026-05-04T11:00:00+00:00"
+        assert summary.latest_sent_at is not None
+        assert summary.latest_sent_at.isoformat() == "2026-05-04T10:00:00+00:00"
+        assert summary.last_error_code == "smtp_network_error"
+
+        serialized = notification_to_dict(notifications[0])
+        assert "tenant_id" not in serialized
+        assert "contact_id" not in str(serialized)
+        assert "recipient_email" not in str(serialized)
+        assert contact_one.email not in str(summary)
+        assert contact_two.email not in str(summary)
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)

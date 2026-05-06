@@ -31,6 +31,7 @@ export type LeaseReminderCandidate = {
 
 export type NotificationItem = {
   created_at: string;
+  delivery_summary?: NotificationEmailDeliverySummary;
   due_date: string;
   lease_id: string;
   message: string;
@@ -38,6 +39,16 @@ export type NotificationItem = {
   read_at: string | null;
   title: string;
   type: string;
+};
+
+export type NotificationEmailDeliverySummary = {
+  failed_count: number;
+  last_error_code: string | null;
+  latest_attempt_at: string | null;
+  latest_sent_at: string | null;
+  pending_count: number;
+  sent_count: number;
+  total_count: number;
 };
 
 export type NotificationContact = {
