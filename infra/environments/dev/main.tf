@@ -40,6 +40,17 @@ module "frontend_hosting" {
   tags        = local.common_tags
 }
 
+module "github_frontend_deploy_role" {
+  source = "../../modules/github_frontend_deploy_role"
+
+  name_prefix                 = local.name_prefix
+  github_repository           = var.github_frontend_deploy_repository
+  github_environment          = var.github_frontend_deploy_environment
+  frontend_bucket_arn         = module.frontend_hosting.bucket_arn
+  cloudfront_distribution_arn = module.frontend_hosting.cloudfront_distribution_arn
+  tags                        = local.common_tags
+}
+
 resource "random_password" "db_master" {
   length  = 32
   special = false

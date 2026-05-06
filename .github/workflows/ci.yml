@@ -107,6 +107,7 @@ jobs:
           - infra/modules/cloudwatch_alarms
           - infra/modules/cognito
           - infra/modules/frontend_hosting
+          - infra/modules/github_frontend_deploy_role
           - infra/modules/lambda_backend
           - infra/modules/network
           - infra/modules/reminder_scheduler

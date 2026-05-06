@@ -24,8 +24,9 @@ custom domain, or production deployment path.
 - Hosted browser smoke validation passed from the CloudFront origin with
   sanitized evidence in
   `docs/runbooks/evidence/hosted-frontend-smoke-test-2026-04-30.md`.
-- There is no GitHub Actions deployment workflow and no GitHub-hosted AWS
-  deploy role.
+- Terraform now defines a GitHub OIDC provider and a least-privilege dev
+  frontend deploy role for the future workflow.
+- There is no GitHub Actions deployment workflow yet.
 
 ## Options
 
@@ -172,8 +173,8 @@ distribution IDs, tenant data, tokens, or raw response bodies.
 
 ### Add GitHub OIDC Role For Hosted Frontend Deploy
 
-Add Terraform for the GitHub OIDC provider and a least-privilege dev frontend
-deploy role. Scope trust to this repository and approved refs/environment. Do
+Completed as a Terraform-managed OIDC provider and least-privilege dev frontend
+deploy role. The role is scoped to the `dev` GitHub Environment subject and does
 not grant Terraform, RDS, SSM, Cognito, Lambda, or SES permissions.
 
 ### Add Manual GitHub Actions Hosted Frontend Deploy Workflow

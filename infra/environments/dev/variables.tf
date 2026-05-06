@@ -81,6 +81,28 @@ variable "frontend_hosted_origin" {
   }
 }
 
+variable "github_frontend_deploy_repository" {
+  type        = string
+  description = "GitHub repository allowed to assume the dev hosted frontend deploy role."
+  default     = "Alpine78/leaseflow"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_frontend_deploy_repository))
+    error_message = "github_frontend_deploy_repository must use owner/name format without wildcards."
+  }
+}
+
+variable "github_frontend_deploy_environment" {
+  type        = string
+  description = "GitHub deployment environment allowed to assume the dev hosted frontend deploy role."
+  default     = "dev"
+
+  validation {
+    condition     = trimspace(var.github_frontend_deploy_environment) != "" && !strcontains(var.github_frontend_deploy_environment, "*")
+    error_message = "github_frontend_deploy_environment must be non-empty and must not contain wildcards."
+  }
+}
+
 variable "cognito_hosted_ui_domain_prefix" {
   type        = string
   description = "Globally unique Cognito managed Hosted UI domain prefix for the dev frontend auth flow."
