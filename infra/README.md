@@ -38,6 +38,9 @@ the real frontend.
 - `allow_credentials = false`; browser calls use bearer tokens, not cookies.
 - Terraform creates the hosting bucket/distribution; `aws s3 sync` uploads
   built frontend assets.
+- Terraform also defines a dev-only GitHub OIDC frontend deploy role for the
+  future hosted frontend deployment workflow. This role is not for Terraform
+  apply/destroy and does not grant RDS, SSM, Cognito, Lambda, or SES access.
 - CI-based hosted frontend deployment is planned separately in
   `docs/hosted-frontend-deploy-automation.md`; current upload remains
   operator-run.

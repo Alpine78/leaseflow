@@ -38,6 +38,11 @@ output "frontend_cloudfront_url" {
   value       = module.frontend_hosting.cloudfront_url
 }
 
+output "frontend_deploy_role_arn" {
+  description = "IAM role ARN for future GitHub Actions hosted frontend deployment."
+  value       = module.github_frontend_deploy_role.role_arn
+}
+
 output "rds_endpoint" {
   description = "RDS endpoint."
   value       = module.rds_postgres.endpoint
