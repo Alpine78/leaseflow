@@ -25,7 +25,8 @@ local portfolio/demo tool and not the production-like frontend path.
   static SPA. Asset upload remains a local operator command.
 - Hosted frontend smoke validation has passed from the CloudFront origin, but
   hosted deployment remains an operator-run path, not an implemented CI
-  deployment path.
+  deployment path. The future automation path is planned in
+  `docs/hosted-frontend-deploy-automation.md`.
 - The dashboard is the authenticated browser app entry point.
 
 ## Chosen Frontend Direction
@@ -93,7 +94,7 @@ Later frontend follow-ups:
 ## Follow-Up Tickets
 
 - Add CI-based hosted frontend deployment if deployment automation becomes a
-  release goal.
+  release goal, following `docs/hosted-frontend-deploy-automation.md`.
 
 ## Guardrails
 
