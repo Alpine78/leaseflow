@@ -130,7 +130,10 @@ Mitigations:
 - `tenant_id` provided by the client must never be trusted as the authorization source.
 - Service logic must verify that the authenticated user is allowed to act within the resolved tenant.
 - Cross-tenant administrative access is not part of the normal MVP request path and must be tightly controlled if introduced.
-- PostgreSQL Row Level Security is a useful future hardening step, but it is not required for the MVP baseline if strict application-layer tenant enforcement is consistently applied.
+- PostgreSQL Row Level Security is a planned future hardening step documented
+  in `docs/postgresql-rls-tenant-isolation-hardening.md`, but it is not current
+  runtime behavior and does not replace strict application-layer tenant
+  enforcement.
 
 ## Secrets Management
 
@@ -215,7 +218,8 @@ The MVP does not require a full incident management platform, but it does requir
 
 ## Future Improvements
 
-- PostgreSQL Row Level Security for defense-in-depth tenant enforcement
+- PostgreSQL Row Level Security for defense-in-depth tenant enforcement,
+  following `docs/postgresql-rls-tenant-isolation-hardening.md`
 - Cognito MFA rollout for higher-risk roles
 - SES delivery smoke evidence and production-readiness guardrails for persisted
   tenant notifications.

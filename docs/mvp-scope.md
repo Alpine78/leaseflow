@@ -63,7 +63,8 @@
 
 - Complex role hierarchy beyond one landlord user per tenant.
 - Production email readiness and external notification integrations.
-- PostgreSQL Row-Level Security (future hardening).
+- PostgreSQL Row-Level Security implementation. The future hardening path is
+  planned in `docs/postgresql-rls-tenant-isolation-hardening.md`.
 - NAT Gateway and non-essential managed services.
 - Notification creation from the browser.
 - Browser-triggered reminder scans or email delivery.
