@@ -205,6 +205,8 @@ Then open `http://localhost:5173`.
 Terraform creates the S3 bucket and CloudFront distribution. Frontend asset
 upload remains a local operator step. If any `VITE_*` value changes, rebuild
 and upload the frontend again because the static assets contain those values.
+The future GitHub Actions deployment path is planned in
+`docs/hosted-frontend-deploy-automation.md`, but is not implemented yet.
 
 What it does: builds and uploads the hosted frontend, then invalidates
 CloudFront.

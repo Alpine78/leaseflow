@@ -38,6 +38,9 @@ the real frontend.
 - `allow_credentials = false`; browser calls use bearer tokens, not cookies.
 - Terraform creates the hosting bucket/distribution; `aws s3 sync` uploads
   built frontend assets.
+- CI-based hosted frontend deployment is planned separately in
+  `docs/hosted-frontend-deploy-automation.md`; current upload remains
+  operator-run.
 - The existing `demo-client` remains a separate local demo/operator tool.
 - Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
   and temporary Cognito demo user setup.
