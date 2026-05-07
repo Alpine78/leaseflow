@@ -54,6 +54,9 @@ SES deliverability.
 - Notification suppression and unsubscribe/preference planning is documented in
   `docs/notification-suppression-unsubscribe-model.md`; suppression state is
   not implemented yet.
+- SES delivery monitoring, alarm, and cost-control planning is documented in
+  `docs/ses-delivery-monitoring-alarms-cost-controls.md`; delivery-specific
+  metrics, alarms, dashboards, and budget resources are not implemented yet.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
 - Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
