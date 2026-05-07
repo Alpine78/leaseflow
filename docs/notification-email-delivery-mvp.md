@@ -45,6 +45,9 @@ SES deliverability.
 - Amazon SES is the preferred email delivery service for LeaseFlow.
 - Production delivery hardening is planned separately in
   `docs/ses-production-delivery-hardening.md`.
+- Production sender identity and DNS authentication planning is documented in
+  `docs/ses-production-domain-identity-dns-authentication.md`; production
+  sending remains unavailable.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
 - Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
