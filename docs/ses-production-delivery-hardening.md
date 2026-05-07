@@ -96,10 +96,9 @@ Due reminder emails are closer to transactional operational mail than marketing
 mail, but production rollout still needs an explicit classification decision.
 
 If any future notification type is promotional, digest-style, or optional, it
-must include unsubscribe/list-management behavior before broad sending. Amazon
-SES supports subscription management for supported sending flows, but the
-LeaseFlow model must still define tenant/contact-level preferences and safe
-browser visibility.
+must include unsubscribe/list-management behavior before broad sending. The
+LeaseFlow suppression and preference direction is documented in
+`docs/notification-suppression-unsubscribe-model.md`.
 
 Production requirements:
 
@@ -187,9 +186,9 @@ triggering, and raw provider payload storage remain out of scope.
 
 ### Add Notification Suppression And Unsubscribe Model
 
-Extend contact preferences so permanent bounces, complaints, disabled contacts,
-and future unsubscribe decisions are represented explicitly. Out of scope:
-marketing mail and Cognito user enumeration.
+Planned in `docs/notification-suppression-unsubscribe-model.md`. Database
+state, delivery eligibility changes, browser visibility, SES subscription
+automation, marketing mail, and Cognito user enumeration remain out of scope.
 
 ### Add SES Delivery Monitoring, Alarms, And Cost Controls
 
@@ -230,6 +229,7 @@ planning ticket.
 - [Amazon SES event publishing](https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html)
 - [Amazon SES configuration sets](https://docs.aws.amazon.com/ses/latest/dg/using-configuration-sets.html)
 - [Amazon SES subscription management](https://docs.aws.amazon.com/ses/latest/dg/sending-email-subscription-management.html)
+- [Amazon SES global suppression list](https://docs.aws.amazon.com/ses/latest/dg/sending-email-global-suppression-list.html)
 - [Amazon SES Easy DKIM](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html)
 - [Amazon SES SPF authentication](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-spf.html)
 - [Amazon SES custom MAIL FROM](https://docs.aws.amazon.com/ses/latest/dg/mail-from.html)
