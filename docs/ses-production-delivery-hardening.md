@@ -144,6 +144,10 @@ Alarms must use aggregate counts and sanitized categories. They must not include
 recipient addresses, tenant IDs, message bodies, raw SES responses, SMTP
 credentials, or SSM values.
 
+The focused monitoring, alarm, and cost-control direction is documented in
+`docs/ses-delivery-monitoring-alarms-cost-controls.md`. Backend metric
+emission, Terraform alarms, dashboards, and budget resources remain future work.
+
 ### Cost Controls
 
 Delivery must stay disabled by default until production readiness is explicit.
@@ -192,9 +196,9 @@ automation, marketing mail, and Cognito user enumeration remain out of scope.
 
 ### Add SES Delivery Monitoring, Alarms, And Cost Controls
 
-Add aggregate metrics and alarms for send volume, failures, retries, bounces,
-complaints, and cost-sensitive endpoint enablement. Out of scope: exposing
-recipient-level details or raw SES responses.
+Planned in `docs/ses-delivery-monitoring-alarms-cost-controls.md`. Backend
+metric emission, Terraform alarms, CloudWatch dashboards, budget resources, and
+sanitized monitoring evidence remain out of scope.
 
 ### Add Production SES Rollout Runbook And Sanitized Evidence Template
 
@@ -234,3 +238,6 @@ planning ticket.
 - [Amazon SES SPF authentication](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-spf.html)
 - [Amazon SES custom MAIL FROM](https://docs.aws.amazon.com/ses/latest/dg/mail-from.html)
 - [Amazon SES DMARC](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dmarc.html)
+- [CloudWatch Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html)
+- [AWS PrivateLink CloudWatch metrics](https://docs.aws.amazon.com/vpc/latest/privatelink/privatelink-cloudwatch-metrics.html)
+- [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html)
