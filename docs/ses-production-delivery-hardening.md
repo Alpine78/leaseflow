@@ -75,8 +75,8 @@ Production delivery cannot rely only on SMTP success. SES accepting a message is
 not proof that the recipient received or accepted it.
 
 Future production work must ingest bounce and complaint signals through SES
-configuration sets and an AWS event destination such as SNS, EventBridge, or
-another explicitly reviewed path.
+configuration sets. The planned default is an EventBridge event destination, as
+documented in `docs/ses-bounce-complaint-ingestion.md`.
 
 Handling requirements:
 
@@ -181,9 +181,9 @@ scope.
 
 ### Add SES Bounce And Complaint Ingestion
 
-Add the AWS event path and backend processing for bounce and complaint events.
-Persist only sanitized categories and tenant/contact-scoped state. Out of scope:
-browser-triggered delivery and raw provider payload storage.
+Planned in `docs/ses-bounce-complaint-ingestion.md` with EventBridge as the
+default future event path. Terraform resources, backend processing, browser
+triggering, and raw provider payload storage remain out of scope.
 
 ### Add Notification Suppression And Unsubscribe Model
 
@@ -227,6 +227,7 @@ planning ticket.
 - [Amazon SES verified identities](https://docs.aws.amazon.com/ses/latest/dg/verify-addresses-and-domains.html)
 - [Amazon SES production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)
 - [Amazon SES VPC endpoints](https://docs.aws.amazon.com/ses/latest/dg/send-email-set-up-vpc-endpoints.html)
+- [Amazon SES event publishing](https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html)
 - [Amazon SES configuration sets](https://docs.aws.amazon.com/ses/latest/dg/using-configuration-sets.html)
 - [Amazon SES subscription management](https://docs.aws.amazon.com/ses/latest/dg/sending-email-subscription-management.html)
 - [Amazon SES Easy DKIM](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html)
