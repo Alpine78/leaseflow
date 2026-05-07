@@ -248,6 +248,9 @@ Run the workflow manually with `environment=dev`, `confirm_dev_deploy=true`,
 and `invalidation_path=/*`. The local upload path below remains supported for
 operator testing and troubleshooting.
 
+If a hosted deploy needs rollback, use
+`docs/runbooks/hosted-frontend-deploy-rollback.md`.
+
 What it does: builds and uploads the hosted frontend, then invalidates
 CloudFront.
 Target service: S3 frontend hosting bucket and CloudFront distribution.

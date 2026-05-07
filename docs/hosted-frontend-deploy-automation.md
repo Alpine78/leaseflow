@@ -184,8 +184,10 @@ sync, and CloudFront invalidation.
 
 ### Add Hosted Frontend Deploy Rollback Runbook
 
-Document how to redeploy a known-good commit or artifact, what evidence to
-capture, and which values must stay out of logs and committed files.
+Completed in `docs/runbooks/hosted-frontend-deploy-rollback.md`. The current
+rollback path is redeploying a known-good Git ref through the manual dev
+workflow, with local operator upload documented as a fallback. Artifact rollback
+remains future-only until a workflow stores deploy artifacts.
 
 ### Capture Sanitized Hosted Frontend CI Deploy Evidence
 
