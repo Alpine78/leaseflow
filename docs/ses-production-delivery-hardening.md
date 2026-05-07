@@ -49,8 +49,9 @@ verifying each address separately.
 
 Required future decisions:
 
-- Which domain or subdomain is the production sender identity.
-- Whether LeaseFlow uses a custom MAIL FROM domain.
+- The production sender identity direction is documented in
+  `docs/ses-production-domain-identity-dns-authentication.md`.
+- Whether LeaseFlow later adopts a custom MAIL FROM domain.
 - Which AWS Region owns the production SES identity.
 - Whether dev and production identities are isolated by account, region, or
   configuration.
@@ -173,9 +174,10 @@ security tradeoff is justified.
 
 ### Add SES Production Domain Identity And DNS Authentication Plan
 
-Define the production sender domain, SES identity ownership, DKIM records, SPF
-alignment approach, DMARC monitoring policy, and production access request
-preconditions. Out of scope: sending code and production access submission.
+Completed as a focused planning document in
+`docs/ses-production-domain-identity-dns-authentication.md`. Implementation,
+DNS changes, sending code, and production access submission remain out of
+scope.
 
 ### Add SES Bounce And Complaint Ingestion
 
@@ -227,4 +229,7 @@ planning ticket.
 - [Amazon SES VPC endpoints](https://docs.aws.amazon.com/ses/latest/dg/send-email-set-up-vpc-endpoints.html)
 - [Amazon SES configuration sets](https://docs.aws.amazon.com/ses/latest/dg/using-configuration-sets.html)
 - [Amazon SES subscription management](https://docs.aws.amazon.com/ses/latest/dg/sending-email-subscription-management.html)
+- [Amazon SES Easy DKIM](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html)
+- [Amazon SES SPF authentication](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-spf.html)
+- [Amazon SES custom MAIL FROM](https://docs.aws.amazon.com/ses/latest/dg/mail-from.html)
 - [Amazon SES DMARC](https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dmarc.html)
