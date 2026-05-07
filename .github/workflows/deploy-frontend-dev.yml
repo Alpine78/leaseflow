@@ -1,0 +1,145 @@
+name: Deploy hosted frontend (dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        default: dev
+        options:
+          - dev
+      confirm_dev_deploy:
+        description: "Confirm deployment to the dev hosted frontend"
+        required: true
+        type: boolean
+        default: false
+      invalidation_path:
+        description: "CloudFront invalidation path"
+        required: true
+        type: string
+        default: "/*"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: frontend-deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy hosted frontend to dev
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      FRONTEND_BUCKET_NAME: ${{ vars.FRONTEND_BUCKET_NAME }}
+      FRONTEND_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.FRONTEND_CLOUDFRONT_DISTRIBUTION_ID }}
+      FRONTEND_CLOUDFRONT_URL: ${{ vars.FRONTEND_CLOUDFRONT_URL }}
+      CONFIRM_DEV_DEPLOY: ${{ inputs.confirm_dev_deploy }}
+      INVALIDATION_PATH: ${{ inputs.invalidation_path }}
+
+    steps:
+      - name: Validate deployment inputs
+        env:
+          FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_COGNITO_HOSTED_UI_BASE_URL: ${{ vars.VITE_COGNITO_HOSTED_UI_BASE_URL }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "${DEPLOY_ENVIRONMENT}" != "dev" ]]; then
+            echo "Only the dev environment is supported." >&2
+            exit 1
+          fi
+          if [[ "${CONFIRM_DEV_DEPLOY}" != "true" ]]; then
+            echo "confirm_dev_deploy must be true." >&2
+            exit 1
+          fi
+          if [[ "${INVALIDATION_PATH}" != /* ]]; then
+            echo "invalidation_path must start with /." >&2
+            exit 1
+          fi
+          for name in \
+            AWS_REGION \
+            FRONTEND_DEPLOY_ROLE_ARN \
+            FRONTEND_BUCKET_NAME \
+            FRONTEND_CLOUDFRONT_DISTRIBUTION_ID \
+            FRONTEND_CLOUDFRONT_URL \
+            VITE_API_BASE_URL \
+            VITE_COGNITO_HOSTED_UI_BASE_URL \
+            VITE_COGNITO_CLIENT_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required GitHub Environment variable is missing: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Check out selected ref
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_COGNITO_HOSTED_UI_BASE_URL: ${{ vars.VITE_COGNITO_HOSTED_UI_BASE_URL }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
+
+      - name: Upload frontend assets
+        run: |
+          set -euo pipefail
+          aws s3 sync frontend/dist/ "s3://${FRONTEND_BUCKET_NAME}/" \
+            --delete \
+            --only-show-errors
+
+      - name: Invalidate CloudFront
+        run: |
+          set -euo pipefail
+          aws cloudfront create-invalidation \
+            --distribution-id "${FRONTEND_CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "${INVALIDATION_PATH}" \
+            --query 'Invalidation.{Id:Id,Status:Status}' \
+            --output json
+
+      - name: Print safe deployment summary
+        run: |
+          set -euo pipefail
+          printf 'DEPLOY_ENVIRONMENT=%s\n' "${DEPLOY_ENVIRONMENT}"
+          printf 'DEPLOY_REF=%s\n' "${GITHUB_REF_NAME}"
+          printf 'DEPLOY_SHA=%s\n' "${GITHUB_SHA}"
+          printf 'FRONTEND_URL_CONFIGURED=%s\n' "$([[ -n "${FRONTEND_CLOUDFRONT_URL}" ]] && echo true || echo false)"

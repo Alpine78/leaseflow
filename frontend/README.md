@@ -17,8 +17,8 @@ tool.
 - due-soon reminder candidate list
 - persisted notifications list and mark-read action
 
-This slice does not include notification creation, email delivery, or hosted CI
-deploy automation.
+This slice does not include notification creation, email delivery, custom
+domains, or production-ready deploy automation.
 
 ## Prerequisites
 
@@ -203,10 +203,29 @@ Then open `http://localhost:5173`.
 ## Hosted dev deploy
 
 Terraform creates the S3 bucket and CloudFront distribution. Frontend asset
-upload remains a local operator step. If any `VITE_*` value changes, rebuild
-and upload the frontend again because the static assets contain those values.
-The future GitHub Actions deployment path is planned in
-`docs/hosted-frontend-deploy-automation.md`, but is not implemented yet.
+upload can be done either with the local operator script or the manual GitHub
+Actions workflow. If any `VITE_*` value changes, rebuild and upload the
+frontend again because the static assets contain those values.
+
+The manual GitHub Actions workflow is `.github/workflows/deploy-frontend-dev.yml`.
+It uses GitHub OIDC, the `dev` GitHub Environment, and non-secret environment
+variables copied from Terraform outputs. It does not use static AWS access
+keys and does not run Terraform.
+
+Required GitHub Environment `dev` variables:
+
+- `AWS_REGION`
+- `FRONTEND_DEPLOY_ROLE_ARN`
+- `FRONTEND_BUCKET_NAME`
+- `FRONTEND_CLOUDFRONT_DISTRIBUTION_ID`
+- `FRONTEND_CLOUDFRONT_URL`
+- `VITE_API_BASE_URL`
+- `VITE_COGNITO_HOSTED_UI_BASE_URL`
+- `VITE_COGNITO_CLIENT_ID`
+
+Run the workflow manually with `environment=dev`, `confirm_dev_deploy=true`,
+and `invalidation_path=/*`. The local upload path below remains supported for
+operator testing and troubleshooting.
 
 What it does: builds and uploads the hosted frontend, then invalidates
 CloudFront.
