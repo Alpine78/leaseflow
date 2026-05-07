@@ -41,9 +41,11 @@ the real frontend.
 - Terraform also defines a dev-only GitHub OIDC frontend deploy role for the
   future hosted frontend deployment workflow. This role is not for Terraform
   apply/destroy and does not grant RDS, SSM, Cognito, Lambda, or SES access.
-- CI-based hosted frontend deployment is planned separately in
-  `docs/hosted-frontend-deploy-automation.md`; current upload remains
-  operator-run.
+- The manual GitHub Actions hosted frontend deploy workflow reads non-secret
+  deploy variables from the GitHub `dev` environment. Use
+  `scripts/dev/print-github-frontend-deploy-vars.sh` to print them or
+  `scripts/dev/set-github-frontend-deploy-vars.sh` to set them with `gh`.
+- The local operator upload path remains supported for troubleshooting.
 - The existing `demo-client` remains a separate local demo/operator tool.
 - Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
   and temporary Cognito demo user setup.

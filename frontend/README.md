@@ -223,6 +223,27 @@ Required GitHub Environment `dev` variables:
 - `VITE_COGNITO_HOSTED_UI_BASE_URL`
 - `VITE_COGNITO_CLIENT_ID`
 
+What it does: prints the required GitHub Environment variables as named lines
+from Terraform outputs.
+Target service: GitHub Environment `dev` setup reference.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/print-github-frontend-deploy-vars.sh
+```
+
+What it does: writes the same variables directly to GitHub Environment `dev`
+using `gh variable set`. Values are not printed.
+Target service: GitHub repository environment variables.
+
+```bash
+cd /mnt/c/Repos/LeaseFlow
+bash scripts/dev/set-github-frontend-deploy-vars.sh
+```
+
+Use `GITHUB_REPOSITORY` or `GITHUB_ENVIRONMENT` to override the defaults
+`Alpine78/leaseflow` and `dev`.
+
 Run the workflow manually with `environment=dev`, `confirm_dev_deploy=true`,
 and `invalidation_path=/*`. The local upload path below remains supported for
 operator testing and troubleshooting.
