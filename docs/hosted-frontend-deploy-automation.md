@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document plans a safe path from the current local operator upload to a
+This document records the safe path from the current local operator upload to a
 controlled GitHub Actions deployment for the hosted LeaseFlow frontend.
 
 The current project already has a real browser frontend, private S3 +
@@ -10,8 +10,7 @@ CloudFront hosting infrastructure, and successful hosted smoke evidence. Hosted
 asset upload still remains a local operator step through
 `scripts/dev/upload-frontend.sh`.
 
-This document does not implement a workflow, Terraform, IAM role, AWS resource,
-custom domain, or production deployment path.
+This document does not define a custom domain or production deployment path.
 
 ## Current State
 
@@ -26,7 +25,8 @@ custom domain, or production deployment path.
   `docs/runbooks/evidence/hosted-frontend-smoke-test-2026-04-30.md`.
 - Terraform now defines a GitHub OIDC provider and a least-privilege dev
   frontend deploy role for the future workflow.
-- There is no GitHub Actions deployment workflow yet.
+- `.github/workflows/deploy-frontend-dev.yml` now defines a manual dev-only
+  hosted frontend deploy workflow.
 
 ## Options
 
@@ -66,19 +66,19 @@ Tradeoffs:
   deployment environment.
 - Gives repeatable logs and a safer review point through GitHub environments.
 
-## Chosen Future Direction
+## Chosen Direction
 
-Keep manual upload for now. When automation is needed, add a separate
-`workflow_dispatch` GitHub Actions deployment for dev only, backed by GitHub
-OIDC and a least-privilege AWS role.
+Keep manual upload supported. Use a separate `workflow_dispatch` GitHub Actions
+deployment for dev only when repeatable hosted deploy logs are useful. The
+workflow is backed by GitHub OIDC and a least-privilege AWS role.
 
 The first automated path should not deploy from every `main` push. Manual
 dispatch is safer for this portfolio/dev workflow because the AWS dev stack may
 be destroyed for cost control.
 
-## Future Workflow Shape
+## Workflow Shape
 
-The future workflow should:
+The workflow:
 
 - Trigger only through `workflow_dispatch`.
 - Target only the dev environment.
@@ -88,7 +88,7 @@ The future workflow should:
 - Run `npm audit --audit-level=high`.
 - Run `npm run lint`, `npm run test`, and `npm run build`.
 - Upload only `frontend/dist/` to the Terraform-created frontend bucket.
-- Use `aws s3 sync frontend/dist/ s3://<bucket>/ --delete`.
+- Use `aws s3 sync frontend/dist/ s3://<bucket>/ --delete --only-show-errors`.
 - Create a CloudFront invalidation, defaulting to `/*`.
 - Print only safe deployment metadata such as branch, commit SHA, environment,
   invalidation ID, and pass/fail statuses.
@@ -96,14 +96,13 @@ The future workflow should:
 The workflow must not print or store JWTs, Cognito emails, tenant IDs, SSM
 values, DB endpoints, AWS credentials, or frontend `.env.local` contents.
 
-## Future Workflow Inputs
+## Workflow Inputs
 
-The future `workflow_dispatch` inputs should be intentionally small:
+The `workflow_dispatch` inputs are intentionally small:
 
 - `environment`: choice, initially only `dev`.
-- `ref_to_deploy`: branch, tag, or SHA to confirm what is being deployed.
-- `invalidation_path`: optional, default `/*`.
-- `confirm_dev_deploy`: required boolean or confirmation string.
+- `invalidation_path`: string, default `/*`.
+- `confirm_dev_deploy`: required boolean.
 
 The workflow should fail early if the selected environment is not `dev` or if
 the confirmation input is missing.
@@ -179,9 +178,9 @@ not grant Terraform, RDS, SSM, Cognito, Lambda, or SES permissions.
 
 ### Add Manual GitHub Actions Hosted Frontend Deploy Workflow
 
-Add a `workflow_dispatch` deploy workflow that uses OIDC, GitHub environment
-protection, npm install hardening, audit, lint, tests, build, S3 sync, and
-CloudFront invalidation.
+Completed as a `workflow_dispatch` deploy workflow that uses OIDC, GitHub
+environment protection, npm install hardening, audit, lint, tests, build, S3
+sync, and CloudFront invalidation.
 
 ### Add Hosted Frontend Deploy Rollback Runbook
 
