@@ -51,6 +51,9 @@ SES deliverability.
 - Bounce and complaint ingestion planning is documented in
   `docs/ses-bounce-complaint-ingestion.md`; provider feedback ingestion is not
   implemented yet.
+- Notification suppression and unsubscribe/preference planning is documented in
+  `docs/notification-suppression-unsubscribe-model.md`; suppression state is
+  not implemented yet.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
 - Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
