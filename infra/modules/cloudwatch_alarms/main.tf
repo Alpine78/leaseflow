@@ -84,3 +84,81 @@ resource "aws_cloudwatch_metric_alarm" "scheduler_target_errors" {
 
   tags = var.tags
 }
+
+resource "aws_cloudwatch_metric_alarm" "notification_email_delivery_failures" {
+  count = var.notification_email_delivery_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-notification-email-delivery-failures"
+  alarm_description   = "Alarm for internal notification email delivery failures."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 1
+  period              = 300
+  namespace           = "LeaseFlow/NotificationEmailDelivery"
+  metric_name         = "failed_count"
+  statistic           = "Sum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
+
+  dimensions = {
+    environment = var.environment
+    service     = "backend"
+    operation   = "deliver_notification_emails"
+    result      = "completed_with_failures"
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "notification_email_delivery_retry_exhausted" {
+  count = var.notification_email_delivery_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-notification-email-delivery-retry-exhausted"
+  alarm_description   = "Alarm for internal notification email deliveries that exhaust retry attempts."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 1
+  period              = 300
+  namespace           = "LeaseFlow/NotificationEmailDelivery"
+  metric_name         = "retry_exhausted_count"
+  statistic           = "Sum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
+
+  dimensions = {
+    environment = var.environment
+    service     = "backend"
+    operation   = "deliver_notification_emails"
+    result      = "completed_with_failures"
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "notification_email_delivery_send_volume_high" {
+  count = var.notification_email_delivery_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-notification-email-delivery-send-volume-high"
+  alarm_description   = "Alarm for unexpectedly high internal notification email delivery attempts."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = var.notification_email_delivery_attempted_count_alarm_threshold
+  period              = 3600
+  namespace           = "LeaseFlow/NotificationEmailDelivery"
+  metric_name         = "attempted_count"
+  statistic           = "Sum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
+
+  dimensions = {
+    environment = var.environment
+    service     = "backend"
+    operation   = "deliver_notification_emails"
+    result      = "completed"
+  }
+
+  tags = var.tags
+}

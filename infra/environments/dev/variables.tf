@@ -214,6 +214,17 @@ variable "notification_email_max_attempts" {
   default     = 3
 }
 
+variable "notification_email_delivery_attempted_count_alarm_threshold" {
+  type        = number
+  description = "Hourly attempted_count threshold for the dev notification email delivery send-volume alarm."
+  default     = 100
+
+  validation {
+    condition     = var.notification_email_delivery_attempted_count_alarm_threshold > 0
+    error_message = "notification_email_delivery_attempted_count_alarm_threshold must be greater than zero."
+  }
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."

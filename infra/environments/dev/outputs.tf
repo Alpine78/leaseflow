@@ -64,7 +64,10 @@ output "baseline_alarm_names" {
     module.cloudwatch_alarms.lambda_errors_alarm_name,
     module.cloudwatch_alarms.lambda_throttles_alarm_name,
     module.cloudwatch_alarms.api_gateway_5xx_alarm_name,
-    module.cloudwatch_alarms.scheduler_target_errors_alarm_name
+    module.cloudwatch_alarms.scheduler_target_errors_alarm_name,
+    module.cloudwatch_alarms.notification_email_delivery_failures_alarm_name,
+    module.cloudwatch_alarms.notification_email_delivery_retry_exhausted_alarm_name,
+    module.cloudwatch_alarms.notification_email_delivery_send_volume_high_alarm_name
   ])
 }
 
