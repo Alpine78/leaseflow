@@ -6,8 +6,8 @@ This document defines the future monitoring, alarm, and cost-control direction
 for LeaseFlow SES notification delivery.
 
 This document records the current monitoring implementation and remaining
-planning boundaries. It does not add CloudWatch dashboards, AWS Budgets, SES
-production readiness, or cost automation.
+planning boundaries. It does not add SES production readiness or automatic cost
+actions.
 
 ## Current State
 
@@ -31,7 +31,8 @@ production readiness, or cost automation.
   worker health, send-volume, failure, and future feedback/suppression metric
   panels. Dashboard widgets can show no data until delivery is enabled and the
   relevant metrics are emitted.
-- AWS Budgets resources do not exist yet.
+- An optional Terraform-managed AWS monthly cost budget is available for paid
+  or long-lived dev environments. It is disabled by default.
 
 ## Future Application Metrics
 
@@ -161,8 +162,23 @@ track:
 - `NewConnections`
 - `ActiveConnections`
 
-Future paid or long-lived environments should use AWS Budgets or an equivalent
-cost alert path for:
+Paid or long-lived environments can enable the optional AWS monthly cost budget
+to alert operators when actual account spend reaches the configured percentage
+of the configured monthly USD amount.
+
+The budget is intentionally coarse-grained. It tracks AWS account cost for the
+environment account rather than tenant, recipient, contact, notification, or
+provider-payload data.
+
+The optional budget supports:
+
+- disabled-by-default cost alerting for short-lived learning stacks
+- a configurable monthly USD limit
+- a configurable actual-spend percentage threshold
+- operator email subscribers configured only in local ignored Terraform inputs
+
+Future paid or long-lived environments should also use AWS Budgets or an
+equivalent cost alert path for:
 
 - total account or environment spend
 - unexpected SES sending volume
@@ -173,6 +189,10 @@ The dev CloudWatch dashboard adds the normal CloudWatch dashboard monthly cost
 exposure for one dashboard. Keep dashboard count small and aggregate-only; do
 not create tenant-, recipient-, contact-, notification-, or request-specific
 dashboards.
+
+The optional SES SMTP interface VPC endpoint remains the primary email-specific
+cost exposure. If enabled, operators must review whether the endpoint is still
+needed after each smoke or long-lived validation window.
 
 Do not add NAT Gateway by default for email delivery. Any future proposal to
 use NAT for SES access must justify cost, security, and operational tradeoffs
@@ -202,9 +222,10 @@ message-content details.
 
 ### Add SES And PrivateLink Cost Controls
 
-Add AWS Budgets or equivalent cost-alert resources and an endpoint-cost review
-path for paid or long-lived environments. Out of scope: automatic destructive
-cost actions.
+Completed for an optional dev monthly AWS cost budget and documented SES SMTP
+PrivateLink endpoint-cost review expectations. Future work can add more
+specific budgets or reporting for paid/long-lived environments. Out of scope:
+automatic destructive cost actions.
 
 ### Capture SES Monitoring Sanitized Evidence
 

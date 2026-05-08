@@ -225,6 +225,40 @@ variable "notification_email_delivery_attempted_count_alarm_threshold" {
   }
 }
 
+variable "monthly_budget_enabled" {
+  type        = bool
+  description = "Whether to create the optional monthly AWS cost budget for paid or long-lived dev environments."
+  default     = false
+}
+
+variable "monthly_budget_limit_usd" {
+  type        = number
+  description = "Monthly AWS cost budget limit in USD for paid or long-lived dev environments."
+  default     = 25
+
+  validation {
+    condition     = var.monthly_budget_limit_usd > 0
+    error_message = "monthly_budget_limit_usd must be greater than zero."
+  }
+}
+
+variable "monthly_budget_alert_threshold_percent" {
+  type        = number
+  description = "Actual spend percentage that triggers the optional monthly AWS cost budget alert."
+  default     = 80
+
+  validation {
+    condition     = var.monthly_budget_alert_threshold_percent > 0 && var.monthly_budget_alert_threshold_percent <= 100
+    error_message = "monthly_budget_alert_threshold_percent must be greater than zero and less than or equal to 100."
+  }
+}
+
+variable "monthly_budget_subscriber_email_addresses" {
+  type        = set(string)
+  description = "Operator email addresses that receive optional AWS Budgets alerts. Keep empty unless monthly_budget_enabled is true."
+  default     = []
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags."

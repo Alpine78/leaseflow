@@ -48,3 +48,10 @@ notification_email_smtp_password_ssm_param = ""
 
 notification_email_batch_size   = 25
 notification_email_max_attempts = 3
+
+# Optional. Creates an AWS Budgets monthly cost alert for paid or long-lived
+# dev environments. Keep disabled for short-lived learning stacks.
+monthly_budget_enabled                    = false
+monthly_budget_limit_usd                  = 25
+monthly_budget_alert_threshold_percent    = 80
+monthly_budget_subscriber_email_addresses = []

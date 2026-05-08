@@ -181,6 +181,17 @@ module "ses_delivery_dashboard" {
   tags        = local.common_tags
 }
 
+module "cost_controls" {
+  source = "../../modules/cost_controls"
+
+  name_prefix                               = local.name_prefix
+  monthly_budget_enabled                    = var.monthly_budget_enabled
+  monthly_budget_limit_usd                  = var.monthly_budget_limit_usd
+  monthly_budget_alert_threshold_percent    = var.monthly_budget_alert_threshold_percent
+  monthly_budget_subscriber_email_addresses = var.monthly_budget_subscriber_email_addresses
+  tags                                      = local.common_tags
+}
+
 module "api_http" {
   source = "../../modules/api_http"
 
