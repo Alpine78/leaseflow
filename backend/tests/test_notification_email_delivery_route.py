@@ -4,6 +4,7 @@ import importlib
 from dataclasses import dataclass
 from datetime import date
 from types import SimpleNamespace
+from typing import Any
 from uuid import UUID
 
 
@@ -99,6 +100,7 @@ class _FakeSender:
 
 def _settings(**overrides: object) -> SimpleNamespace:
     values = {
+        "app_env": "test",
         "notification_email_delivery_enabled": True,
         "notification_email_sender": "sender@example.test",
         "notification_email_batch_size": 25,
@@ -134,10 +136,22 @@ def _delivery_record() -> _DeliveryRecord:
     )
 
 
-def test_deliver_notification_emails_disabled_does_not_prepare_or_send() -> None:
+def _capture_metrics(monkeypatch) -> list[dict[str, Any]]:
+    delivery = _delivery_module()
+    emitted: list[dict[str, Any]] = []
+
+    def _emit(**kwargs: Any) -> None:
+        emitted.append(kwargs)
+
+    monkeypatch.setattr(delivery, "emit_emf_metrics", _emit, raising=False)
+    return emitted
+
+
+def test_deliver_notification_emails_disabled_does_not_prepare_or_send(monkeypatch) -> None:
     delivery = _delivery_module()
     db = _FakeDb([_delivery_record()])
     sender = _FakeSender()
+    emitted = _capture_metrics(monkeypatch)
 
     payload = delivery.deliver_notification_emails(
         _event(),
@@ -155,26 +169,47 @@ def test_deliver_notification_emails_disabled_does_not_prepare_or_send() -> None
         "attempted_count": 0,
         "sent_count": 0,
         "failed_count": 0,
+        "skipped_count": 0,
+        "retry_exhausted_count": 0,
     }
+    assert emitted == [
+        {
+            "namespace": "LeaseFlow/NotificationEmailDelivery",
+            "environment": "test",
+            "service": "backend",
+            "operation": "deliver_notification_emails",
+            "result": "disabled",
+            "metrics": {
+                "candidate_count": 0,
+                "created_delivery_count": 0,
+                "attempted_count": 0,
+                "sent_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "retry_exhausted_count": 0,
+            },
+        }
+    ]
     assert db.prepare_calls == []
     assert sender.sent == []
 
 
-def test_deliver_notification_emails_sends_pending_delivery_and_marks_success() -> None:
+def test_deliver_notification_emails_sends_pending_delivery_and_marks_success(monkeypatch) -> None:
     delivery = _delivery_module()
     record = _delivery_record()
-    db = _FakeDb([record])
+    db = _FakeDb([record, _delivery_record()])
     sender = _FakeSender()
+    emitted = _capture_metrics(monkeypatch)
 
     payload = delivery.deliver_notification_emails(
         _event(),
         db,
-        _settings(),
+        _settings(notification_email_batch_size=1),
         sender=sender,
     )
 
     assert db.prepare_calls == ["tenant-auth"]
-    assert db.list_calls == [("tenant-auth", 3, 25)]
+    assert db.list_calls == [("tenant-auth", 3, 1)]
     assert sender.sent == [
         (
             "sender@example.test",
@@ -188,20 +223,44 @@ def test_deliver_notification_emails_sends_pending_delivery_and_marks_success() 
     assert payload == {
         "enabled": True,
         "tenant_id": "tenant-auth",
-        "candidate_count": 1,
-        "created_count": 1,
+        "candidate_count": 2,
+        "created_count": 2,
         "duplicate_count": 0,
         "attempted_count": 1,
         "sent_count": 1,
         "failed_count": 0,
+        "skipped_count": 1,
+        "retry_exhausted_count": 0,
     }
+    assert emitted == [
+        {
+            "namespace": "LeaseFlow/NotificationEmailDelivery",
+            "environment": "test",
+            "service": "backend",
+            "operation": "deliver_notification_emails",
+            "result": "completed",
+            "metrics": {
+                "candidate_count": 2,
+                "created_delivery_count": 2,
+                "attempted_count": 1,
+                "sent_count": 1,
+                "failed_count": 0,
+                "skipped_count": 1,
+                "retry_exhausted_count": 0,
+            },
+        }
+    ]
 
 
-def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_payload() -> None:
+def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_payload(
+    monkeypatch,
+) -> None:
     delivery = _delivery_module()
     record = _delivery_record()
+    record.attempt_count = 2
     db = _FakeDb([record])
     sender = _FakeSender(fail_code="smtp_auth_failed")
+    emitted = _capture_metrics(monkeypatch)
 
     payload = delivery.deliver_notification_emails(
         _event(),
@@ -221,14 +280,43 @@ def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_pay
         "attempted_count": 1,
         "sent_count": 0,
         "failed_count": 1,
+        "skipped_count": 0,
+        "retry_exhausted_count": 1,
     }
-    assert "recipient@example.test" not in str(payload)
+    assert emitted == [
+        {
+            "namespace": "LeaseFlow/NotificationEmailDelivery",
+            "environment": "test",
+            "service": "backend",
+            "operation": "deliver_notification_emails",
+            "result": "completed_with_failures",
+            "metrics": {
+                "candidate_count": 1,
+                "created_delivery_count": 1,
+                "attempted_count": 1,
+                "sent_count": 0,
+                "failed_count": 1,
+                "skipped_count": 0,
+                "retry_exhausted_count": 1,
+            },
+        }
+    ]
+    emitted_text = str(emitted)
+    assert "tenant-auth" not in emitted_text
+    assert "recipient@example.test" not in emitted_text
+    assert "cccccccc-cccc-cccc-cccc-cccccccccccc" not in emitted_text
+    assert "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" not in emitted_text
+    assert "Rent due soon" not in emitted_text
+    assert "Rent is due in 2 days." not in emitted_text
 
 
-def test_deliver_notification_emails_defaults_to_all_tenants_when_tenant_missing() -> None:
+def test_deliver_notification_emails_defaults_to_all_tenants_when_tenant_missing(
+    monkeypatch,
+) -> None:
     delivery = _delivery_module()
     record = _delivery_record()
     db = _FakeDb([record])
+    _capture_metrics(monkeypatch)
 
     payload = delivery.deliver_notification_emails(
         _event(tenant_id=None),
