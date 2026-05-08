@@ -23,8 +23,9 @@ automation.
   `docs/notification-suppression-unsubscribe-model.md`, not implemented.
 - Production rollout hardening is planned in
   `docs/ses-production-delivery-hardening.md`.
-- No SES delivery-specific custom metrics, delivery alarms, delivery dashboard,
-  or AWS Budgets resources exist yet.
+- SES delivery worker custom metrics now exist for normal internal delivery
+  runs. Delivery alarms, delivery dashboard, and AWS Budgets resources do not
+  exist yet.
 
 ## Future Application Metrics
 
@@ -32,6 +33,10 @@ LeaseFlow-specific delivery visibility should use CloudWatch custom metrics
 emitted from backend logs in an Embedded Metric Format style. These metrics
 should be aggregate operational counters, not recipient- or tenant-identifying
 records.
+
+Implemented delivery worker metrics use the namespace
+`LeaseFlow/NotificationEmailDelivery` and the dimension set `environment`,
+`service`, `operation`, and `result`.
 
 Allowed low-cardinality dimensions:
 
@@ -50,7 +55,7 @@ Forbidden metric dimensions:
 - message body or notification content
 - request ID or other high-cardinality per-run identifiers
 
-The delivery worker should eventually emit these aggregate counters:
+The delivery worker emits these aggregate counters:
 
 - `candidate_count`
 - `created_delivery_count`
@@ -134,9 +139,9 @@ against the existing private SES SMTP endpoint direction.
 
 ### Emit SES Delivery CloudWatch Custom Metrics
 
-Add backend aggregate EMF-style metrics for the delivery worker and future
-bounce/complaint processor. Out of scope: recipient-level dimensions, tenant
-dimensions, Terraform alarms, or dashboard resources.
+Completed for the internal delivery worker. Future bounce/complaint processor
+metrics remain out of scope. Recipient-level dimensions, tenant dimensions,
+Terraform alarms, and dashboard resources remain out of scope.
 
 ### Add SES Delivery CloudWatch Alarms
 

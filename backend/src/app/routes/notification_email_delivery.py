@@ -5,6 +5,11 @@ from typing import Any, Protocol
 from app.config import ConfigError, Settings
 from app.db import Database
 from app.email_delivery import NotificationEmailSendError, SmtpNotificationEmailSender
+from app.metrics import emit_emf_metrics
+
+_METRIC_NAMESPACE = "LeaseFlow/NotificationEmailDelivery"
+_METRIC_SERVICE = "backend"
+_METRIC_OPERATION = "deliver_notification_emails"
 
 
 class NotificationEmailSender(Protocol):
@@ -28,7 +33,7 @@ def deliver_notification_emails(
     tenant_id = _parse_tenant_id(detail)
 
     if not settings.notification_email_delivery_enabled:
-        return _payload(
+        payload = _payload(
             enabled=False,
             tenant_id=tenant_id,
             candidate_count=0,
@@ -37,7 +42,11 @@ def deliver_notification_emails(
             attempted_count=0,
             sent_count=0,
             failed_count=0,
+            skipped_count=0,
+            retry_exhausted_count=0,
         )
+        _emit_delivery_metrics(settings=settings, result="disabled", payload=payload)
+        return payload
 
     if not settings.notification_email_sender.strip():
         raise ConfigError("Set NOTIFICATION_EMAIL_SENDER before enabling email delivery.")
@@ -60,6 +69,7 @@ def deliver_notification_emails(
 
     sent_count = 0
     failed_count = 0
+    retry_exhausted_count = 0
     for item in pending:
         try:
             sender.send(
@@ -70,6 +80,8 @@ def deliver_notification_emails(
             )
         except NotificationEmailSendError as exc:
             failed_count += 1
+            if item.attempt_count + 1 >= settings.notification_email_max_attempts:
+                retry_exhausted_count += 1
             db.mark_notification_email_delivery_failed(
                 tenant_id=item.tenant_id,
                 delivery_id=item.delivery_id,
@@ -82,7 +94,7 @@ def deliver_notification_emails(
                 delivery_id=item.delivery_id,
             )
 
-    return _payload(
+    payload = _payload(
         enabled=True,
         tenant_id=tenant_id,
         candidate_count=preparation.candidate_count,
@@ -91,7 +103,15 @@ def deliver_notification_emails(
         attempted_count=len(pending),
         sent_count=sent_count,
         failed_count=failed_count,
+        skipped_count=max(preparation.candidate_count - len(pending), 0),
+        retry_exhausted_count=retry_exhausted_count,
     )
+    _emit_delivery_metrics(
+        settings=settings,
+        result="completed_with_failures" if failed_count else "completed",
+        payload=payload,
+    )
+    return payload
 
 
 def _parse_tenant_id(detail: dict[str, Any]) -> str | None:
@@ -109,6 +129,8 @@ def _payload(
     attempted_count: int,
     sent_count: int,
     failed_count: int,
+    skipped_count: int,
+    retry_exhausted_count: int,
 ) -> dict[str, Any]:
     return {
         "enabled": enabled,
@@ -119,4 +141,30 @@ def _payload(
         "attempted_count": attempted_count,
         "sent_count": sent_count,
         "failed_count": failed_count,
+        "skipped_count": skipped_count,
+        "retry_exhausted_count": retry_exhausted_count,
     }
+
+
+def _emit_delivery_metrics(
+    *,
+    settings: Settings,
+    result: str,
+    payload: dict[str, Any],
+) -> None:
+    emit_emf_metrics(
+        namespace=_METRIC_NAMESPACE,
+        environment=settings.app_env,
+        service=_METRIC_SERVICE,
+        operation=_METRIC_OPERATION,
+        result=result,
+        metrics={
+            "candidate_count": payload["candidate_count"],
+            "created_delivery_count": payload["created_count"],
+            "attempted_count": payload["attempted_count"],
+            "sent_count": payload["sent_count"],
+            "failed_count": payload["failed_count"],
+            "skipped_count": payload["skipped_count"],
+            "retry_exhausted_count": payload["retry_exhausted_count"],
+        },
+    )
