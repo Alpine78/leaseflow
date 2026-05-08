@@ -26,8 +26,12 @@ production readiness, or cost automation.
 - SES delivery worker custom metrics now exist for normal internal delivery
   runs.
 - Terraform-managed dev alarms now cover delivery failures, retry exhaustion,
-  and a conservative attempted-send volume boundary. Delivery dashboard and AWS
-  Budgets resources do not exist yet.
+  and a conservative attempted-send volume boundary.
+- A Terraform-managed dev CloudWatch dashboard now shows aggregate delivery
+  worker health, send-volume, failure, and future feedback/suppression metric
+  panels. Dashboard widgets can show no data until delivery is enabled and the
+  relevant metrics are emitted.
+- AWS Budgets resources do not exist yet.
 
 ## Future Application Metrics
 
@@ -122,6 +126,26 @@ descriptions, dimensions, and notifications must not contain recipient data,
 tenant IDs, contact IDs, notification IDs, message bodies, raw provider
 responses, SMTP credentials, or SSM values.
 
+## Dashboard
+
+The dev CloudWatch dashboard uses the same
+`LeaseFlow/NotificationEmailDelivery` namespace and the low-cardinality
+dimensions `environment`, `service`, `operation`, and `result`.
+
+Implemented dashboard panels show:
+
+- delivery run volume for candidates, created deliveries, attempted sends, sent
+  sends, and skipped candidates
+- failure health for failed sends and retry exhaustion
+- worker result categories for completed, completed-with-failures, and disabled
+  runs
+- future feedback and suppression counts for bounces, complaints, and
+  suppressed contacts
+
+Future feedback and suppression widgets are intentionally present before those
+processors emit metrics. They should render as no-data until the future
+bounce/complaint and suppression implementations exist.
+
 ## Cost Controls
 
 Delivery must remain disabled by default until the operator intentionally
@@ -145,6 +169,11 @@ cost alert path for:
 - long-lived interface endpoint cost exposure
 - unusually high CloudWatch Logs or custom metric usage
 
+The dev CloudWatch dashboard adds the normal CloudWatch dashboard monthly cost
+exposure for one dashboard. Keep dashboard count small and aggregate-only; do
+not create tenant-, recipient-, contact-, notification-, or request-specific
+dashboards.
+
 Do not add NAT Gateway by default for email delivery. Any future proposal to
 use NAT for SES access must justify cost, security, and operational tradeoffs
 against the existing private SES SMTP endpoint direction.
@@ -166,8 +195,10 @@ browser controls, recipient-level alarm data, or production-readiness claims.
 
 ### Add SES Delivery Dashboard
 
-Add a CloudWatch dashboard for aggregate delivery health. The dashboard must not
-include recipient, tenant, contact, notification, or message-content details.
+Completed for aggregate dev delivery health. Future dashboard expansion for
+production reputation or bounce/complaint processor-specific views must remain
+aggregate-only and avoid recipient, tenant, contact, notification, or
+message-content details.
 
 ### Add SES And PrivateLink Cost Controls
 

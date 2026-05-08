@@ -86,6 +86,11 @@ output "baseline_alarm_email_subscription_configured" {
   value       = length(aws_sns_topic_subscription.baseline_alarm_email) > 0
 }
 
+output "notification_email_delivery_dashboard_name" {
+  description = "CloudWatch dashboard name for aggregate notification email delivery health."
+  value       = module.ses_delivery_dashboard.dashboard_name
+}
+
 output "ses_sender_identity_configured" {
   description = "Whether an optional SES sender identity is configured for future dev email delivery validation."
   value       = module.ses_email_foundation.sender_identity_configured

@@ -172,6 +172,15 @@ module "cloudwatch_alarms" {
   tags                                                        = local.common_tags
 }
 
+module "ses_delivery_dashboard" {
+  source = "../../modules/ses_delivery_dashboard"
+
+  name_prefix = local.name_prefix
+  aws_region  = var.aws_region
+  environment = var.environment
+  tags        = local.common_tags
+}
+
 module "api_http" {
   source = "../../modules/api_http"
 
