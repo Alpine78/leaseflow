@@ -52,6 +52,20 @@ npm ci --ignore-scripts
 npm run dev
 ```
 
+## Local Development Modes
+
+Use the mode that matches what you are validating:
+
+| Mode | What runs locally | What it uses | Use for |
+| --- | --- | --- | --- |
+| Backend + WSL PostgreSQL | Backend tests, Alembic migrations, DB integration tests, and local Lambda handler invokes | PostgreSQL running in WSL through `backend/.env.local` | Everyday backend and database development |
+| Frontend local dev | Vite dev server at `http://localhost:5173` | The AWS API Gateway and Cognito Hosted UI configured in `frontend/.env.local` | Browser UI work against the deployed dev stack |
+| Full local browser stack | Not implemented | Not applicable | Would require a separate local HTTP API/auth path |
+
+The browser frontend does not automatically use the WSL PostgreSQL database.
+`VITE_API_BASE_URL` controls which API the browser calls. Today that is the
+deployed dev API for the real frontend slice.
+
 ## Current MVP Status
 
 Implemented now:
@@ -102,11 +116,18 @@ For everyday backend and database development in WSL, use the local PostgreSQL
 workflow in `backend/README.md` instead of keeping the AWS dev RDS instance
 running.
 
-Migration command:
+Useful WSL PostgreSQL targets from the repo root:
 
 ```bash
-make migrate
+make migrate-local
+make db-check-local
+make test-local
+make test-integration-local
+make invoke-local-health
 ```
+
+Use `make invoke-local-*` targets for lightweight local Lambda handler checks.
+These commands do not start a local HTTP API server for the browser frontend.
 
 ## Infrastructure Layout
 

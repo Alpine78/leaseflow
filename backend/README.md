@@ -42,7 +42,11 @@ python -m pip install -e ".[dev]"
 
 ## Local PostgreSQL in WSL
 
-For everyday backend development, prefer a local PostgreSQL instance in WSL instead of keeping the AWS dev RDS instance running.
+For everyday backend and database development, prefer a local PostgreSQL
+instance in WSL instead of keeping the AWS dev RDS instance running.
+
+This mode is for backend tests, Alembic migrations, DB integration tests, and
+local Lambda handler invokes. It is not a full local browser stack.
 
 Why:
 
@@ -120,9 +124,13 @@ Important:
   `.venv/Scripts/activate`.
 - If `.env.local` was created from Windows tools, normalize line endings with
   `sed -i 's/\r$//' .env.local` before sourcing it.
-- This local PostgreSQL path is for backend and DB development only. It does
-  not replace Cognito Hosted UI, API Gateway, or browser CORS validation in
-  AWS.
+- This local PostgreSQL path is for backend and DB development only. It powers
+  local tests, migrations, integration tests, and `scripts/invoke_local.py`.
+- It does not replace Cognito Hosted UI, API Gateway, browser CORS validation,
+  hosted frontend smoke, or deployed AWS API validation.
+- The real React/Vite frontend calls whatever `VITE_API_BASE_URL` points to.
+  It does not use this WSL database unless a separate local HTTP API/auth path
+  is implemented later.
 
 If you are working from the repo root in WSL with the backend virtual
 environment already activated, you can also use:
