@@ -386,6 +386,11 @@ CI runs Terraform checks without AWS credentials.
   - automated backups
 - API Gateway, Lambda, Cognito, SSM Parameter Store, and CloudWatch are still real AWS resources, but for light learning use they are expected to be smaller cost contributors than RDS.
 - The optional SES SMTP interface VPC endpoint is disabled by default. If enabled, it adds PrivateLink endpoint hourly and data-processing charges.
+- The optional monthly AWS Budgets cost alert is disabled by default. Enable it
+  only for paid or long-lived dev environments, and keep subscriber addresses in
+  ignored local Terraform inputs.
+- If the SES SMTP VPC endpoint is enabled for smoke testing, review after the
+  test whether it should be disabled again to avoid idle endpoint cost.
 
 ## Apply and destroy rule
 

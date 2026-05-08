@@ -91,6 +91,16 @@ output "notification_email_delivery_dashboard_name" {
   value       = module.ses_delivery_dashboard.dashboard_name
 }
 
+output "monthly_budget_configured" {
+  description = "Whether the optional monthly AWS cost budget is configured."
+  value       = module.cost_controls.monthly_budget_configured
+}
+
+output "monthly_budget_name" {
+  description = "Optional monthly AWS cost budget name."
+  value       = module.cost_controls.monthly_budget_name
+}
+
 output "ses_sender_identity_configured" {
   description = "Whether an optional SES sender identity is configured for future dev email delivery validation."
   value       = module.ses_email_foundation.sender_identity_configured
