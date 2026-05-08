@@ -252,7 +252,7 @@ What it does: migrates existing dev Terraform state into the configured S3 backe
 Target service: Terraform S3 backend.
 
 ```bash
-cd infra/environments/dev
+cd /mnt/c/Repos/LeaseFlow/infra/environments/dev
 terraform init -backend-config=backend.hcl -migrate-state
 terraform validate
 ```
@@ -407,8 +407,9 @@ CI runs Terraform checks without AWS credentials.
 - If you need to keep portfolio/demo tenant data, run `scripts/dev/export-tenant-data.sh` before destroy and store the ignored export file locally.
 
 ```bash
-cd infra/environments/dev
+cd /mnt/c/Repos/LeaseFlow/infra/environments/dev
 terraform init -backend-config=backend.hcl
+terraform state list
 terraform plan -destroy -out=tfdestroy
 terraform apply tfdestroy
 ```
@@ -417,6 +418,7 @@ Quick checks before destroy:
 
 - verify the active AWS account with `aws sts get-caller-identity`
 - verify the intended region
+- verify `terraform state list` shows the dev stack resources before planning destroy
 - review the destroy plan before applying it
 
 Cost-saving rebuild flow after destroy:
@@ -461,7 +463,7 @@ SPA bucket.
 Target service: S3 frontend hosting bucket.
 
 ```bash
-cd infra/environments/dev
+cd /mnt/c/Repos/LeaseFlow/infra/environments/dev
 export FRONTEND_BUCKET=$(terraform output -raw frontend_bucket_name)
 export FRONTEND_DISTRIBUTION_ID=$(terraform output -raw frontend_cloudfront_distribution_id)
 
