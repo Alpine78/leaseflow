@@ -6,6 +6,10 @@ It is local-first and targets the deployed dev API directly from the browser.
 It is separate from `demo-client`, which remains a local portfolio/operator
 tool.
 
+Local frontend development starts only the Vite browser app. It still uses the
+API and Cognito Hosted UI values from `frontend/.env.local`; it does not
+automatically use a PostgreSQL database running in WSL.
+
 ## What it includes
 
 - Cognito Hosted UI sign in and sign out
@@ -199,6 +203,21 @@ npm run dev
 ```
 
 Then open `http://localhost:5173`.
+
+## Local frontend API boundary
+
+`npm run dev` starts the browser frontend only. The browser calls the API from
+`VITE_API_BASE_URL` and signs in through `VITE_COGNITO_HOSTED_UI_BASE_URL` with
+`VITE_COGNITO_CLIENT_ID`.
+
+For the current MVP, local Vite development is expected to target the deployed
+dev API Gateway and Cognito Hosted UI. Backend and database development can use
+WSL PostgreSQL through `backend/README.md`, but that path is exercised through
+backend tests, Alembic, and local Lambda handler invokes, not through the
+browser frontend.
+
+A full local browser stack would require a separate local HTTP API and local
+auth strategy. That is not implemented in this repository.
 
 ## Hosted dev deploy
 
