@@ -34,11 +34,16 @@ class SmtpNotificationEmailSender:
         recipient_email: str,
         subject: str,
         body: str,
+        event_correlation_token: str,
+        configuration_set: str,
     ) -> None:
         message = EmailMessage()
         message["From"] = sender_email
         message["To"] = recipient_email
         message["Subject"] = subject
+        message["X-SES-MESSAGE-TAGS"] = f"leaseflow_delivery_correlation={event_correlation_token}"
+        if configuration_set.strip():
+            message["X-SES-CONFIGURATION-SET"] = configuration_set.strip()
         message.set_content(body)
 
         try:

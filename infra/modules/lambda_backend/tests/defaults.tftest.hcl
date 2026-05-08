@@ -76,6 +76,7 @@ run "configures_notification_email_delivery_environment_without_secret_values" {
     notification_email_smtp_port               = 587
     notification_email_smtp_username_ssm_param = "/leaseflow/dev/notification-email/smtp/username"
     notification_email_smtp_password_ssm_param = "/leaseflow/dev/notification-email/smtp/password"
+    notification_email_configuration_set       = "leaseflow-dev-events"
     notification_email_batch_size              = 10
     notification_email_max_attempts            = 5
   }
@@ -103,6 +104,11 @@ run "configures_notification_email_delivery_environment_without_secret_values" {
   assert {
     condition     = aws_lambda_function.this.environment[0].variables.NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM == "/leaseflow/dev/notification-email/smtp/password"
     error_message = "Lambda should receive the SMTP password parameter name, not the secret value."
+  }
+
+  assert {
+    condition     = aws_lambda_function.this.environment[0].variables.NOTIFICATION_EMAIL_CONFIGURATION_SET == "leaseflow-dev-events"
+    error_message = "Lambda should receive the optional SES configuration set name."
   }
 }
 

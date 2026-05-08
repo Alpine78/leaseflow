@@ -87,6 +87,7 @@ class NotificationEmailDelivery:
     tenant_id: str
     notification_id: UUID
     contact_id: UUID
+    event_correlation_token: UUID
     recipient_email: str
     subject: str
     body: str

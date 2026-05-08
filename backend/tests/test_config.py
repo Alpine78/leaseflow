@@ -26,6 +26,7 @@ def _settings(**overrides: object) -> config.Settings:
         "notification_email_smtp_port": 587,
         "notification_email_smtp_username_ssm_param": None,
         "notification_email_smtp_password_ssm_param": None,
+        "notification_email_configuration_set": "",
         "notification_email_batch_size": 25,
         "notification_email_max_attempts": 3,
     }
@@ -126,6 +127,7 @@ def test_load_settings_reads_ssm_password_configuration_from_environment(
         assert settings.notification_email_smtp_port == 587
         assert settings.notification_email_smtp_username_ssm_param is None
         assert settings.notification_email_smtp_password_ssm_param is None
+        assert settings.notification_email_configuration_set == ""
         assert settings.notification_email_batch_size == 25
         assert settings.notification_email_max_attempts == 3
 
@@ -147,6 +149,7 @@ def test_load_settings_reads_notification_email_delivery_configuration(
             "NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM",
             "/leaseflow/dev/notification-email/smtp/password",
         )
+        monkeypatch.setenv("NOTIFICATION_EMAIL_CONFIGURATION_SET", "leaseflow-dev-events")
         monkeypatch.setenv("NOTIFICATION_EMAIL_BATCH_SIZE", "10")
         monkeypatch.setenv("NOTIFICATION_EMAIL_MAX_ATTEMPTS", "5")
 
@@ -164,6 +167,7 @@ def test_load_settings_reads_notification_email_delivery_configuration(
             settings.notification_email_smtp_password_ssm_param
             == "/leaseflow/dev/notification-email/smtp/password"
         )
+        assert settings.notification_email_configuration_set == "leaseflow-dev-events"
         assert settings.notification_email_batch_size == 10
         assert settings.notification_email_max_attempts == 5
 

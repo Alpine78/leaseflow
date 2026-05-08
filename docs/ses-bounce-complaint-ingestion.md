@@ -14,7 +14,12 @@ access, or email-sending changes.
 - Dev SES SMTP delivery exists as a disabled-by-default internal backend
   worker.
 - Tenant-scoped `notification_email_deliveries` rows track send attempts,
-  sanitized failure codes, and sent timestamps.
+  sanitized failure codes, sent timestamps, and an opaque event correlation
+  token.
+- Outbound SES SMTP messages include the opaque correlation token as an SES
+  message tag so future provider feedback can be matched without using
+  recipient email, tenant ID, contact ID, or notification ID as event contract
+  data.
 - The browser can manage notification contacts and read safe aggregate delivery
   status, but cannot trigger scans, delivery, retries, or provider event
   processing.

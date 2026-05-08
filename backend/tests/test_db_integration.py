@@ -1904,9 +1904,24 @@ def test_notification_email_delivery_rows_are_idempotent_and_retry_safe(
         assert len(pending) == 1
         assert pending[0].tenant_id == tenant_id
         assert pending[0].contact_id == contact.contact_id
+        assert pending[0].event_correlation_token is not None
+        assert str(pending[0].event_correlation_token) not in {
+            tenant_id,
+            str(pending[0].notification_id),
+            str(pending[0].contact_id),
+            pending[0].recipient_email,
+        }
         assert pending[0].recipient_email == contact.email
         assert pending[0].subject == "Rent due soon"
         assert pending[0].body == "Rent is due in 2 days."
+        original_token = pending[0].event_correlation_token
+        db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        prepared_again = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+        assert [item.event_correlation_token for item in prepared_again] == [original_token]
 
         db.mark_notification_email_delivery_sent(
             tenant_id=tenant_id,

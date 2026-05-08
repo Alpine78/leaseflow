@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import smtplib
+from email.parser import Parser
 
 import pytest
 
@@ -50,6 +51,8 @@ def test_smtp_sender_uses_starttls_login_and_sends_email_message() -> None:
         recipient_email="recipient@example.test",
         subject="Rent due soon",
         body="Rent is due in 2 days.",
+        event_correlation_token="11111111-1111-4111-8111-111111111111",
+        configuration_set="",
     )
 
     assert factory_calls == [("smtp.example.test", 587, 10)]
@@ -58,7 +61,12 @@ def test_smtp_sender_uses_starttls_login_and_sends_email_message() -> None:
     assert len(smtp.sendmail_calls) == 1
     assert smtp.sendmail_calls[0][0] == "sender@example.test"
     assert smtp.sendmail_calls[0][1] == ["recipient@example.test"]
-    assert "Subject: Rent due soon" in smtp.sendmail_calls[0][2]
+    message = Parser().parsestr(smtp.sendmail_calls[0][2])
+    assert message["Subject"] == "Rent due soon"
+    assert (
+        message["X-SES-MESSAGE-TAGS"]
+        == "leaseflow_delivery_correlation=11111111-1111-4111-8111-111111111111"
+    )
     assert "Rent is due in 2 days." in smtp.sendmail_calls[0][2]
 
 
@@ -81,6 +89,8 @@ def test_smtp_sender_maps_authentication_error_to_sanitized_code() -> None:
             recipient_email="recipient@example.test",
             subject="Rent due soon",
             body="Rent is due in 2 days.",
+            event_correlation_token="11111111-1111-4111-8111-111111111111",
+            configuration_set="",
         )
 
     assert exc_info.value.code == "smtp_auth_failed"

@@ -202,6 +202,12 @@ variable "notification_email_smtp_password_ssm_param" {
   default     = ""
 }
 
+variable "notification_email_configuration_set" {
+  type        = string
+  description = "Optional SES configuration set name used by notification email delivery event publishing."
+  default     = ""
+}
+
 variable "notification_email_batch_size" {
   type        = number
   description = "Maximum notification email deliveries attempted per internal invocation."

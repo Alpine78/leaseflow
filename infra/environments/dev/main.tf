@@ -112,6 +112,7 @@ module "lambda_backend" {
   notification_email_smtp_port               = var.notification_email_smtp_port
   notification_email_smtp_username_ssm_param = var.notification_email_smtp_username_ssm_param
   notification_email_smtp_password_ssm_param = var.notification_email_smtp_password_ssm_param
+  notification_email_configuration_set       = var.notification_email_configuration_set
   notification_email_batch_size              = var.notification_email_batch_size
   notification_email_max_attempts            = var.notification_email_max_attempts
   tags                                       = local.common_tags

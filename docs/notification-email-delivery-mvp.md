@@ -25,7 +25,8 @@ SES deliverability.
 - A dev SES infrastructure foundation exists with an optional sender identity
   and opt-in SES SMTP VPC endpoint.
 - A tenant-scoped `notification_email_deliveries` table tracks delivery status,
-  attempts, sanitized failure codes, and sent timestamps.
+  attempts, sanitized failure codes, sent timestamps, and opaque event
+  correlation tokens.
 - `GET /notifications` includes delivery summary counts and sanitized status
   fields, but never recipient addresses, contact IDs, tenant IDs, or raw
   provider responses.
@@ -34,6 +35,8 @@ SES deliverability.
 - SMTP credentials are operator-created outside Terraform and referenced by SSM
   SecureString parameter names. Terraform does not create or output SMTP
   credential values.
+- Outbound SES SMTP messages include a sanitized correlation message tag and may
+  include an optional SES configuration-set header when configured.
 - Dev smoke validation is documented in
   `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, with sanitized
   successful evidence in
@@ -90,6 +93,7 @@ Delivery tracking is stored in `notification_email_deliveries` and supports:
 - last attempt timestamp
 - sent timestamp
 - non-sensitive failure category or code
+- opaque event correlation token for future provider feedback matching
 
 Do not store SES raw responses, SMTP transcripts, recipient email addresses,
 message bodies, or secrets in delivery rows.
