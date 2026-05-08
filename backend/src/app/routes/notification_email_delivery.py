@@ -20,6 +20,8 @@ class NotificationEmailSender(Protocol):
         recipient_email: str,
         subject: str,
         body: str,
+        event_correlation_token: str,
+        configuration_set: str,
     ) -> None: ...
 
 
@@ -77,6 +79,8 @@ def deliver_notification_emails(
                 recipient_email=item.recipient_email,
                 subject=item.subject,
                 body=item.body,
+                event_correlation_token=str(item.event_correlation_token),
+                configuration_set=settings.notification_email_configuration_set,
             )
         except NotificationEmailSendError as exc:
             failed_count += 1

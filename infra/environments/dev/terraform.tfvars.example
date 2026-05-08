@@ -45,6 +45,7 @@ notification_email_smtp_port        = 587
 # Parameter names only. Do not put SMTP credential values in Terraform files.
 notification_email_smtp_username_ssm_param = ""
 notification_email_smtp_password_ssm_param = ""
+notification_email_configuration_set        = ""
 
 notification_email_batch_size   = 25
 notification_email_max_attempts = 3

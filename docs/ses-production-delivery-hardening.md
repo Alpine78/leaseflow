@@ -20,7 +20,7 @@ this planning document.
   `notifications` rows.
 - Tenant-owned `notification_contacts` rows define recipient contacts.
 - Tenant-scoped `notification_email_deliveries` rows track delivery attempts,
-  sanitized failure codes, and sent timestamps.
+  sanitized failure codes, sent timestamps, and opaque event correlation tokens.
 - The backend has an internal `deliver_notification_emails` event handler.
 - Email delivery is disabled by default and cannot be triggered from the
   browser.
@@ -28,6 +28,8 @@ this planning document.
   endpoint.
 - SMTP credentials are operator-created outside Terraform and referenced through
   SSM SecureString parameter names.
+- Outbound SES SMTP messages include a sanitized correlation message tag and can
+  include an optional SES configuration-set header when configured.
 - The browser can view only safe aggregate delivery status through
   `GET /notifications`.
 - Dev SES smoke validation evidence exists in

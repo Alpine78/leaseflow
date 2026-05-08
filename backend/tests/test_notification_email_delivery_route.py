@@ -26,6 +26,7 @@ class _DeliveryRecord:
     tenant_id: str
     notification_id: UUID
     contact_id: UUID
+    event_correlation_token: UUID
     recipient_email: str
     subject: str
     body: str
@@ -82,7 +83,7 @@ class _FakeDb:
 class _FakeSender:
     def __init__(self, *, fail_code: str | None = None) -> None:
         self.fail_code = fail_code
-        self.sent: list[tuple[str, str, str, str]] = []
+        self.sent: list[tuple[str, str, str, str, str, str]] = []
 
     def send(
         self,
@@ -91,11 +92,22 @@ class _FakeSender:
         recipient_email: str,
         subject: str,
         body: str,
+        event_correlation_token: str,
+        configuration_set: str,
     ) -> None:
         if self.fail_code:
             delivery = _delivery_module()
             raise delivery.NotificationEmailSendError(self.fail_code)
-        self.sent.append((sender_email, recipient_email, subject, body))
+        self.sent.append(
+            (
+                sender_email,
+                recipient_email,
+                subject,
+                body,
+                event_correlation_token,
+                configuration_set,
+            )
+        )
 
 
 def _settings(**overrides: object) -> SimpleNamespace:
@@ -103,6 +115,7 @@ def _settings(**overrides: object) -> SimpleNamespace:
         "app_env": "test",
         "notification_email_delivery_enabled": True,
         "notification_email_sender": "sender@example.test",
+        "notification_email_configuration_set": "",
         "notification_email_batch_size": 25,
         "notification_email_max_attempts": 3,
     }
@@ -127,6 +140,7 @@ def _delivery_record() -> _DeliveryRecord:
         tenant_id="tenant-auth",
         notification_id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         contact_id=UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+        event_correlation_token=UUID("11111111-1111-4111-8111-111111111111"),
         recipient_email="recipient@example.test",
         subject="Rent due soon",
         body="Rent is due in 2 days.",
@@ -216,6 +230,8 @@ def test_deliver_notification_emails_sends_pending_delivery_and_marks_success(mo
             "recipient@example.test",
             "Rent due soon",
             "Rent is due in 2 days.",
+            "11111111-1111-4111-8111-111111111111",
+            "",
         )
     ]
     assert db.sent_calls == [("tenant-auth", record.delivery_id)]
@@ -249,6 +265,34 @@ def test_deliver_notification_emails_sends_pending_delivery_and_marks_success(mo
                 "retry_exhausted_count": 0,
             },
         }
+    ]
+
+
+def test_deliver_notification_emails_passes_optional_configuration_set_to_sender(
+    monkeypatch,
+) -> None:
+    delivery = _delivery_module()
+    record = _delivery_record()
+    db = _FakeDb([record])
+    sender = _FakeSender()
+    _capture_metrics(monkeypatch)
+
+    delivery.deliver_notification_emails(
+        _event(),
+        db,
+        _settings(notification_email_configuration_set="leaseflow-dev-events"),
+        sender=sender,
+    )
+
+    assert sender.sent == [
+        (
+            "sender@example.test",
+            "recipient@example.test",
+            "Rent due soon",
+            "Rent is due in 2 days.",
+            "11111111-1111-4111-8111-111111111111",
+            "leaseflow-dev-events",
+        )
     ]
 
 
@@ -306,6 +350,7 @@ def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_pay
     assert "recipient@example.test" not in emitted_text
     assert "cccccccc-cccc-cccc-cccc-cccccccccccc" not in emitted_text
     assert "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" not in emitted_text
+    assert "11111111-1111-4111-8111-111111111111" not in emitted_text
     assert "Rent due soon" not in emitted_text
     assert "Rent is due in 2 days." not in emitted_text
 

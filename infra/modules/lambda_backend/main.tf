@@ -150,6 +150,7 @@ resource "aws_lambda_function" "this" {
       NOTIFICATION_EMAIL_SMTP_PORT               = tostring(var.notification_email_smtp_port)
       NOTIFICATION_EMAIL_SMTP_USERNAME_SSM_PARAM = var.notification_email_smtp_username_ssm_param
       NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM = var.notification_email_smtp_password_ssm_param
+      NOTIFICATION_EMAIL_CONFIGURATION_SET       = var.notification_email_configuration_set
       NOTIFICATION_EMAIL_BATCH_SIZE              = tostring(var.notification_email_batch_size)
       NOTIFICATION_EMAIL_MAX_ATTEMPTS            = tostring(var.notification_email_max_attempts)
     }

@@ -28,6 +28,7 @@ class Settings:
     notification_email_smtp_port: int
     notification_email_smtp_username_ssm_param: str | None
     notification_email_smtp_password_ssm_param: str | None
+    notification_email_configuration_set: str
     notification_email_batch_size: int
     notification_email_max_attempts: int
 
@@ -139,6 +140,10 @@ def load_settings() -> Settings:
         notification_email_smtp_password_ssm_param=_optional_env(
             "NOTIFICATION_EMAIL_SMTP_PASSWORD_SSM_PARAM"
         ),
+        notification_email_configuration_set=_env(
+            "NOTIFICATION_EMAIL_CONFIGURATION_SET",
+            "",
+        ).strip(),
         notification_email_batch_size=_env_int("NOTIFICATION_EMAIL_BATCH_SIZE", 25),
         notification_email_max_attempts=_env_int("NOTIFICATION_EMAIL_MAX_ATTEMPTS", 3),
     )
