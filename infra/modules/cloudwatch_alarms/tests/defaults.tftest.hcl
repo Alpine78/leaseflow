@@ -5,6 +5,7 @@ variables {
   lambda_function_name = "leaseflow-dev-backend"
   api_id               = "api123456"
   api_stage_name       = "dev"
+  environment          = "dev"
   scheduler_group_name = "default"
   scheduler_enabled    = true
   tags = {
@@ -104,6 +105,221 @@ run "creates_baseline_alarm_resources" {
     condition     = aws_cloudwatch_metric_alarm.scheduler_target_errors[0].period == 300
     error_message = "Scheduler alarm should use a 5-minute period."
   }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.notification_email_delivery_failures) == 1
+    error_message = "Notification email delivery failures alarm should be created by default."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].alarm_name == "leaseflow-dev-notification-email-delivery-failures"
+    error_message = "Notification email delivery failures alarm should use the expected name."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].namespace == "LeaseFlow/NotificationEmailDelivery"
+    error_message = "Notification email delivery failures alarm should use the delivery namespace."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].metric_name == "failed_count"
+    error_message = "Notification email delivery failures alarm should track failed_count."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].dimensions.environment == "dev"
+    error_message = "Notification email delivery failures alarm should scope to the environment dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].dimensions.service == "backend"
+    error_message = "Notification email delivery failures alarm should scope to the backend service dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].dimensions.operation == "deliver_notification_emails"
+    error_message = "Notification email delivery failures alarm should scope to the delivery operation dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].dimensions.result == "completed_with_failures"
+    error_message = "Notification email delivery failures alarm should scope to failed delivery runs."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].comparison_operator == "GreaterThanOrEqualToThreshold"
+    error_message = "Notification email delivery failures alarm should trigger at or above the threshold."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].threshold == 1
+    error_message = "Notification email delivery failures alarm should trigger on one failed delivery."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].period == 300
+    error_message = "Notification email delivery failures alarm should use a five-minute period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].evaluation_periods == 1
+    error_message = "Notification email delivery failures alarm should evaluate one period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].datapoints_to_alarm == 1
+    error_message = "Notification email delivery failures alarm should require one breaching datapoint."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].statistic == "Sum"
+    error_message = "Notification email delivery failures alarm should sum metric values."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].treat_missing_data == "notBreaching"
+    error_message = "Notification email delivery failures alarm should treat missing data as not breaching."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].alarm_name == "leaseflow-dev-notification-email-delivery-retry-exhausted"
+    error_message = "Notification email delivery retry exhausted alarm should use the expected name."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].namespace == "LeaseFlow/NotificationEmailDelivery"
+    error_message = "Notification email delivery retry exhausted alarm should use the delivery namespace."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].metric_name == "retry_exhausted_count"
+    error_message = "Notification email delivery retry exhausted alarm should track retry_exhausted_count."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].dimensions.environment == "dev"
+    error_message = "Notification email delivery retry exhausted alarm should scope to the environment dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].dimensions.service == "backend"
+    error_message = "Notification email delivery retry exhausted alarm should scope to the backend service dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].dimensions.operation == "deliver_notification_emails"
+    error_message = "Notification email delivery retry exhausted alarm should scope to the delivery operation dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].dimensions.result == "completed_with_failures"
+    error_message = "Notification email delivery retry exhausted alarm should scope to failed delivery runs."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].comparison_operator == "GreaterThanOrEqualToThreshold"
+    error_message = "Notification email delivery retry exhausted alarm should trigger at or above the threshold."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].threshold == 1
+    error_message = "Notification email delivery retry exhausted alarm should trigger on one exhausted retry."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].period == 300
+    error_message = "Notification email delivery retry exhausted alarm should use a five-minute period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].evaluation_periods == 1
+    error_message = "Notification email delivery retry exhausted alarm should evaluate one period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].datapoints_to_alarm == 1
+    error_message = "Notification email delivery retry exhausted alarm should require one breaching datapoint."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].statistic == "Sum"
+    error_message = "Notification email delivery retry exhausted alarm should sum metric values."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].treat_missing_data == "notBreaching"
+    error_message = "Notification email delivery retry exhausted alarm should treat missing data as not breaching."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].alarm_name == "leaseflow-dev-notification-email-delivery-send-volume-high"
+    error_message = "Notification email delivery send volume alarm should use the expected name."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].namespace == "LeaseFlow/NotificationEmailDelivery"
+    error_message = "Notification email delivery send volume alarm should use the delivery namespace."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].metric_name == "attempted_count"
+    error_message = "Notification email delivery send volume alarm should track attempted_count."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].dimensions.environment == "dev"
+    error_message = "Notification email delivery send volume alarm should scope to the environment dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].dimensions.service == "backend"
+    error_message = "Notification email delivery send volume alarm should scope to the backend service dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].dimensions.operation == "deliver_notification_emails"
+    error_message = "Notification email delivery send volume alarm should scope to the delivery operation dimension."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].dimensions.result == "completed"
+    error_message = "Notification email delivery send volume alarm should scope to completed delivery runs."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].comparison_operator == "GreaterThanThreshold"
+    error_message = "Notification email delivery send volume alarm should trigger above the threshold."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].threshold == 100
+    error_message = "Notification email delivery send volume alarm should use the default threshold."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].period == 3600
+    error_message = "Notification email delivery send volume alarm should use a one-hour period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].evaluation_periods == 1
+    error_message = "Notification email delivery send volume alarm should evaluate one period."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].datapoints_to_alarm == 1
+    error_message = "Notification email delivery send volume alarm should require one breaching datapoint."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].statistic == "Sum"
+    error_message = "Notification email delivery send volume alarm should sum metric values."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].treat_missing_data == "notBreaching"
+    error_message = "Notification email delivery send volume alarm should treat missing data as not breaching."
+  }
 }
 
 run "attaches_alarm_actions_when_supplied" {
@@ -146,6 +362,30 @@ run "attaches_alarm_actions_when_supplied" {
     )
     error_message = "Scheduler target errors alarm should publish to the supplied action ARN."
   }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.notification_email_delivery_failures[0].alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Notification email delivery failures alarm should publish to the supplied action ARN."
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted[0].alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Notification email delivery retry exhausted alarm should publish to the supplied action ARN."
+  }
+
+  assert {
+    condition = length(aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].alarm_actions) == 1 && contains(
+      aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].alarm_actions,
+      "arn:aws:sns:eu-north-1:123456789012:leaseflow-dev-baseline-alarm-notifications"
+    )
+    error_message = "Notification email delivery send volume alarm should publish to the supplied action ARN."
+  }
 }
 
 run "omits_scheduler_alarm_when_disabled" {
@@ -158,5 +398,41 @@ run "omits_scheduler_alarm_when_disabled" {
   assert {
     condition     = length(aws_cloudwatch_metric_alarm.scheduler_target_errors) == 0
     error_message = "Scheduler alarm should be omitted when the scheduler is disabled."
+  }
+}
+
+run "omits_notification_email_delivery_alarms_when_disabled" {
+  command = plan
+
+  variables {
+    notification_email_delivery_alarms_enabled = false
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.notification_email_delivery_failures) == 0
+    error_message = "Notification email delivery failures alarm should be omitted when disabled."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.notification_email_delivery_retry_exhausted) == 0
+    error_message = "Notification email delivery retry exhausted alarm should be omitted when disabled."
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high) == 0
+    error_message = "Notification email delivery send volume alarm should be omitted when disabled."
+  }
+}
+
+run "uses_configured_notification_email_delivery_attempt_threshold" {
+  command = plan
+
+  variables {
+    notification_email_delivery_attempted_count_alarm_threshold = 25
+  }
+
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.notification_email_delivery_send_volume_high[0].threshold == 25
+    error_message = "Notification email delivery send volume alarm should use the configured threshold."
   }
 }

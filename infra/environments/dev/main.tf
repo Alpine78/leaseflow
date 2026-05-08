@@ -160,14 +160,16 @@ resource "aws_sns_topic_subscription" "baseline_alarm_email" {
 module "cloudwatch_alarms" {
   source = "../../modules/cloudwatch_alarms"
 
-  name_prefix          = local.name_prefix
-  lambda_function_name = module.lambda_backend.function_name
-  api_id               = module.api_http.api_id
-  api_stage_name       = var.environment
-  scheduler_group_name = "default"
-  scheduler_enabled    = var.reminder_scan_enabled
-  alarm_action_arns    = [aws_sns_topic.baseline_alarm_notifications.arn]
-  tags                 = local.common_tags
+  name_prefix                                                 = local.name_prefix
+  lambda_function_name                                        = module.lambda_backend.function_name
+  api_id                                                      = module.api_http.api_id
+  api_stage_name                                              = var.environment
+  environment                                                 = var.environment
+  scheduler_group_name                                        = "default"
+  scheduler_enabled                                           = var.reminder_scan_enabled
+  alarm_action_arns                                           = [aws_sns_topic.baseline_alarm_notifications.arn]
+  notification_email_delivery_attempted_count_alarm_threshold = var.notification_email_delivery_attempted_count_alarm_threshold
+  tags                                                        = local.common_tags
 }
 
 module "api_http" {

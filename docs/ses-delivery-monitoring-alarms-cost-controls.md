@@ -5,9 +5,9 @@
 This document defines the future monitoring, alarm, and cost-control direction
 for LeaseFlow SES notification delivery.
 
-This is a planning document only. It does not add Terraform alarms, CloudWatch
-dashboards, backend metrics, AWS Budgets, SES production readiness, or cost
-automation.
+This document records the current monitoring implementation and remaining
+planning boundaries. It does not add CloudWatch dashboards, AWS Budgets, SES
+production readiness, or cost automation.
 
 ## Current State
 
@@ -24,8 +24,10 @@ automation.
 - Production rollout hardening is planned in
   `docs/ses-production-delivery-hardening.md`.
 - SES delivery worker custom metrics now exist for normal internal delivery
-  runs. Delivery alarms, delivery dashboard, and AWS Budgets resources do not
-  exist yet.
+  runs.
+- Terraform-managed dev alarms now cover delivery failures, retry exhaustion,
+  and a conservative attempted-send volume boundary. Delivery dashboard and AWS
+  Budgets resources do not exist yet.
 
 ## Future Application Metrics
 
@@ -79,15 +81,27 @@ application metrics once production access and a production sending identity are
 ready. SES native metrics are useful for account or identity reputation signals,
 but they do not replace LeaseFlow worker-specific counters.
 
-## Future Alarm Boundaries
+## Alarm Boundaries
 
-Alarm thresholds below are planning targets, not implemented resources.
+Implemented dev delivery alarms use the `LeaseFlow/NotificationEmailDelivery`
+namespace with the dimensions `environment`, `service`, `operation`, and
+`result`.
+
+Implemented delivery health alarms:
+
+- `failed_count` greater than or equal to `1` for
+  `result=completed_with_failures` over a five-minute period.
+- `retry_exhausted_count` greater than or equal to `1` for
+  `result=completed_with_failures` over a five-minute period.
+- `attempted_count` greater than `100` by default for `result=completed` over a
+  one-hour period as a dev send-volume boundary.
+
+Remaining alarm thresholds below are planning targets, not implemented
+resources.
 
 Delivery health alarms:
 
 - delivery worker invocation or processing error count greater than zero
-- sustained `failed_count` greater than zero
-- `retry_exhausted_count` greater than zero
 - sudden drop to zero sends when candidates and enabled contacts exist
 
 Provider feedback review alarms:
@@ -145,9 +159,10 @@ Terraform alarms, and dashboard resources remain out of scope.
 
 ### Add SES Delivery CloudWatch Alarms
 
-Add Terraform alarms for delivery failures, retry exhaustion, bounce/complaint
-signals, and send-volume anomaly boundaries. Out of scope: browser controls,
-recipient-level alarm data, or production-readiness claims.
+Completed for dev delivery failures, retry exhaustion, and the attempted-send
+volume boundary. Future work remains for bounce/complaint signals, production
+reputation alarms, and any production-specific volume thresholds. Out of scope:
+browser controls, recipient-level alarm data, or production-readiness claims.
 
 ### Add SES Delivery Dashboard
 
