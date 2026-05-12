@@ -23,6 +23,7 @@ from app.models import (
     NotificationEmailDeliverySummary,
     Property,
     ReminderScanResult,
+    SesProviderFeedbackResult,
 )
 
 _NOTIFICATION_CONTACT_SUPPRESSION_REASONS = {"bounce", "complaint"}
@@ -451,6 +452,122 @@ class Database:
                         ),
                     ),
                 )
+
+    def process_ses_provider_feedback(
+        self,
+        *,
+        event_correlation_token: UUID,
+        feedback_type: str,
+    ) -> SesProviderFeedbackResult:
+        normalized_feedback_type = feedback_type.strip().lower()
+        if normalized_feedback_type not in _NOTIFICATION_CONTACT_SUPPRESSION_REASONS:
+            raise ValueError("SES provider feedback type must be bounce or complaint.")
+
+        error_code = f"ses_{normalized_feedback_type}"
+        select_delivery_sql = """
+            SELECT tenant_id, delivery_id, contact_id, status, last_error_code
+            FROM notification_email_deliveries
+            WHERE event_correlation_token = %s
+            FOR UPDATE
+        """
+        update_delivery_sql = """
+            UPDATE notification_email_deliveries
+            SET status = 'failed',
+                last_error_code = %s,
+                updated_at = now()
+            WHERE tenant_id = %s AND delivery_id = %s
+        """
+        insert_suppression_sql = """
+            INSERT INTO notification_contact_suppressions (
+                tenant_id,
+                contact_id,
+                reason
+            ) VALUES (%s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_notification_contact_suppressions_tenant_contact_reason
+            DO NOTHING
+            RETURNING suppression_id
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+
+        suppressed_contact_count = 0
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                delivery_row = conn.execute(
+                    select_delivery_sql,
+                    (event_correlation_token,),
+                ).fetchone()
+                if delivery_row is None:
+                    return SesProviderFeedbackResult(
+                        processed=False,
+                        feedback_type=normalized_feedback_type,
+                        bounce_count=0,
+                        complaint_count=0,
+                        suppressed_contact_count=0,
+                        unknown_correlation_count=1,
+                    )
+
+                tenant_id = delivery_row["tenant_id"]
+                delivery_id = delivery_row["delivery_id"]
+                contact_id = delivery_row["contact_id"]
+                delivery_changed = (
+                    delivery_row["status"] != "failed"
+                    or delivery_row["last_error_code"] != error_code
+                )
+                if delivery_changed:
+                    conn.execute(update_delivery_sql, (error_code, tenant_id, delivery_id))
+                    conn.execute(
+                        audit_sql,
+                        (
+                            tenant_id,
+                            "leaseflow.internal",
+                            "notification_email_delivery.provider_feedback",
+                            "notification_email_delivery",
+                            delivery_id,
+                            json.dumps(
+                                {
+                                    "source": "aws.ses",
+                                    "feedback_type": normalized_feedback_type,
+                                    "error_code": error_code,
+                                }
+                            ),
+                        ),
+                    )
+
+                suppression_row = conn.execute(
+                    insert_suppression_sql,
+                    (tenant_id, contact_id, normalized_feedback_type),
+                ).fetchone()
+                if suppression_row is not None:
+                    suppressed_contact_count = 1
+                    conn.execute(
+                        audit_sql,
+                        (
+                            tenant_id,
+                            "leaseflow.internal",
+                            "notification_contact_suppression.create",
+                            "notification_contact_suppression",
+                            suppression_row["suppression_id"],
+                            json.dumps(
+                                {
+                                    "source": "aws.ses",
+                                    "reason": normalized_feedback_type,
+                                }
+                            ),
+                        ),
+                    )
+
+        return SesProviderFeedbackResult(
+            processed=True,
+            feedback_type=normalized_feedback_type,
+            bounce_count=1 if normalized_feedback_type == "bounce" else 0,
+            complaint_count=1 if normalized_feedback_type == "complaint" else 0,
+            suppressed_contact_count=suppressed_contact_count,
+            unknown_correlation_count=0,
+        )
 
     def create_due_lease_reminder_notifications(
         self,

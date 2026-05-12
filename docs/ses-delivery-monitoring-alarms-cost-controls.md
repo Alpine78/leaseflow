@@ -17,8 +17,8 @@ actions.
   by default.
 - Dev SES SMTP delivery has sanitized smoke evidence, but this does not prove
   production monitoring or production email readiness.
-- SES bounce/complaint ingestion is planned in
-  `docs/ses-bounce-complaint-ingestion.md`, not implemented.
+- SES bounce/complaint ingestion exists as a disabled-by-default internal
+  backend processor and opt-in EventBridge routing.
 - Notification suppression and unsubscribe/preference handling is planned in
   `docs/notification-suppression-unsubscribe-model.md`, not implemented.
 - Production rollout hardening is planned in
@@ -72,7 +72,7 @@ The delivery worker emits these aggregate counters:
 - `skipped_count`
 - `retry_exhausted_count`
 
-The future bounce/complaint processor should emit these aggregate counters:
+The bounce/complaint processor emits these aggregate counters:
 
 - `bounce_count`
 - `complaint_count`
@@ -144,8 +144,8 @@ Implemented dashboard panels show:
   suppressed contacts
 
 Future feedback and suppression widgets are intentionally present before those
-processors emit metrics. They should render as no-data until the future
-bounce/complaint and suppression implementations exist.
+metrics are emitted. They can render as no-data until EventBridge routing is
+enabled and real SES feedback events are processed.
 
 ## Cost Controls
 
@@ -202,9 +202,10 @@ against the existing private SES SMTP endpoint direction.
 
 ### Emit SES Delivery CloudWatch Custom Metrics
 
-Completed for the internal delivery worker. Future bounce/complaint processor
-metrics remain out of scope. Recipient-level dimensions, tenant dimensions,
-Terraform alarms, and dashboard resources remain out of scope.
+Completed for the internal delivery worker. Bounce/complaint processor
+metrics are also implemented as aggregate EMF-style counters. Recipient-level
+dimensions, tenant dimensions, Terraform alarms, and dashboard resources remain
+out of scope for metric emission.
 
 ### Add SES Delivery CloudWatch Alarms
 

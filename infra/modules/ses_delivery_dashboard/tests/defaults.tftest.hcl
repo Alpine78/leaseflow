@@ -60,6 +60,7 @@ run "creates_safe_aggregate_delivery_dashboard" {
         "backend",
         "operation",
         "deliver_notification_emails",
+        "process_ses_provider_feedback",
         "result",
         "completed",
         "completed_with_failures",

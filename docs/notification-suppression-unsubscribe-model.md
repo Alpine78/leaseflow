@@ -20,7 +20,8 @@ work.
   codes, and sent timestamps.
 - `notification_contact_suppressions` stores tenant/contact-scoped active
   suppressions for `bounce` and `complaint` reasons.
-- Bounce and complaint ingestion is planned separately in
+- Bounce and complaint ingestion exists as disabled-by-default internal
+  processing and opt-in EventBridge routing, documented in
   `docs/ses-bounce-complaint-ingestion.md`.
 - Delivery eligibility does not consume suppression state yet; that remains a
   separate implementation step.

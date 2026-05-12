@@ -24,6 +24,7 @@ from app.routes.notification_email_delivery import deliver_notification_emails
 from app.routes.notifications import list_notifications, mark_notification_read
 from app.routes.properties import create_property, list_properties, update_property
 from app.routes.reminder_scans import scan_due_lease_reminders
+from app.routes.ses_provider_feedback import process_ses_provider_feedback
 
 setup_logging()
 LOGGER = get_logger(__name__)
@@ -149,6 +150,11 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             and event.get("detail-type") == "configure_notification_contact"
         ):
             return _response(HTTPStatus.OK, configure_notification_contact(event, db))
+        if event.get("source") == "aws.ses" and event.get("detail-type") in {
+            "Email Bounced",
+            "Email Complaint Received",
+        }:
+            return _response(HTTPStatus.OK, process_ses_provider_feedback(event, db, settings))
         if method == "PATCH" and notification_contact_id is not None:
             return _response(
                 HTTPStatus.OK,

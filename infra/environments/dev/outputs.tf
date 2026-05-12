@@ -130,3 +130,13 @@ output "ses_configuration_set_name" {
   description = "SES configuration set name when EventBridge publishing is configured."
   value       = module.ses_email_foundation.configuration_set_name
 }
+
+output "ses_feedback_processor_eventbridge_enabled" {
+  description = "Whether SES feedback EventBridge routing is configured."
+  value       = module.ses_feedback_eventbridge_processor.enabled
+}
+
+output "ses_feedback_processor_eventbridge_rule_name" {
+  description = "SES feedback EventBridge rule name when enabled."
+  value       = module.ses_feedback_eventbridge_processor.rule_name
+}

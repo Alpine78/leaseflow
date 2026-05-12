@@ -119,6 +119,16 @@ class NotificationEmailDeliveryPreparationResult:
 
 
 @dataclass(slots=True)
+class SesProviderFeedbackResult:
+    processed: bool
+    feedback_type: str
+    bounce_count: int
+    complaint_count: int
+    suppressed_contact_count: int
+    unknown_correlation_count: int
+
+
+@dataclass(slots=True)
 class ReminderScanResult:
     tenant_id: str | None
     as_of_date: date

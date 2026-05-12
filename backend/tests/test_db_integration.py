@@ -2382,6 +2382,146 @@ def test_notification_email_delivery_rejects_cross_tenant_status_update(
         _cleanup_test_tenant(integration_settings, other_tenant_id)
 
 
+def test_process_ses_provider_feedback_updates_delivery_and_suppression_idempotently(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"SES Feedback HQ {uuid4().hex[:8]}",
+            address=f"SES Feedback Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"SES Feedback User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"feedback-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )[0]
+        db.mark_notification_email_delivery_sent(
+            tenant_id=tenant_id,
+            delivery_id=pending.delivery_id,
+        )
+
+        first = db.process_ses_provider_feedback(
+            event_correlation_token=pending.event_correlation_token,
+            feedback_type="bounce",
+        )
+        second = db.process_ses_provider_feedback(
+            event_correlation_token=pending.event_correlation_token,
+            feedback_type="bounce",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            delivery_rows = conn.execute(
+                """
+                SELECT tenant_id, status, attempt_count, last_error_code
+                FROM notification_email_deliveries
+                WHERE delivery_id = %s
+                """,
+                (pending.delivery_id,),
+            ).fetchall()
+            suppression_rows = conn.execute(
+                """
+                SELECT tenant_id, contact_id, reason
+                FROM notification_contact_suppressions
+                WHERE tenant_id = %s AND contact_id = %s
+                """,
+                (tenant_id, contact.contact_id),
+            ).fetchall()
+            audit_rows = conn.execute(
+                """
+                SELECT action, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND action IN (
+                    'notification_email_delivery.provider_feedback',
+                    'notification_contact_suppression.create'
+                  )
+                ORDER BY action, created_at
+                """,
+                (tenant_id,),
+            ).fetchall()
+
+        assert first.processed is True
+        assert first.feedback_type == "bounce"
+        assert first.bounce_count == 1
+        assert first.complaint_count == 0
+        assert first.suppressed_contact_count == 1
+        assert first.unknown_correlation_count == 0
+        assert second.processed is True
+        assert second.suppressed_contact_count == 0
+        assert delivery_rows == [
+            {
+                "tenant_id": tenant_id,
+                "status": "failed",
+                "attempt_count": 1,
+                "last_error_code": "ses_bounce",
+            }
+        ]
+        assert suppression_rows == [
+            {
+                "tenant_id": tenant_id,
+                "contact_id": contact.contact_id,
+                "reason": "bounce",
+            }
+        ]
+        assert len(audit_rows) == 2
+        for row in audit_rows:
+            metadata = row["metadata"]
+            assert "email" not in metadata
+            assert "tenant_id" not in metadata
+            assert "contact_id" not in metadata
+            assert "notification_id" not in metadata
+            assert "event_correlation_token" not in metadata
+            assert "message" not in metadata
+            assert "body" not in metadata
+            assert "provider_payload" not in metadata
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_process_ses_provider_feedback_unknown_correlation_is_safe_noop(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+
+    result = db.process_ses_provider_feedback(
+        event_correlation_token=uuid4(),
+        feedback_type="complaint",
+    )
+
+    assert result.processed is False
+    assert result.feedback_type == "complaint"
+    assert result.bounce_count == 0
+    assert result.complaint_count == 0
+    assert result.suppressed_contact_count == 0
+    assert result.unknown_correlation_count == 1
+
+
 def test_list_notifications_includes_tenant_scoped_email_delivery_summary(
     integration_settings: Settings,
 ) -> None:

@@ -167,6 +167,12 @@ variable "ses_configuration_set_event_publishing_enabled" {
   default     = false
 }
 
+variable "ses_feedback_processor_eventbridge_enabled" {
+  type        = bool
+  description = "Whether to route SES bounce and complaint EventBridge events to the backend processor."
+  default     = false
+}
+
 variable "notification_email_delivery_enabled" {
   type        = bool
   description = "Whether internal notification email delivery is enabled for the dev Lambda."
