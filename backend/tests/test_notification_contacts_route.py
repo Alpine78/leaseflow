@@ -23,6 +23,15 @@ class _ContactRecord:
     created_at: datetime
 
 
+@dataclass(slots=True)
+class _SuppressionRecord:
+    suppression_id: UUID
+    tenant_id: str
+    contact_id: UUID
+    reason: str
+    created_at: datetime
+
+
 class _FakeDb:
     def __init__(self) -> None:
         self.contacts: list[_ContactRecord] = [
@@ -39,6 +48,7 @@ class _FakeDb:
                 enabled=False,
             ),
         ]
+        self.suppressions: list[_SuppressionRecord] = []
         self.create_calls: list[dict[str, object]] = []
         self.list_calls: list[str] = []
         self.update_calls: list[dict[str, object]] = []
@@ -46,6 +56,17 @@ class _FakeDb:
     def list_notification_contacts(self, tenant_id: str) -> list[_ContactRecord]:
         self.list_calls.append(tenant_id)
         return [contact for contact in self.contacts if contact.tenant_id == tenant_id]
+
+    def list_notification_contact_suppressions(
+        self,
+        tenant_id: str,
+        contact_id: UUID | None = None,
+    ) -> list[_SuppressionRecord]:
+        return [
+            s
+            for s in self.suppressions
+            if s.tenant_id == tenant_id and (contact_id is None or s.contact_id == contact_id)
+        ]
 
     def create_notification_contact(
         self,
@@ -121,6 +142,21 @@ def _contact(
     )
 
 
+def _suppression(
+    *,
+    contact_id: UUID,
+    tenant_id: str,
+    reason: str,
+) -> _SuppressionRecord:
+    return _SuppressionRecord(
+        suppression_id=UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+        reason=reason,
+        created_at=datetime(2026, 5, 12, tzinfo=UTC),
+    )
+
+
 def _event_with_auth(*, tenant_id: str = "tenant-auth", user_id: str = "user-auth") -> dict:
     return {
         "requestContext": {
@@ -152,12 +188,14 @@ def test_list_notification_contacts_uses_auth_tenant_and_excludes_tenant_id() ->
                 "email": "enabled@example.test",
                 "enabled": True,
                 "created_at": "2026-05-05T00:00:00+00:00",
+                "suppression_reasons": [],
             },
             {
                 "contact_id": "22222222-2222-2222-2222-222222222222",
                 "email": "disabled@example.test",
                 "enabled": False,
                 "created_at": "2026-05-05T00:00:00+00:00",
+                "suppression_reasons": [],
             },
         ]
     }
@@ -183,6 +221,7 @@ def test_create_notification_contact_uses_auth_context_and_excludes_tenant_id() 
         "email": "new@example.test",
         "enabled": True,
         "created_at": "2026-05-05T00:00:00+00:00",
+        "suppression_reasons": [],
     }
 
 
@@ -254,6 +293,7 @@ def test_update_notification_contact_enabled_uses_auth_context_and_excludes_tena
         "email": "enabled@example.test",
         "enabled": False,
         "created_at": "2026-05-05T00:00:00+00:00",
+        "suppression_reasons": [],
     }
 
 
@@ -294,3 +334,58 @@ def test_notification_contact_routes_require_jwt_claims() -> None:
 
     with pytest.raises(AuthError, match="Missing JWT claims."):
         contacts.create_notification_contact({}, db, {"email": "contact@example.test"})
+
+
+def test_list_notification_contacts_includes_suppression_reasons() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    db.suppressions = [
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="bounce",
+        ),
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="complaint",
+        ),
+    ]
+    event = _event_with_auth()
+
+    payload = contacts.list_notification_contacts(event, db)
+
+    suppressed_item = next(
+        item
+        for item in payload["items"]
+        if item["contact_id"] == "11111111-1111-1111-1111-111111111111"
+    )
+    unsuppressed_item = next(
+        item
+        for item in payload["items"]
+        if item["contact_id"] == "22222222-2222-2222-2222-222222222222"
+    )
+    assert suppressed_item["suppression_reasons"] == ["bounce", "complaint"]
+    assert unsuppressed_item["suppression_reasons"] == []
+
+
+def test_update_notification_contact_includes_suppression_reasons() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    db.suppressions = [
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="bounce",
+        ),
+    ]
+    event = _event_with_auth()
+    event["body"] = '{"enabled": false}'
+
+    payload = contacts.update_notification_contact(
+        event,
+        db,
+        UUID("11111111-1111-1111-1111-111111111111"),
+    )
+
+    assert payload["suppression_reasons"] == ["bounce"]
