@@ -162,3 +162,55 @@ resource "aws_cloudwatch_metric_alarm" "notification_email_delivery_send_volume_
 
   tags = var.tags
 }
+
+resource "aws_cloudwatch_metric_alarm" "ses_feedback_bounce" {
+  count = var.notification_email_delivery_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-ses-feedback-bounce"
+  alarm_description   = "Alarm for SES bounce feedback processed by the notification email delivery pipeline."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 1
+  period              = 300
+  namespace           = "LeaseFlow/NotificationEmailDelivery"
+  metric_name         = "bounce_count"
+  statistic           = "Sum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
+
+  dimensions = {
+    environment = var.environment
+    service     = "backend"
+    operation   = "process_ses_provider_feedback"
+    result      = "processed"
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ses_feedback_complaint" {
+  count = var.notification_email_delivery_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name_prefix}-ses-feedback-complaint"
+  alarm_description   = "Alarm for SES complaint feedback processed by the notification email delivery pipeline."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  threshold           = 1
+  period              = 300
+  namespace           = "LeaseFlow/NotificationEmailDelivery"
+  metric_name         = "complaint_count"
+  statistic           = "Sum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = var.alarm_action_arns
+
+  dimensions = {
+    environment = var.environment
+    service     = "backend"
+    operation   = "process_ses_provider_feedback"
+    result      = "processed"
+  }
+
+  tags = var.tags
+}

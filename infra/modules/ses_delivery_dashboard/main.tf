@@ -113,7 +113,7 @@ resource "aws_cloudwatch_dashboard" "notification_email_delivery" {
         width  = 12
         height = 6
         properties = {
-          title   = "Future feedback and suppression metrics"
+          title   = "Feedback and suppression metrics"
           view    = "timeSeries"
           stacked = false
           region  = var.aws_region

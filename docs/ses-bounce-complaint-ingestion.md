@@ -139,9 +139,11 @@ Cognito user enumeration and marketing email.
 
 ### Add Bounce Complaint Monitoring And Evidence
 
-Add alarms, runbook steps, and sanitized evidence templates for
-bounce/complaint ingestion validation. Aggregate processor metrics now exist,
-but alarms/evidence remain future work.
+Completed for dev. CloudWatch alarms for `bounce_count` and `complaint_count`
+are implemented, the dashboard feedback widget is active, a processor
+validation runbook exists, and sanitized evidence has been captured. Out of
+scope remains production-specific alarm thresholds and live EventBridge
+routing validation.
 
 ## Security And Cost Boundaries
 
