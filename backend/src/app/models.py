@@ -116,6 +116,7 @@ class NotificationEmailDeliveryPreparationResult:
     candidate_count: int
     created_count: int
     duplicate_count: int
+    suppressed_contact_count: int
 
 
 @dataclass(slots=True)

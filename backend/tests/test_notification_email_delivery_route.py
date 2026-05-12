@@ -18,6 +18,7 @@ class _PreparationResult:
     candidate_count: int
     created_count: int
     duplicate_count: int
+    suppressed_contact_count: int
 
 
 @dataclass(slots=True)
@@ -53,6 +54,7 @@ class _FakeDb:
             candidate_count=len(self.deliveries),
             created_count=len(self.deliveries),
             duplicate_count=0,
+            suppressed_contact_count=0,
         )
 
     def list_pending_notification_email_deliveries(
@@ -180,6 +182,7 @@ def test_deliver_notification_emails_disabled_does_not_prepare_or_send(monkeypat
         "candidate_count": 0,
         "created_count": 0,
         "duplicate_count": 0,
+        "suppressed_contact_count": 0,
         "attempted_count": 0,
         "sent_count": 0,
         "failed_count": 0,
@@ -196,6 +199,7 @@ def test_deliver_notification_emails_disabled_does_not_prepare_or_send(monkeypat
             "metrics": {
                 "candidate_count": 0,
                 "created_delivery_count": 0,
+                "suppressed_contact_count": 0,
                 "attempted_count": 0,
                 "sent_count": 0,
                 "failed_count": 0,
@@ -242,6 +246,7 @@ def test_deliver_notification_emails_sends_pending_delivery_and_marks_success(mo
         "candidate_count": 2,
         "created_count": 2,
         "duplicate_count": 0,
+        "suppressed_contact_count": 0,
         "attempted_count": 1,
         "sent_count": 1,
         "failed_count": 0,
@@ -258,6 +263,7 @@ def test_deliver_notification_emails_sends_pending_delivery_and_marks_success(mo
             "metrics": {
                 "candidate_count": 2,
                 "created_delivery_count": 2,
+                "suppressed_contact_count": 0,
                 "attempted_count": 1,
                 "sent_count": 1,
                 "failed_count": 0,
@@ -321,6 +327,7 @@ def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_pay
         "candidate_count": 1,
         "created_count": 1,
         "duplicate_count": 0,
+        "suppressed_contact_count": 0,
         "attempted_count": 1,
         "sent_count": 0,
         "failed_count": 1,
@@ -337,6 +344,7 @@ def test_deliver_notification_emails_marks_sanitized_failure_without_leaking_pay
             "metrics": {
                 "candidate_count": 1,
                 "created_delivery_count": 1,
+                "suppressed_contact_count": 0,
                 "attempted_count": 1,
                 "sent_count": 0,
                 "failed_count": 1,
@@ -373,3 +381,37 @@ def test_deliver_notification_emails_defaults_to_all_tenants_when_tenant_missing
     assert db.prepare_calls == [None]
     assert db.list_calls == [(None, 3, 25)]
     assert payload["tenant_id"] is None
+
+
+def test_deliver_notification_emails_reports_suppressed_contact_count(
+    monkeypatch,
+) -> None:
+    delivery = _delivery_module()
+    db = _FakeDb([_delivery_record()])
+    emitted = _capture_metrics(monkeypatch)
+
+    def _prepare_with_suppression(tenant_id: str | None) -> _PreparationResult:
+        db.prepare_calls.append(tenant_id)
+        return _PreparationResult(
+            tenant_id=tenant_id,
+            candidate_count=1,
+            created_count=1,
+            duplicate_count=0,
+            suppressed_contact_count=2,
+        )
+
+    db.create_missing_notification_email_deliveries = _prepare_with_suppression  # type: ignore[method-assign]
+
+    payload = delivery.deliver_notification_emails(
+        _event(),
+        db,
+        _settings(),
+        sender=_FakeSender(),
+    )
+
+    assert payload["suppressed_contact_count"] == 2
+    assert emitted[0]["metrics"]["suppressed_contact_count"] == 2
+    emitted_text = str(emitted)
+    assert "tenant-auth" not in emitted_text
+    assert "recipient@example.test" not in emitted_text
+    assert "cccccccc-cccc-cccc-cccc-cccccccccccc" not in emitted_text

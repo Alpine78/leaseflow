@@ -195,9 +195,10 @@ triggering, and raw provider payload storage remain out of scope.
 
 Partially implemented as tenant/contact-scoped bounce and complaint suppression
 state, as documented in `docs/notification-suppression-unsubscribe-model.md`.
-Delivery eligibility changes, browser visibility, suppression removal workflow,
-SES subscription automation, marketing mail, and Cognito user enumeration remain
-out of scope.
+Delivery eligibility now excludes disabled or suppressed contacts before due
+reminder delivery rows are created or sent. Browser visibility, suppression
+removal workflow, SES subscription automation, marketing mail, and Cognito user
+enumeration remain out of scope.
 
 ### Add SES Delivery Monitoring, Alarms, And Cost Controls
 
