@@ -111,8 +111,12 @@ Delivery health alarms:
 
 Provider feedback review alarms:
 
-- `bounce_count` greater than zero in production
-- `complaint_count` greater than zero in production
+- `bounce_count` greater than or equal to `1` for
+  `operation=process_ses_provider_feedback, result=processed` over a
+  five-minute period. Implemented for dev.
+- `complaint_count` greater than or equal to `1` for
+  `operation=process_ses_provider_feedback, result=processed` over a
+  five-minute period. Implemented for dev.
 - SES native reputation, bounce-rate, or complaint-rate signal enters warning
   territory after production sender identity is enabled
 
@@ -230,9 +234,10 @@ automatic destructive cost actions.
 
 ### Capture SES Monitoring Sanitized Evidence
 
-Add a runbook and evidence template proving metrics and alarms without
-recipient details, tenant IDs, raw provider payloads, or sensitive operational
-values.
+Completed for delivery worker monitoring and bounce/complaint processor
+monitoring. A delivery smoke-test runbook, a processor validation runbook, and
+sanitized evidence files exist for both. Live AWS runtime validation remains
+pending until the dev stack is available with a configured AWS CLI profile.
 
 ## Security And Evidence Boundaries
 
