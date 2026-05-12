@@ -2324,6 +2324,198 @@ def test_notification_email_delivery_excludes_disabled_contacts_and_stops_after_
         _cleanup_test_tenant(integration_settings, tenant_id)
 
 
+def test_notification_email_delivery_excludes_suppressed_contacts_before_creation(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+    shared_email = f"suppression-eligible-{uuid4().hex[:8]}@example.com"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Suppression Eligibility HQ {uuid4().hex[:8]}",
+            address=f"Suppression Eligibility Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Suppression Eligibility User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        enabled_contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"eligible-{uuid4().hex[:8]}@example.com",
+        )
+        bounce_contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=shared_email,
+        )
+        complaint_contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"complaint-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"disabled-suppression-{uuid4().hex[:8]}@example.com",
+            enabled=False,
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Other Suppression HQ {uuid4().hex[:8]}",
+            address=f"Other Suppression Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=other_property.property_id,
+            resident_name=f"Other Suppression User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        other_contact = db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=shared_email,
+        )
+        db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=bounce_contact.contact_id,
+            reason="bounce",
+        )
+        db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=complaint_contact.contact_id,
+            reason="complaint",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=other_tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+
+        tenant_prepare = db.create_missing_notification_email_deliveries(
+            tenant_id=tenant_id,
+        )
+        other_prepare = db.create_missing_notification_email_deliveries(
+            tenant_id=other_tenant_id,
+        )
+        pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+        other_pending = db.list_pending_notification_email_deliveries(
+            tenant_id=other_tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+
+        assert tenant_prepare.candidate_count == 1
+        assert tenant_prepare.created_count == 1
+        assert tenant_prepare.duplicate_count == 0
+        assert tenant_prepare.suppressed_contact_count == 2
+        assert [item.contact_id for item in pending] == [enabled_contact.contact_id]
+
+        assert other_prepare.candidate_count == 1
+        assert other_prepare.created_count == 1
+        assert other_prepare.suppressed_contact_count == 0
+        assert [item.contact_id for item in other_pending] == [other_contact.contact_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_notification_email_delivery_excludes_existing_pending_after_contact_suppression(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = f"user-{uuid4().hex[:12]}"
+
+    try:
+        property_record = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            name=f"Pending Suppression HQ {uuid4().hex[:8]}",
+            address=f"Pending Suppression Street {uuid4().hex[:8]}",
+        )
+        db.create_lease(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            property_id=property_record.property_id,
+            resident_name=f"Pending Suppression User {uuid4().hex[:8]}",
+            rent_due_day_of_month=5,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"pending-suppression-{uuid4().hex[:8]}@example.com",
+        )
+        db.create_due_lease_reminder_notifications(
+            tenant_id=tenant_id,
+            as_of_date=date(2026, 4, 3),
+            days=7,
+        )
+        first_prepare = db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        initial_pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+        db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="bounce",
+        )
+        db.set_notification_contact_enabled(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            enabled=True,
+        )
+        second_prepare = db.create_missing_notification_email_deliveries(tenant_id=tenant_id)
+        suppressed_pending = db.list_pending_notification_email_deliveries(
+            tenant_id=tenant_id,
+            max_attempts=3,
+            limit=10,
+        )
+
+        assert first_prepare.candidate_count == 1
+        assert first_prepare.created_count == 1
+        assert first_prepare.suppressed_contact_count == 0
+        assert [item.contact_id for item in initial_pending] == [contact.contact_id]
+        assert second_prepare.candidate_count == 0
+        assert second_prepare.created_count == 0
+        assert second_prepare.duplicate_count == 0
+        assert second_prepare.suppressed_contact_count == 1
+        assert suppressed_pending == []
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
 def test_notification_email_delivery_rejects_cross_tenant_status_update(
     integration_settings: Settings,
 ) -> None:

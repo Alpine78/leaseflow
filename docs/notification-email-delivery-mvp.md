@@ -90,7 +90,8 @@ The recipient model is `notification_contacts`:
 - creation timestamp
 
 Disabled contacts remain stored but must be excluded from delivery candidate
-selection.
+selection. Contacts with active `bounce` or `complaint` suppression are also
+excluded before delivery rows are created or sent.
 
 Delivery tracking is stored in `notification_email_deliveries` and supports:
 
@@ -115,7 +116,8 @@ The implemented backend flow is:
 2. The scan creates missing persisted due reminder `notifications` rows.
 3. An operator or future internal automation invokes the backend-only
    `deliver_notification_emails` event.
-4. The delivery worker creates missing delivery rows for enabled contacts.
+4. The delivery worker creates missing delivery rows for enabled,
+   unsuppressed contacts.
 5. The worker selects unsent eligible notification/contact pairs.
 6. The worker sends email through SES SMTP when delivery is enabled.
 7. The worker records delivery success or a sanitized failure category.

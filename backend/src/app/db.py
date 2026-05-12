@@ -268,10 +268,35 @@ class Database:
               ON c.tenant_id = n.tenant_id
              AND c.enabled = true
             WHERE n.type = 'rent_due_soon'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM notification_contact_suppressions s
+                  WHERE s.tenant_id = c.tenant_id
+                    AND s.contact_id = c.contact_id
+                    AND s.reason IN ('bounce', 'complaint')
+              )
+        """
+        suppressed_sql = """
+            SELECT COUNT(*) AS suppressed_contact_count
+            FROM notifications n
+            JOIN notification_contacts c
+              ON c.tenant_id = n.tenant_id
+             AND c.enabled = true
+            WHERE n.type = 'rent_due_soon'
+              AND EXISTS (
+                  SELECT 1
+                  FROM notification_contact_suppressions s
+                  WHERE s.tenant_id = c.tenant_id
+                    AND s.contact_id = c.contact_id
+                    AND s.reason IN ('bounce', 'complaint')
+              )
         """
         params: tuple[object, ...]
         if tenant_id:
             select_sql += """
+              AND n.tenant_id = %s
+            """
+            suppressed_sql += """
               AND n.tenant_id = %s
             """
             params = (tenant_id,)
@@ -293,6 +318,7 @@ class Database:
         with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
             with conn.transaction():
                 candidates = conn.execute(select_sql, params).fetchall()
+                suppressed_row = conn.execute(suppressed_sql, params).fetchone()
                 for candidate in candidates:
                     created_row = conn.execute(
                         insert_sql,
@@ -310,6 +336,9 @@ class Database:
             candidate_count=len(candidates),
             created_count=created_count,
             duplicate_count=len(candidates) - created_count,
+            suppressed_contact_count=suppressed_row["suppressed_contact_count"]
+            if suppressed_row is not None
+            else 0,
         )
 
     def list_pending_notification_email_deliveries(
@@ -347,6 +376,13 @@ class Database:
               AND d.attempt_count < %s
               AND c.enabled = true
               AND n.type = 'rent_due_soon'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM notification_contact_suppressions s
+                  WHERE s.tenant_id = c.tenant_id
+                    AND s.contact_id = c.contact_id
+                    AND s.reason IN ('bounce', 'complaint')
+              )
         """
         params: tuple[object, ...]
         if tenant_id:
