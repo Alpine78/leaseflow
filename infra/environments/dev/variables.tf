@@ -161,6 +161,12 @@ variable "ses_smtp_vpc_endpoint_enabled" {
   default     = false
 }
 
+variable "ses_configuration_set_event_publishing_enabled" {
+  type        = bool
+  description = "Whether to create an SES configuration set with EventBridge publishing for bounce and complaint events."
+  default     = false
+}
+
 variable "notification_email_delivery_enabled" {
   type        = bool
   description = "Whether internal notification email delivery is enabled for the dev Lambda."

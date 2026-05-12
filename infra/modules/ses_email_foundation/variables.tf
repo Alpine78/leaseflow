@@ -25,6 +25,18 @@ variable "smtp_vpc_endpoint_enabled" {
   default     = false
 }
 
+variable "configuration_set_event_publishing_enabled" {
+  type        = bool
+  description = "Whether to create an SES configuration set with EventBridge publishing for bounce and complaint events."
+  default     = false
+}
+
+variable "configuration_set_name" {
+  type        = string
+  description = "Optional SES configuration set name used when EventBridge event publishing is enabled."
+  default     = ""
+}
+
 variable "vpc_id" {
   type        = string
   description = "VPC ID for the optional SES SMTP interface endpoint."

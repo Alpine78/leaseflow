@@ -1,4 +1,10 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_cloudwatch_event_bus" {
+    defaults = {
+      arn = "arn:aws:events:eu-north-1:123456789012:event-bus/default"
+    }
+  }
+}
 
 variables {
   name_prefix              = "leaseflow-dev"
@@ -30,6 +36,16 @@ run "defaults_create_no_ses_identity_or_smtp_endpoint" {
   }
 
   assert {
+    condition     = length(aws_sesv2_configuration_set.notification_events) == 0
+    error_message = "SES configuration set should not be created by default."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge) == 0
+    error_message = "SES EventBridge event destination should not be created by default."
+  }
+
+  assert {
     condition     = output.sender_identity_configured == false
     error_message = "Sender identity output should be false by default."
   }
@@ -37,6 +53,11 @@ run "defaults_create_no_ses_identity_or_smtp_endpoint" {
   assert {
     condition     = output.smtp_vpc_endpoint_enabled == false
     error_message = "SMTP VPC endpoint output should be false by default."
+  }
+
+  assert {
+    condition     = output.configuration_set_event_publishing_enabled == false
+    error_message = "Configuration set event publishing output should be false by default."
   }
 }
 
@@ -124,4 +145,86 @@ run "creates_opt_in_smtp_private_endpoint" {
     condition     = output.smtp_vpc_endpoint_enabled == true
     error_message = "SMTP VPC endpoint output should be true when endpoint is enabled."
   }
+}
+
+run "creates_eventbridge_destination_for_bounce_and_complaint_events" {
+  command = plan
+
+  variables {
+    configuration_set_event_publishing_enabled = true
+    configuration_set_name                     = "leaseflow-dev-notification-email"
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set.notification_events) == 1
+    error_message = "SES configuration set should be created when event publishing is enabled."
+  }
+
+  assert {
+    condition     = aws_sesv2_configuration_set.notification_events[0].configuration_set_name == "leaseflow-dev-notification-email"
+    error_message = "SES configuration set should use the configured name."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge) == 1
+    error_message = "SES EventBridge event destination should be created when event publishing is enabled."
+  }
+
+  assert {
+    condition     = aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].enabled == true
+    error_message = "SES EventBridge event destination should be enabled."
+  }
+
+  assert {
+    condition     = jsonencode(sort(aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].matching_event_types)) == jsonencode(["BOUNCE", "COMPLAINT"])
+    error_message = "SES EventBridge event destination should publish only bounce and complaint events."
+  }
+
+  assert {
+    condition     = aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].event_bridge_destination[0].event_bus_arn == "arn:aws:events:eu-north-1:123456789012:event-bus/default"
+    error_message = "SES EventBridge event destination should target the default EventBridge bus."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].cloud_watch_destination) == 0
+    error_message = "SES EventBridge event destination should not configure CloudWatch destination."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].kinesis_firehose_destination) == 0
+    error_message = "SES EventBridge event destination should not configure Kinesis Firehose destination."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].pinpoint_destination) == 0
+    error_message = "SES EventBridge event destination should not configure Pinpoint destination."
+  }
+
+  assert {
+    condition     = length(aws_sesv2_configuration_set_event_destination.eventbridge[0].event_destination[0].sns_destination) == 0
+    error_message = "SES EventBridge event destination should not configure SNS destination."
+  }
+
+  assert {
+    condition     = output.configuration_set_event_publishing_enabled == true
+    error_message = "Configuration set event publishing output should be true when enabled."
+  }
+
+  assert {
+    condition     = output.configuration_set_name == "leaseflow-dev-notification-email"
+    error_message = "Configuration set output should expose only the configured set name."
+  }
+}
+
+run "enabled_event_publishing_requires_configuration_set_name" {
+  command = plan
+
+  variables {
+    configuration_set_event_publishing_enabled = true
+    configuration_set_name                     = ""
+  }
+
+  expect_failures = [
+    aws_sesv2_configuration_set.notification_events
+  ]
 }

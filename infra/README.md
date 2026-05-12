@@ -10,7 +10,7 @@ Terraform code is split into reusable modules and environment composition.
 - `modules/cognito`: user pool, app client, and managed Hosted UI domain.
 - `modules/frontend_hosting`: private S3 bucket and CloudFront distribution for the SPA.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
-- `modules/ses_email_foundation`: optional SES sender identity and SES SMTP PrivateLink foundation.
+- `modules/ses_email_foundation`: optional SES sender identity, SES SMTP PrivateLink, and SES EventBridge publishing foundation.
 - `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
 - `environments/dev`: MVP dev environment composition.
@@ -66,6 +66,16 @@ is explicitly enabled and operator-provided SES SMTP credentials are configured.
   SES from private subnets without adding a NAT Gateway.
 - The endpoint is billable while provisioned because interface VPC endpoint
   hourly and data-processing charges apply.
+- `ses_configuration_set_event_publishing_enabled` defaults to `false`. Keep it
+  disabled unless you intentionally want Terraform to create the SES
+  configuration set EventBridge publishing foundation.
+- Event publishing requires `notification_email_configuration_set` to be set.
+  The same value is used by the backend SES configuration-set header and the
+  Terraform-managed SES configuration set name.
+- The EventBridge destination publishes only SES `BOUNCE` and `COMPLAINT`
+  events to the default event bus. Terraform does not create a processor rule,
+  Lambda target, provider feedback handler, or suppression automation in this
+  slice.
 - SES sandbox and verified-identity limits still apply. In sandbox mode, test
   sending is constrained until identities and production access are handled.
 - `notification_email_delivery_enabled` defaults to `false`.
@@ -73,7 +83,8 @@ is explicitly enabled and operator-provided SES SMTP credentials are configured.
   SecureString parameters. Terraform receives only parameter names and grants
   Lambda least-privilege read/decrypt access to those configured parameters.
 - Terraform does not create SMTP credentials, IAM users, browser delivery
-  actions, automatic delivery schedules, or production email readiness.
+  actions, browser scan/retry/provider-feedback controls, automatic delivery
+  schedules, or production email readiness.
 - External SMTP delivery is not exactly-once: if Lambda crashes after SES
   accepts a message but before `sent_at` is persisted, a later retry can send
   another email for the same notification/contact pair.
@@ -105,8 +116,9 @@ cp infra/environments/dev/terraform.tfvars.example infra/environments/dev/terraf
 
 Edit `infra/environments/dev/terraform.tfvars` before applying. At minimum,
 replace `cognito_hosted_ui_domain_prefix` with a globally unique Cognito managed
-domain prefix. Leave SES and notification email delivery variables at their
-defaults unless you are explicitly validating SMTP delivery.
+domain prefix. Leave SES, SES event publishing, and notification email delivery
+variables at their defaults unless you are explicitly validating SMTP delivery
+or bounce/complaint event publishing.
 
 What it does: builds the Linux-compatible backend Lambda artifact.
 Target filename/service: `dist/leaseflow-backend.zip`.

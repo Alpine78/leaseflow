@@ -5,9 +5,11 @@
 This document defines the future production path for ingesting Amazon SES
 bounce and complaint events for LeaseFlow notification email.
 
-This is a planning artifact only. It does not create AWS resources, Terraform
-configuration, backend handlers, frontend behavior, DNS records, SES production
-access, or email-sending changes.
+This is primarily a planning artifact. Terraform now includes an
+disabled-by-default SES configuration set and EventBridge event destination
+foundation, but backend processing, EventBridge routing rules, frontend
+behavior, DNS records, SES production access, and email-sending behavior remain
+out of scope.
 
 ## Current State
 
@@ -23,6 +25,9 @@ access, or email-sending changes.
 - The browser can manage notification contacts and read safe aggregate delivery
   status, but cannot trigger scans, delivery, retries, or provider event
   processing.
+- Terraform can optionally create an SES configuration set with an EventBridge
+  event destination for `BOUNCE` and `COMPLAINT` events. This is disabled by
+  default and requires an explicit configuration set name.
 - Bounce and complaint event ingestion does not exist yet.
 - SES accepting an SMTP message is not proof that the recipient accepted or
   retained the message.
@@ -34,11 +39,11 @@ access, or email-sending changes.
 EventBridge is the chosen default for future LeaseFlow bounce and complaint
 ingestion.
 
-SES event publishing supports configuration set event destinations. A future
-SES configuration set should publish only the required `BOUNCE` and
-`COMPLAINT` events to EventBridge. An EventBridge rule can then route matching
-events to a future internal backend processor without exposing any browser
-control path.
+SES event publishing supports configuration set event destinations. LeaseFlow
+now has an opt-in Terraform foundation that can publish only the required
+`BOUNCE` and `COMPLAINT` events to EventBridge. A future EventBridge rule can
+then route matching events to a future internal backend processor without
+exposing any browser control path.
 
 This fits the current LeaseFlow direction: internal jobs use AWS events, browser
 routes remain tenant-scoped read/write flows, and production processing can be
@@ -64,11 +69,11 @@ data without storing raw provider payloads by default.
 
 ## Target Architecture
 
-Future implementation should use:
+Future implementation should build on:
 
-- SES configuration set with an EventBridge event destination.
+- SES configuration set with an opt-in EventBridge event destination.
 - Matching event types limited to `BOUNCE` and `COMPLAINT`.
-- EventBridge rule that targets an internal backend processor.
+- Future EventBridge rule that targets an internal backend processor.
 - Backend processor that maps provider events to sanitized categories and
   tenant/contact-scoped state changes.
 - Delivery-row updates for the matching notification/contact relationship when
@@ -110,9 +115,10 @@ provider-generated identifiers that are not necessary for safe debugging.
 
 ### Add SES Configuration Set EventBridge Destination
 
-Add Terraform for an SES configuration set and EventBridge event destination
-for `BOUNCE` and `COMPLAINT` only. Include least-privilege EventBridge routing.
-Out of scope: backend event processing.
+Completed as disabled-by-default Terraform foundation for an SES configuration
+set and default-bus EventBridge event destination for `BOUNCE` and `COMPLAINT`
+only. EventBridge rules, Lambda targets, IAM processor permissions, and backend
+event processing remain future work.
 
 ### Implement SES Bounce And Complaint Processor
 
