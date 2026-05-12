@@ -82,6 +82,15 @@ class NotificationContact:
 
 
 @dataclass(slots=True)
+class NotificationContactSuppression:
+    suppression_id: UUID
+    tenant_id: str
+    contact_id: UUID
+    reason: str
+    created_at: datetime
+
+
+@dataclass(slots=True)
 class NotificationEmailDelivery:
     delivery_id: UUID
     tenant_id: str

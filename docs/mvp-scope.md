@@ -40,6 +40,8 @@
 - lease contract data includes explicit `rent_due_day_of_month` for future reminder workflows.
 - `notifications` table for tenant-owned reminder records, including nullable `read_at` for read acknowledgment.
 - `notification_contacts` table for tenant-owned email recipients.
+- `notification_contact_suppressions` table for tenant/contact-scoped bounce
+  and complaint suppression state.
 - `notification_email_deliveries` table for tenant-scoped delivery status,
   retry attempts, sanitized failure codes, and sent timestamps.
 - Notification API responses expose safe aggregate delivery summaries without

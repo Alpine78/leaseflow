@@ -5,9 +5,10 @@
 This document defines the future tenant/contact-level suppression and
 preference model for LeaseFlow notification email.
 
-This is a planning artifact only. It does not add database migrations, backend
-code, frontend UI, Terraform resources, SES integration changes, production
-access, or marketing email behavior.
+This document tracks the suppression/preference direction. Tenant-scoped
+suppression database state now exists, but frontend UI, Terraform resources, SES
+event ingestion, production access, and marketing email behavior remain future
+work.
 
 ## Current State
 
@@ -17,9 +18,13 @@ access, or marketing email behavior.
   selection.
 - `notification_email_deliveries` tracks delivery attempts, sanitized failure
   codes, and sent timestamps.
+- `notification_contact_suppressions` stores tenant/contact-scoped active
+  suppressions for `bounce` and `complaint` reasons.
 - Bounce and complaint ingestion is planned separately in
   `docs/ses-bounce-complaint-ingestion.md`.
-- No LeaseFlow-owned suppression or unsubscribe/preference state exists yet.
+- Delivery eligibility does not consume suppression state yet; that remains a
+  separate implementation step.
+- No unsubscribe/preference state exists yet.
 - The browser can manage contacts but cannot trigger reminder scans, delivery,
   retries, or provider feedback processing.
 
@@ -111,8 +116,9 @@ how SES-managed preferences sync with LeaseFlow tenant/contact state.
 
 ### Add Notification Suppression State
 
-Add DB and data-access support for tenant-scoped suppression/preference state.
-Out of scope: SES event ingestion and browser UI.
+Implemented for tenant/contact-scoped `bounce` and `complaint` suppression
+state. Out of scope remains SES event ingestion, delivery eligibility, removal
+workflow, and browser UI.
 
 ### Apply Suppression To Email Delivery Eligibility
 

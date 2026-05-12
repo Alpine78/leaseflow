@@ -55,8 +55,9 @@ SES deliverability.
   `docs/ses-bounce-complaint-ingestion.md`; provider feedback ingestion is not
   implemented yet.
 - Notification suppression and unsubscribe/preference planning is documented in
-  `docs/notification-suppression-unsubscribe-model.md`; suppression state is
-  not implemented yet.
+  `docs/notification-suppression-unsubscribe-model.md`; tenant/contact-scoped
+  suppression state exists, but delivery eligibility and UI visibility remain
+  future work.
 - SES delivery monitoring, alarm, and cost-control planning is documented in
   `docs/ses-delivery-monitoring-alarms-cost-controls.md`; delivery-specific
   metrics, alarms, dashboards, and budget resources are not implemented yet.

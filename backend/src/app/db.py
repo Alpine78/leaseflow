@@ -17,12 +17,15 @@ from app.models import (
     LeaseReminderCandidate,
     Notification,
     NotificationContact,
+    NotificationContactSuppression,
     NotificationEmailDelivery,
     NotificationEmailDeliveryPreparationResult,
     NotificationEmailDeliverySummary,
     Property,
     ReminderScanResult,
 )
+
+_NOTIFICATION_CONTACT_SUPPRESSION_REASONS = {"bounce", "complaint"}
 
 
 class Database:
@@ -140,6 +143,118 @@ class Database:
                 )
 
         return self._row_to_notification_contact(contact_row)
+
+    def create_notification_contact_suppression(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        contact_id: UUID,
+        reason: str,
+        audit_source: str = "leaseflow.internal",
+    ) -> NotificationContactSuppression:
+        normalized_reason = reason.strip().lower()
+        if normalized_reason not in _NOTIFICATION_CONTACT_SUPPRESSION_REASONS:
+            raise ValueError("Notification contact suppression reason must be bounce or complaint.")
+
+        contact_sql = """
+            SELECT contact_id
+            FROM notification_contacts
+            WHERE tenant_id = %s AND contact_id = %s
+        """
+        insert_sql = """
+            INSERT INTO notification_contact_suppressions (
+                tenant_id,
+                contact_id,
+                reason
+            ) VALUES (%s, %s, %s)
+            ON CONFLICT ON CONSTRAINT uq_notification_contact_suppressions_tenant_contact_reason
+            DO NOTHING
+            RETURNING suppression_id, tenant_id, contact_id, reason, created_at
+        """
+        select_existing_sql = """
+            SELECT suppression_id, tenant_id, contact_id, reason, created_at
+            FROM notification_contact_suppressions
+            WHERE tenant_id = %s AND contact_id = %s AND reason = %s
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
+                if contact_row is None:
+                    raise LookupError("Notification contact not found for tenant.")
+
+                suppression_row = conn.execute(
+                    insert_sql,
+                    (tenant_id, contact_id, normalized_reason),
+                ).fetchone()
+                if suppression_row is not None:
+                    conn.execute(
+                        audit_sql,
+                        (
+                            tenant_id,
+                            actor_user_id,
+                            "notification_contact_suppression.create",
+                            "notification_contact_suppression",
+                            suppression_row["suppression_id"],
+                            json.dumps(
+                                {
+                                    "source": audit_source,
+                                    "reason": normalized_reason,
+                                }
+                            ),
+                        ),
+                    )
+                else:
+                    suppression_row = conn.execute(
+                        select_existing_sql,
+                        (tenant_id, contact_id, normalized_reason),
+                    ).fetchone()
+                    if suppression_row is None:
+                        raise RuntimeError("Failed to load notification contact suppression.")
+
+        return self._row_to_notification_contact_suppression(suppression_row)
+
+    def list_notification_contact_suppressions(
+        self,
+        tenant_id: str,
+        contact_id: UUID | None = None,
+    ) -> list[NotificationContactSuppression]:
+        params: tuple[object, ...]
+        if contact_id is not None:
+            contact_sql = """
+                SELECT contact_id
+                FROM notification_contacts
+                WHERE tenant_id = %s AND contact_id = %s
+            """
+            with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+                contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
+            if contact_row is None:
+                raise LookupError("Notification contact not found for tenant.")
+
+            sql = """
+                SELECT suppression_id, tenant_id, contact_id, reason, created_at
+                FROM notification_contact_suppressions
+                WHERE tenant_id = %s AND contact_id = %s
+                ORDER BY created_at DESC, suppression_id DESC
+            """
+            params = (tenant_id, contact_id)
+        else:
+            sql = """
+                SELECT suppression_id, tenant_id, contact_id, reason, created_at
+                FROM notification_contact_suppressions
+                WHERE tenant_id = %s
+                ORDER BY created_at DESC, suppression_id DESC
+            """
+            params = (tenant_id,)
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._row_to_notification_contact_suppression(row) for row in rows]
 
     def create_missing_notification_email_deliveries(
         self,
@@ -945,6 +1060,18 @@ class Database:
             tenant_id=row["tenant_id"],
             email=row["email"],
             enabled=row["enabled"],
+            created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def _row_to_notification_contact_suppression(
+        row: dict[str, Any],
+    ) -> NotificationContactSuppression:
+        return NotificationContactSuppression(
+            suppression_id=row["suppression_id"],
+            tenant_id=row["tenant_id"],
+            contact_id=row["contact_id"],
+            reason=row["reason"],
             created_at=row["created_at"],
         )
 

@@ -35,6 +35,10 @@ def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
                 "DELETE FROM notification_email_deliveries WHERE tenant_id = %s",
                 (tenant_id,),
             )
+            conn.execute(
+                "DELETE FROM notification_contact_suppressions WHERE tenant_id = %s",
+                (tenant_id,),
+            )
             conn.execute("DELETE FROM notifications WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM notification_contacts WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
@@ -1704,6 +1708,261 @@ def test_set_notification_contact_enabled_rejects_cross_tenant_access(
     finally:
         _cleanup_test_tenant(integration_settings, tenant_id)
         _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_create_notification_contact_suppression_writes_tenant_scoped_row_and_safe_audit(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+
+    try:
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"suppressed-{uuid4().hex[:8]}@example.com",
+        )
+
+        created = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="bounce",
+        )
+        listed = db.list_notification_contact_suppressions(tenant_id=tenant_id)
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            audit_rows = conn.execute(
+                """
+                SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_contact_suppression.create'
+                """,
+                (tenant_id, created.suppression_id),
+            ).fetchall()
+
+        assert created.tenant_id == tenant_id
+        assert created.contact_id == contact.contact_id
+        assert created.reason == "bounce"
+        assert [item.suppression_id for item in listed] == [created.suppression_id]
+
+        assert len(audit_rows) == 1
+        assert audit_rows[0]["tenant_id"] == tenant_id
+        assert audit_rows[0]["actor_user_id"] == actor_user_id
+        assert audit_rows[0]["entity_type"] == "notification_contact_suppression"
+        assert audit_rows[0]["entity_id"] == created.suppression_id
+        assert audit_rows[0]["metadata"] == {
+            "source": "leaseflow.internal",
+            "reason": "bounce",
+        }
+        assert "email" not in audit_rows[0]["metadata"]
+        assert "contact_id" not in audit_rows[0]["metadata"]
+        assert "tenant_id" not in audit_rows[0]["metadata"]
+        assert "message" not in audit_rows[0]["metadata"]
+        assert "body" not in audit_rows[0]["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_notification_contact_suppression_duplicate_is_idempotent_without_duplicate_audit(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+
+    try:
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"dedupe-suppression-{uuid4().hex[:8]}@example.com",
+        )
+
+        first = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="complaint",
+        )
+        second = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="complaint",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            suppression_count = conn.execute(
+                """
+                SELECT count(*) AS row_count
+                FROM notification_contact_suppressions
+                WHERE tenant_id = %s AND contact_id = %s AND reason = 'complaint'
+                """,
+                (tenant_id, contact.contact_id),
+            ).fetchone()["row_count"]
+            audit_count = conn.execute(
+                """
+                SELECT count(*) AS row_count
+                FROM audit_logs
+                WHERE tenant_id = %s
+                  AND entity_id = %s
+                  AND action = 'notification_contact_suppression.create'
+                """,
+                (tenant_id, first.suppression_id),
+            ).fetchone()["row_count"]
+
+        assert second == first
+        assert suppression_count == 1
+        assert audit_count == 1
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_notification_contact_suppression_is_tenant_scoped_and_filters_by_contact(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+    shared_email = f"shared-suppression-{uuid4().hex[:8]}@example.com"
+
+    try:
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=shared_email,
+        )
+        other_contact = db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=shared_email,
+        )
+
+        bounce = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="bounce",
+        )
+        complaint = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="complaint",
+        )
+        other = db.create_notification_contact_suppression(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=other_contact.contact_id,
+            reason="bounce",
+        )
+
+        tenant_items = db.list_notification_contact_suppressions(tenant_id=tenant_id)
+        contact_items = db.list_notification_contact_suppressions(
+            tenant_id=tenant_id,
+            contact_id=contact.contact_id,
+        )
+        other_items = db.list_notification_contact_suppressions(tenant_id=other_tenant_id)
+
+        assert {item.suppression_id for item in tenant_items} == {
+            bounce.suppression_id,
+            complaint.suppression_id,
+        }
+        assert {item.reason for item in contact_items} == {"bounce", "complaint"}
+        assert [item.suppression_id for item in other_items] == [other.suppression_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_notification_contact_suppression_rejects_invalid_reason_and_cross_tenant_contact(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+
+    try:
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"invalid-suppression-{uuid4().hex[:8]}@example.com",
+        )
+        other_contact = db.create_notification_contact(
+            tenant_id=other_tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"cross-suppression-{uuid4().hex[:8]}@example.com",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Notification contact suppression reason must be bounce or complaint.",
+        ):
+            db.create_notification_contact_suppression(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                contact_id=contact.contact_id,
+                reason="delivery_delay",
+            )
+
+        with pytest.raises(LookupError, match="Notification contact not found for tenant."):
+            db.create_notification_contact_suppression(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                contact_id=other_contact.contact_id,
+                reason="bounce",
+            )
+
+        with pytest.raises(LookupError, match="Notification contact not found for tenant."):
+            db.list_notification_contact_suppressions(
+                tenant_id=tenant_id,
+                contact_id=other_contact.contact_id,
+            )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_reenabling_notification_contact_does_not_remove_notification_contact_suppression(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    actor_user_id = "leaseflow.internal"
+
+    try:
+        contact = db.create_notification_contact(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            email=f"reenable-suppressed-{uuid4().hex[:8]}@example.com",
+            enabled=False,
+        )
+        suppression = db.create_notification_contact_suppression(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            reason="bounce",
+        )
+
+        db.set_notification_contact_enabled(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            contact_id=contact.contact_id,
+            enabled=True,
+        )
+        suppressions = db.list_notification_contact_suppressions(
+            tenant_id=tenant_id,
+            contact_id=contact.contact_id,
+        )
+
+        assert [item.suppression_id for item in suppressions] == [suppression.suppression_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
 
 
 def test_create_due_lease_reminder_notifications_is_idempotent(
