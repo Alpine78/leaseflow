@@ -63,9 +63,9 @@ class _FakeDb:
         contact_id: UUID | None = None,
     ) -> list[_SuppressionRecord]:
         return [
-            s for s in self.suppressions
-            if s.tenant_id == tenant_id
-            and (contact_id is None or s.contact_id == contact_id)
+            s
+            for s in self.suppressions
+            if s.tenant_id == tenant_id and (contact_id is None or s.contact_id == contact_id)
         ]
 
     def create_notification_contact(
@@ -356,11 +356,13 @@ def test_list_notification_contacts_includes_suppression_reasons() -> None:
     payload = contacts.list_notification_contacts(event, db)
 
     suppressed_item = next(
-        item for item in payload["items"]
+        item
+        for item in payload["items"]
         if item["contact_id"] == "11111111-1111-1111-1111-111111111111"
     )
     unsuppressed_item = next(
-        item for item in payload["items"]
+        item
+        for item in payload["items"]
         if item["contact_id"] == "22222222-2222-2222-2222-222222222222"
     )
     assert suppressed_item["suppression_reasons"] == ["bounce", "complaint"]

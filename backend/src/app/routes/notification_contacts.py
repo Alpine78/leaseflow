@@ -77,7 +77,9 @@ def update_notification_contact(
     return notification_contact_to_dict(updated, [s.reason for s in suppressions])
 
 
-def notification_contact_to_dict(item: NotificationContact, suppression_reasons: list[str]) -> dict[str, Any]:
+def notification_contact_to_dict(
+    item: NotificationContact, suppression_reasons: list[str]
+) -> dict[str, Any]:
     return {
         "contact_id": str(item.contact_id),
         "email": item.email,
