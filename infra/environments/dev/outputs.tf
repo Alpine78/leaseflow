@@ -120,3 +120,13 @@ output "ses_smtp_vpc_endpoint_security_group_id" {
   description = "SES SMTP interface VPC endpoint security group ID when enabled."
   value       = module.ses_email_foundation.smtp_vpc_endpoint_security_group_id
 }
+
+output "ses_configuration_set_event_publishing_enabled" {
+  description = "Whether SES configuration set EventBridge publishing is configured."
+  value       = module.ses_email_foundation.configuration_set_event_publishing_enabled
+}
+
+output "ses_configuration_set_name" {
+  description = "SES configuration set name when EventBridge publishing is configured."
+  value       = module.ses_email_foundation.configuration_set_name
+}

@@ -37,6 +37,9 @@ SES deliverability.
   credential values.
 - Outbound SES SMTP messages include a sanitized correlation message tag and may
   include an optional SES configuration-set header when configured.
+- Terraform can optionally create the matching SES configuration set and an
+  EventBridge event destination for bounce/complaint publishing. It is disabled
+  by default and does not ingest or process provider feedback by itself.
 - Dev smoke validation is documented in
   `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, with sanitized
   successful evidence in
@@ -52,8 +55,8 @@ SES deliverability.
   `docs/ses-production-domain-identity-dns-authentication.md`; production
   sending remains unavailable.
 - Bounce and complaint ingestion planning is documented in
-  `docs/ses-bounce-complaint-ingestion.md`; provider feedback ingestion is not
-  implemented yet.
+  `docs/ses-bounce-complaint-ingestion.md`; the opt-in EventBridge publishing
+  foundation exists, but provider feedback ingestion is not implemented yet.
 - Notification suppression and unsubscribe/preference planning is documented in
   `docs/notification-suppression-unsubscribe-model.md`; tenant/contact-scoped
   suppression state exists, but delivery eligibility and UI visibility remain
@@ -144,6 +147,9 @@ Delivery must be idempotent and retry-safe:
   parameter ARNs.
 - Delivery remains disabled by default until SES identity, sandbox restrictions,
   SMTP credentials, endpoint connectivity, and smoke validation are ready.
+- SES configuration set EventBridge publishing remains disabled by default and
+  produces no useful application state until real SES events exist and a future
+  processor is implemented.
 
 ## Security And Tenant Isolation
 

@@ -17,3 +17,13 @@ output "smtp_vpc_endpoint_security_group_id" {
   value       = try(aws_security_group.ses_smtp_vpce[0].id, null)
   description = "SES SMTP interface VPC endpoint security group ID when enabled."
 }
+
+output "configuration_set_event_publishing_enabled" {
+  value       = length(aws_sesv2_configuration_set_event_destination.eventbridge) > 0
+  description = "Whether SES configuration set EventBridge publishing is configured."
+}
+
+output "configuration_set_name" {
+  value       = try(aws_sesv2_configuration_set.notification_events[0].configuration_set_name, null)
+  description = "SES configuration set name when EventBridge publishing is configured."
+}

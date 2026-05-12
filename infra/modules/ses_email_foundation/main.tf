@@ -1,5 +1,14 @@
 locals {
-  sender_email = trimspace(var.sender_email)
+  sender_email            = trimspace(var.sender_email)
+  configuration_set_name  = trimspace(var.configuration_set_name)
+  event_destination_name  = "${var.name_prefix}-notification-email-events"
+  event_publishing_events = ["BOUNCE", "COMPLAINT"]
+}
+
+data "aws_cloudwatch_event_bus" "default" {
+  count = var.configuration_set_event_publishing_enabled ? 1 : 0
+
+  name = "default"
 }
 
 resource "aws_sesv2_email_identity" "sender" {
@@ -8,6 +17,37 @@ resource "aws_sesv2_email_identity" "sender" {
   email_identity = local.sender_email
 
   tags = var.tags
+}
+
+resource "aws_sesv2_configuration_set" "notification_events" {
+  count = var.configuration_set_event_publishing_enabled ? 1 : 0
+
+  configuration_set_name = local.configuration_set_name
+
+  tags = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = local.configuration_set_name != ""
+      error_message = "configuration_set_name must be set when configuration set event publishing is enabled."
+    }
+  }
+}
+
+resource "aws_sesv2_configuration_set_event_destination" "eventbridge" {
+  count = var.configuration_set_event_publishing_enabled ? 1 : 0
+
+  configuration_set_name = aws_sesv2_configuration_set.notification_events[0].configuration_set_name
+  event_destination_name = local.event_destination_name
+
+  event_destination {
+    event_bridge_destination {
+      event_bus_arn = data.aws_cloudwatch_event_bus.default[0].arn
+    }
+
+    enabled              = true
+    matching_event_types = local.event_publishing_events
+  }
 }
 
 resource "aws_security_group" "ses_smtp_vpce" {
