@@ -146,6 +146,16 @@ module "reminder_scheduler" {
   tags                 = local.common_tags
 }
 
+module "ses_feedback_eventbridge_processor" {
+  source = "../../modules/ses_feedback_eventbridge_processor"
+
+  name_prefix          = local.name_prefix
+  lambda_function_name = module.lambda_backend.function_name
+  lambda_function_arn  = module.lambda_backend.function_arn
+  enabled              = var.ses_feedback_processor_eventbridge_enabled
+  tags                 = local.common_tags
+}
+
 resource "aws_sns_topic" "baseline_alarm_notifications" {
   name = "${local.name_prefix}-baseline-alarm-notifications"
 

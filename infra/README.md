@@ -11,6 +11,7 @@ Terraform code is split into reusable modules and environment composition.
 - `modules/frontend_hosting`: private S3 bucket and CloudFront distribution for the SPA.
 - `modules/lambda_backend`: backend Lambda function, IAM role, log group.
 - `modules/ses_email_foundation`: optional SES sender identity, SES SMTP PrivateLink, and SES EventBridge publishing foundation.
+- `modules/ses_feedback_eventbridge_processor`: optional EventBridge routing from SES provider feedback events to the backend Lambda.
 - `modules/reminder_scheduler`: EventBridge Scheduler + IAM role for daily reminder scans.
 - `modules/api_http`: HTTP API, JWT authorizer, route wiring.
 - `environments/dev`: MVP dev environment composition.
@@ -73,9 +74,15 @@ is explicitly enabled and operator-provided SES SMTP credentials are configured.
   The same value is used by the backend SES configuration-set header and the
   Terraform-managed SES configuration set name.
 - The EventBridge destination publishes only SES `BOUNCE` and `COMPLAINT`
-  events to the default event bus. Terraform does not create a processor rule,
-  Lambda target, provider feedback handler, or suppression automation in this
-  slice.
+  events to the default event bus.
+- `ses_feedback_processor_eventbridge_enabled` defaults to `false`. When
+  enabled, Terraform creates a default-bus EventBridge rule, backend Lambda
+  target, and scoped Lambda permission for SES `Email Bounced` and
+  `Email Complaint Received` events.
+- The backend provider feedback processor stores only sanitized delivery and
+  suppression state resolved through the opaque delivery correlation token.
+  Terraform does not create browser delivery actions, browser scan/retry/provider
+  feedback controls, or production email readiness.
 - SES sandbox and verified-identity limits still apply. In sandbox mode, test
   sending is constrained until identities and production access are handled.
 - `notification_email_delivery_enabled` defaults to `false`.
@@ -84,7 +91,7 @@ is explicitly enabled and operator-provided SES SMTP credentials are configured.
   Lambda least-privilege read/decrypt access to those configured parameters.
 - Terraform does not create SMTP credentials, IAM users, browser delivery
   actions, browser scan/retry/provider-feedback controls, automatic delivery
-  schedules, or production email readiness.
+  schedules, raw provider payload storage, or production email readiness.
 - External SMTP delivery is not exactly-once: if Lambda crashes after SES
   accepts a message but before `sent_at` is persisted, a later retry can send
   another email for the same notification/contact pair.

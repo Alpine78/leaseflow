@@ -40,6 +40,10 @@ SES deliverability.
 - Terraform can optionally create the matching SES configuration set and an
   EventBridge event destination for bounce/complaint publishing. It is disabled
   by default and does not ingest or process provider feedback by itself.
+- Terraform can optionally route SES bounce/complaint EventBridge events to the
+  backend processor. This is disabled by default.
+- The backend can process SES bounce/complaint feedback through the opaque
+  delivery correlation token and persist sanitized delivery/suppression state.
 - Dev smoke validation is documented in
   `docs/runbooks/ses-notification-email-delivery-smoke-test.md`, with sanitized
   successful evidence in
@@ -55,15 +59,16 @@ SES deliverability.
   `docs/ses-production-domain-identity-dns-authentication.md`; production
   sending remains unavailable.
 - Bounce and complaint ingestion planning is documented in
-  `docs/ses-bounce-complaint-ingestion.md`; the opt-in EventBridge publishing
-  foundation exists, but provider feedback ingestion is not implemented yet.
+  `docs/ses-bounce-complaint-ingestion.md`; the opt-in EventBridge publishing,
+  routing, and backend processor foundation exists.
 - Notification suppression and unsubscribe/preference planning is documented in
   `docs/notification-suppression-unsubscribe-model.md`; tenant/contact-scoped
   suppression state exists, but delivery eligibility and UI visibility remain
   future work.
 - SES delivery monitoring, alarm, and cost-control planning is documented in
-  `docs/ses-delivery-monitoring-alarms-cost-controls.md`; delivery-specific
-  metrics, alarms, dashboards, and budget resources are not implemented yet.
+  `docs/ses-delivery-monitoring-alarms-cost-controls.md`; delivery and
+  provider-feedback metrics exist, while production feedback alarms/evidence
+  remain future work.
 - Persisted `notifications` remain the source of delivery work; the delivery
   job must not recalculate reminder candidates independently.
 - Recipient addresses come from a LeaseFlow-owned tenant-scoped contact
@@ -97,7 +102,7 @@ Delivery tracking is stored in `notification_email_deliveries` and supports:
 - last attempt timestamp
 - sent timestamp
 - non-sensitive failure category or code
-- opaque event correlation token for future provider feedback matching
+- opaque event correlation token for provider feedback matching
 
 Do not store SES raw responses, SMTP transcripts, recipient email addresses,
 message bodies, or secrets in delivery rows.
@@ -148,8 +153,8 @@ Delivery must be idempotent and retry-safe:
 - Delivery remains disabled by default until SES identity, sandbox restrictions,
   SMTP credentials, endpoint connectivity, and smoke validation are ready.
 - SES configuration set EventBridge publishing remains disabled by default and
-  produces no useful application state until real SES events exist and a future
-  processor is implemented.
+  produces no useful application state until real SES events exist and processor
+  routing is enabled.
 
 ## Security And Tenant Isolation
 
@@ -178,6 +183,8 @@ The implementation should be split into separate reviewable tickets:
 - Expose safe notification email delivery status. Completed as read-only
   aggregate status on persisted notifications.
 - Add SES delivery smoke runbook and sanitized evidence. Runbook added;
+- Implement SES bounce and complaint processor. Completed as disabled-by-default
+  EventBridge routing plus internal backend processing.
 - Add production-ready SES delivery hardening. Planned separately in
   `docs/ses-production-delivery-hardening.md`.
 

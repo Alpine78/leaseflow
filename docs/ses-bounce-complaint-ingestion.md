@@ -5,11 +5,11 @@
 This document defines the future production path for ingesting Amazon SES
 bounce and complaint events for LeaseFlow notification email.
 
-This is primarily a planning artifact. Terraform now includes an
-disabled-by-default SES configuration set and EventBridge event destination
-foundation, but backend processing, EventBridge routing rules, frontend
-behavior, DNS records, SES production access, and email-sending behavior remain
-out of scope.
+This document records the current implementation and remaining production
+boundaries. Terraform now includes disabled-by-default SES event publishing and
+processor routing, and the backend can process sanitized bounce/complaint
+events. Frontend behavior, DNS records, SES production access, and production
+email-sending readiness remain out of scope.
 
 ## Current State
 
@@ -28,7 +28,12 @@ out of scope.
 - Terraform can optionally create an SES configuration set with an EventBridge
   event destination for `BOUNCE` and `COMPLAINT` events. This is disabled by
   default and requires an explicit configuration set name.
-- Bounce and complaint event ingestion does not exist yet.
+- Terraform can optionally route SES `Email Bounced` and
+  `Email Complaint Received` events from the default EventBridge bus to the
+  backend Lambda. This is disabled by default.
+- The backend resolves SES provider feedback through the opaque
+  `leaseflow_delivery_correlation` message tag and stores only sanitized
+  delivery/suppression state.
 - SES accepting an SMTP message is not proof that the recipient accepted or
   retained the message.
 
@@ -40,9 +45,9 @@ EventBridge is the chosen default for future LeaseFlow bounce and complaint
 ingestion.
 
 SES event publishing supports configuration set event destinations. LeaseFlow
-now has an opt-in Terraform foundation that can publish only the required
-`BOUNCE` and `COMPLAINT` events to EventBridge. A future EventBridge rule can
-then route matching events to a future internal backend processor without
+has an opt-in Terraform foundation that can publish only the required `BOUNCE`
+and `COMPLAINT` events to EventBridge. A separate opt-in EventBridge rule routes
+SES bounce and complaint events to the internal backend processor without
 exposing any browser control path.
 
 This fits the current LeaseFlow direction: internal jobs use AWS events, browser
@@ -69,16 +74,16 @@ data without storing raw provider payloads by default.
 
 ## Target Architecture
 
-Future implementation should build on:
+The implemented ingestion path uses:
 
 - SES configuration set with an opt-in EventBridge event destination.
 - Matching event types limited to `BOUNCE` and `COMPLAINT`.
-- Future EventBridge rule that targets an internal backend processor.
+- Opt-in EventBridge rule that targets the internal backend processor.
 - Backend processor that maps provider events to sanitized categories and
   tenant/contact-scoped state changes.
-- Delivery-row updates for the matching notification/contact relationship when
-  that relationship can be safely resolved.
-- Suppression/preference state updates for permanent bounces and complaints.
+- Delivery-row updates for the matching notification/contact relationship
+  resolved by opaque correlation token.
+- Suppression state updates for bounces and complaints.
 
 `DELIVERY_DELAY`, `REJECT`, or other SES event types should be added only by a
 separate decision because they have different operational meaning and retry
@@ -122,9 +127,9 @@ event processing remain future work.
 
 ### Implement SES Bounce And Complaint Processor
 
-Add an internal backend event handler that parses SES events into sanitized
-categories and updates tenant/contact-scoped state. Include unit and integration
-tests for tenant isolation and no raw payload persistence.
+Completed as an internal backend event handler plus opt-in EventBridge routing.
+It parses SES bounce/complaint events into sanitized categories and updates
+tenant/contact-scoped state through the opaque delivery correlation token.
 
 ### Add Notification Suppression State
 
@@ -134,8 +139,9 @@ Cognito user enumeration and marketing email.
 
 ### Add Bounce Complaint Monitoring And Evidence
 
-Add aggregate metrics, alarms, runbook steps, and sanitized evidence templates
-for bounce/complaint ingestion validation.
+Add alarms, runbook steps, and sanitized evidence templates for
+bounce/complaint ingestion validation. Aggregate processor metrics now exist,
+but alarms/evidence remain future work.
 
 ## Security And Cost Boundaries
 

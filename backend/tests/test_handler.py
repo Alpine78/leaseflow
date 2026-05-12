@@ -740,6 +740,48 @@ def test_configure_notification_contact_accepts_internal_event(monkeypatch) -> N
     }
 
 
+def test_ses_provider_feedback_accepts_eventbridge_bounce_event(monkeypatch) -> None:
+    settings = SimpleNamespace(log_level="INFO", app_env="test")
+    db = object()
+    monkeypatch.setattr(handler, "load_settings", lambda: settings)
+    monkeypatch.setattr(handler, "Database", lambda loaded_settings: db)
+    monkeypatch.setattr(
+        handler,
+        "process_ses_provider_feedback",
+        lambda event, database, loaded_settings: {
+            "processed": True,
+            "feedback_type": "bounce",
+            "bounce_count": 1,
+            "complaint_count": 0,
+            "suppressed_contact_count": 1,
+            "unknown_correlation_count": 0,
+        },
+        raising=False,
+    )
+
+    event = {
+        "source": "aws.ses",
+        "detail-type": "Email Bounced",
+        "detail": {
+            "mail": {
+                "tags": {"leaseflow_delivery_correlation": ["11111111-1111-4111-8111-111111111111"]}
+            }
+        },
+    }
+
+    response = handler.lambda_handler(event, SimpleNamespace(aws_request_id="test-id"))
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"]) == {
+        "processed": True,
+        "feedback_type": "bounce",
+        "bounce_count": 1,
+        "complaint_count": 0,
+        "suppressed_contact_count": 1,
+        "unknown_correlation_count": 0,
+    }
+
+
 def test_list_notification_contacts_accepts_protected_route(monkeypatch) -> None:
     settings = SimpleNamespace(log_level="INFO")
     db = object()

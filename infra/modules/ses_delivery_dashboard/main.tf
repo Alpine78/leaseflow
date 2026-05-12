@@ -21,6 +21,13 @@ locals {
     "operation", "deliver_notification_emails",
     "result", "disabled",
   ]
+
+  feedback_processed_dimensions = [
+    "environment", var.environment,
+    "service", "backend",
+    "operation", "process_ses_provider_feedback",
+    "result", "processed",
+  ]
 }
 
 resource "aws_cloudwatch_dashboard" "notification_email_delivery" {
@@ -113,9 +120,9 @@ resource "aws_cloudwatch_dashboard" "notification_email_delivery" {
           stat    = "Sum"
           period  = 300
           metrics = [
-            concat([local.namespace, "bounce_count"], local.completed_dimensions, [{ label = "bounces" }]),
-            concat([local.namespace, "complaint_count"], local.completed_dimensions, [{ label = "complaints" }]),
-            concat([local.namespace, "suppressed_contact_count"], local.completed_dimensions, [{ label = "suppressed contacts" }]),
+            concat([local.namespace, "bounce_count"], local.feedback_processed_dimensions, [{ label = "bounces" }]),
+            concat([local.namespace, "complaint_count"], local.feedback_processed_dimensions, [{ label = "complaints" }]),
+            concat([local.namespace, "suppressed_contact_count"], local.feedback_processed_dimensions, [{ label = "suppressed contacts" }]),
           ]
         }
       },
