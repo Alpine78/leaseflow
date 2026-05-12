@@ -6,15 +6,22 @@ from uuid import UUID
 
 from app.auth import extract_auth_context
 from app.db import Database
-from app.models import NotificationContact
+from app.models import NotificationContact, NotificationContactSuppression
 
 _DUPLICATE_MESSAGE = "Notification contact already exists for tenant."
 
 
 def list_notification_contacts(event: dict[str, Any], db: Database) -> dict[str, Any]:
     auth = extract_auth_context(event)
-    items = db.list_notification_contacts(tenant_id=auth.tenant_id)
-    return {"items": notification_contacts_to_dict(items)}
+    contacts = db.list_notification_contacts(tenant_id=auth.tenant_id)
+    suppressions = db.list_notification_contact_suppressions(tenant_id=auth.tenant_id)
+    reasons_by_contact = _group_suppression_reasons(suppressions)
+    return {
+        "items": [
+            notification_contact_to_dict(contact, reasons_by_contact.get(contact.contact_id, []))
+            for contact in contacts
+        ]
+    }
 
 
 def create_notification_contact(
@@ -35,16 +42,19 @@ def create_notification_contact(
     except ValueError as exc:
         if str(exc) != _DUPLICATE_MESSAGE:
             raise
-        return notification_contact_to_dict(
-            _reenable_disabled_duplicate(
-                db,
-                tenant_id=auth.tenant_id,
-                actor_user_id=auth.user_id,
-                email=email,
-            )
+        reenabled = _reenable_disabled_duplicate(
+            db,
+            tenant_id=auth.tenant_id,
+            actor_user_id=auth.user_id,
+            email=email,
         )
+        suppressions = db.list_notification_contact_suppressions(
+            tenant_id=auth.tenant_id,
+            contact_id=reenabled.contact_id,
+        )
+        return notification_contact_to_dict(reenabled, [s.reason for s in suppressions])
 
-    return notification_contact_to_dict(created)
+    return notification_contact_to_dict(created, [])
 
 
 def update_notification_contact(
@@ -60,22 +70,30 @@ def update_notification_contact(
         contact_id=contact_id,
         enabled=enabled,
     )
-    return notification_contact_to_dict(updated)
+    suppressions = db.list_notification_contact_suppressions(
+        tenant_id=auth.tenant_id,
+        contact_id=updated.contact_id,
+    )
+    return notification_contact_to_dict(updated, [s.reason for s in suppressions])
 
 
-def notification_contact_to_dict(item: NotificationContact) -> dict[str, Any]:
+def notification_contact_to_dict(item: NotificationContact, suppression_reasons: list[str]) -> dict[str, Any]:
     return {
         "contact_id": str(item.contact_id),
         "email": item.email,
         "enabled": item.enabled,
         "created_at": item.created_at.isoformat(),
+        "suppression_reasons": sorted(suppression_reasons),
     }
 
 
-def notification_contacts_to_dict(
-    items: list[NotificationContact],
-) -> list[dict[str, Any]]:
-    return [notification_contact_to_dict(item) for item in items]
+def _group_suppression_reasons(
+    suppressions: list[NotificationContactSuppression],
+) -> dict[UUID, list[str]]:
+    result: dict[UUID, list[str]] = {}
+    for suppression in suppressions:
+        result.setdefault(suppression.contact_id, []).append(suppression.reason)
+    return result
 
 
 def _create_body_email(body: dict[str, Any]) -> str:

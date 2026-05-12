@@ -54,3 +54,5 @@ build/
 
 docs/reference/raw/
 .tmp-edge-profile/
+.claude/settings.json
+.claude/settings.local.json

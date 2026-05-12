@@ -342,12 +342,14 @@ describe("NotificationsPage", () => {
           created_at: "2026-05-05T10:00:00Z",
           email: "enabled@example.test",
           enabled: true,
+          suppression_reasons: [],
         },
         {
           contact_id: "contact-2",
           created_at: "2026-05-05T11:00:00Z",
           email: "disabled@example.test",
           enabled: false,
+          suppression_reasons: [],
         },
       ],
       notifications: [],
@@ -437,6 +439,7 @@ describe("NotificationsPage", () => {
           created_at: "2026-05-05T10:00:00Z",
           email: "enabled@example.test",
           enabled: true,
+          suppression_reasons: [],
         },
       ],
       notifications: [],
@@ -453,5 +456,42 @@ describe("NotificationsPage", () => {
         enabled: false,
       });
     });
+  });
+
+  it("renders suppression badges for suppressed contacts", () => {
+    mockedUseNotificationsPageState.mockReturnValue({
+      createNotificationContact: vi.fn(),
+      dueReminders: [],
+      error: null,
+      isLoading: false,
+      markNotificationRead,
+      notificationContacts: [
+        {
+          contact_id: "contact-1",
+          created_at: "2026-05-05T10:00:00Z",
+          email: "suppressed@example.test",
+          enabled: true,
+          suppression_reasons: ["bounce", "complaint"],
+        },
+        {
+          contact_id: "contact-2",
+          created_at: "2026-05-05T11:00:00Z",
+          email: "clean@example.test",
+          enabled: true,
+          suppression_reasons: [],
+        },
+      ],
+      notifications: [],
+      readingNotificationId: null,
+      updatingContactId: null,
+      updateNotificationContact: vi.fn(),
+    });
+
+    render(<NotificationsPage />);
+
+    expect(screen.getByText("Suppressed: bounce")).toBeInTheDocument();
+    expect(screen.getByText("Suppressed: complaint")).toBeInTheDocument();
+    expect(screen.getAllByText("Suppressed: bounce")).toHaveLength(1);
+    expect(screen.getAllByText("Suppressed: complaint")).toHaveLength(1);
   });
 });

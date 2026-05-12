@@ -150,6 +150,12 @@ export function NotificationsPage() {
                   <span className={contact.enabled ? "status-pill" : "status-pill status-pill-unread"}>
                     {contact.enabled ? "Enabled" : "Disabled"}
                   </span>
+                  {contact.suppression_reasons?.includes("bounce") && (
+                    <span className="status-pill status-pill-unread">Suppressed: bounce</span>
+                  )}
+                  {contact.suppression_reasons?.includes("complaint") && (
+                    <span className="status-pill status-pill-unread">Suppressed: complaint</span>
+                  )}
                   <button
                     aria-label={`${contact.enabled ? "Disable" : "Enable"} ${contact.email}`}
                     className="ghost-button resource-edit-button"

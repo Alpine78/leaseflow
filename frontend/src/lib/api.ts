@@ -56,6 +56,7 @@ export type NotificationContact = {
   created_at: string;
   email: string;
   enabled: boolean;
+  suppression_reasons: string[];
 };
 
 export type CreatePropertyInput = {
