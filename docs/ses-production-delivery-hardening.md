@@ -89,8 +89,9 @@ Handling requirements:
   message bodies, or raw provider responses.
 - Permanent bounces and complaints must suppress future sends to the affected
   contact.
-- Suppression behavior must be tenant-scoped in the LeaseFlow data model even
-  if SES also maintains account-level suppression.
+- Tenant/contact-scoped suppression state exists in the LeaseFlow data model,
+  but production still needs event ingestion and delivery eligibility changes
+  before provider feedback affects future sends.
 
 ### Unsubscribe And Message Classification
 
@@ -192,9 +193,11 @@ triggering, and raw provider payload storage remain out of scope.
 
 ### Add Notification Suppression And Unsubscribe Model
 
-Planned in `docs/notification-suppression-unsubscribe-model.md`. Database
-state, delivery eligibility changes, browser visibility, SES subscription
-automation, marketing mail, and Cognito user enumeration remain out of scope.
+Partially implemented as tenant/contact-scoped bounce and complaint suppression
+state, as documented in `docs/notification-suppression-unsubscribe-model.md`.
+Delivery eligibility changes, browser visibility, suppression removal workflow,
+SES subscription automation, marketing mail, and Cognito user enumeration remain
+out of scope.
 
 ### Add SES Delivery Monitoring, Alarms, And Cost Controls
 
