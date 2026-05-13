@@ -66,6 +66,10 @@ The future application DB role must not have `BYPASSRLS`. A separate migration
 or admin role may own schema changes, but that role must not be used for normal
 API request handling.
 
+The backend now has a transaction helper that sets this context for normal
+tenant-scoped `Database` methods. RLS policies are still future work, so the
+existing application-level tenant predicates remain mandatory.
+
 ## Internal Job Design
 
 Current internal reminder and email delivery jobs can operate across tenants
@@ -88,10 +92,10 @@ browser/API request handling.
 Recommended implementation order:
 
 1. Add a backend transaction helper that sets tenant context with `SET LOCAL`.
-2. Convert normal tenant-scoped DB methods to use the helper.
-3. Adapt internal reminder and delivery jobs so they can run tenant by tenant.
-4. Add RLS policies for one low-risk table first, then expand table by table.
-5. Add regression tests that intentionally omit application tenant predicates
+   Completed for normal tenant-scoped `Database` methods.
+2. Adapt internal reminder and delivery jobs so they can run tenant by tenant.
+3. Add RLS policies for one low-risk table first, then expand table by table.
+4. Add regression tests that intentionally omit application tenant predicates
    and verify RLS blocks cross-tenant access.
 
 Rollback must be documented in each migration. A safe rollback should be able to
