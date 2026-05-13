@@ -46,6 +46,8 @@ describe("NotificationsPage", () => {
       notificationContacts: [],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -75,6 +77,8 @@ describe("NotificationsPage", () => {
       notificationContacts: [],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -113,6 +117,8 @@ describe("NotificationsPage", () => {
         },
       ],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -150,6 +156,8 @@ describe("NotificationsPage", () => {
         },
       ],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -239,6 +247,8 @@ describe("NotificationsPage", () => {
         },
       ],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -275,6 +285,8 @@ describe("NotificationsPage", () => {
         },
       ],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -307,6 +319,8 @@ describe("NotificationsPage", () => {
         },
       ],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -354,6 +368,8 @@ describe("NotificationsPage", () => {
       ],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -377,6 +393,8 @@ describe("NotificationsPage", () => {
       notificationContacts: [],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -408,6 +426,8 @@ describe("NotificationsPage", () => {
       notificationContacts: [],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
@@ -444,6 +464,8 @@ describe("NotificationsPage", () => {
       ],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact,
     });
@@ -458,7 +480,7 @@ describe("NotificationsPage", () => {
     });
   });
 
-  it("renders suppression badges for suppressed contacts", () => {
+  it("renders suppression remove buttons for suppressed contacts", () => {
     mockedUseNotificationsPageState.mockReturnValue({
       createNotificationContact: vi.fn(),
       dueReminders: [],
@@ -483,15 +505,103 @@ describe("NotificationsPage", () => {
       ],
       notifications: [],
       readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: null,
       updatingContactId: null,
       updateNotificationContact: vi.fn(),
     });
 
     render(<NotificationsPage />);
 
-    expect(screen.getByText("Suppressed: bounce")).toBeInTheDocument();
-    expect(screen.getByText("Suppressed: complaint")).toBeInTheDocument();
-    expect(screen.getAllByText("Suppressed: bounce")).toHaveLength(1);
-    expect(screen.getAllByText("Suppressed: complaint")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", {
+        name: "Remove bounce suppression for suppressed@example.test",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Remove complaint suppression for suppressed@example.test",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Remove.*suppression for clean@example.test/,
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it("clicking remove suppression calls removeContactSuppression with correct args", async () => {
+    const removeContactSuppression = vi.fn().mockResolvedValue(undefined);
+    mockedUseNotificationsPageState.mockReturnValue({
+      createNotificationContact: vi.fn(),
+      dueReminders: [],
+      error: null,
+      isLoading: false,
+      markNotificationRead,
+      notificationContacts: [
+        {
+          contact_id: "contact-1",
+          created_at: "2026-05-05T10:00:00Z",
+          email: "suppressed@example.test",
+          enabled: true,
+          suppression_reasons: ["bounce"],
+        },
+      ],
+      notifications: [],
+      readingNotificationId: null,
+      removeContactSuppression,
+      removingSuppressionKey: null,
+      updatingContactId: null,
+      updateNotificationContact: vi.fn(),
+    });
+
+    render(<NotificationsPage />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove bounce suppression for suppressed@example.test",
+      })
+    );
+
+    await waitFor(() => {
+      expect(removeContactSuppression).toHaveBeenCalledWith("contact-1", "bounce");
+    });
+  });
+
+  it("remove suppression button is disabled while that removal is in progress", () => {
+    mockedUseNotificationsPageState.mockReturnValue({
+      createNotificationContact: vi.fn(),
+      dueReminders: [],
+      error: null,
+      isLoading: false,
+      markNotificationRead,
+      notificationContacts: [
+        {
+          contact_id: "contact-1",
+          created_at: "2026-05-05T10:00:00Z",
+          email: "suppressed@example.test",
+          enabled: true,
+          suppression_reasons: ["bounce", "complaint"],
+        },
+      ],
+      notifications: [],
+      readingNotificationId: null,
+      removeContactSuppression: vi.fn(),
+      removingSuppressionKey: "contact-1:bounce",
+      updatingContactId: null,
+      updateNotificationContact: vi.fn(),
+    });
+
+    render(<NotificationsPage />);
+
+    expect(
+      screen.getByRole("button", {
+        name: "Remove bounce suppression for suppressed@example.test",
+      })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Remove complaint suppression for suppressed@example.test",
+      })
+    ).not.toBeDisabled();
   });
 });

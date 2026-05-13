@@ -22,6 +22,8 @@ type NotificationsPageState = {
   notificationContacts: NotificationContact[];
   notifications: NotificationItem[];
   readingNotificationId: string | null;
+  removeContactSuppression: (contactId: string, reason: string) => Promise<void>;
+  removingSuppressionKey: string | null;
   updatingContactId: string | null;
   updateNotificationContact: (
     contactId: string,
@@ -38,6 +40,7 @@ export function useNotificationsPageState(): NotificationsPageState {
   const [isLoading, setIsLoading] = useState(true);
   const [readingNotificationId, setReadingNotificationId] = useState<string | null>(null);
   const [updatingContactId, setUpdatingContactId] = useState<string | null>(null);
+  const [removingSuppressionKey, setRemovingSuppressionKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -198,6 +201,39 @@ export function useNotificationsPageState(): NotificationsPageState {
     }
   }
 
+  async function removeContactSuppression(contactId: string, reason: string) {
+    if (!auth.session) {
+      navigate("/", { replace: true });
+      return;
+    }
+
+    setRemovingSuppressionKey(`${contactId}:${reason}`);
+    setError(null);
+
+    try {
+      const client = createApiClient({
+        config: getRuntimeConfig(),
+        onUnauthorized: auth.markSessionExpired,
+        session: auth.session,
+      });
+      const updated = await client.removeNotificationContactSuppression(contactId, reason);
+      setNotificationContacts((current) => upsertContact(current, updated));
+    } catch (errorValue) {
+      if (errorValue instanceof UnauthorizedApiError) {
+        navigate("/", { replace: true });
+        return;
+      }
+      setError(
+        errorValue instanceof ApiError
+          ? errorValue.message
+          : "Could not remove notification contact suppression."
+      );
+      throw errorValue;
+    } finally {
+      setRemovingSuppressionKey(null);
+    }
+  }
+
   return {
     createNotificationContact,
     dueReminders,
@@ -207,6 +243,8 @@ export function useNotificationsPageState(): NotificationsPageState {
     notificationContacts,
     notifications,
     readingNotificationId,
+    removeContactSuppression,
+    removingSuppressionKey,
     updatingContactId,
     updateNotificationContact,
   };

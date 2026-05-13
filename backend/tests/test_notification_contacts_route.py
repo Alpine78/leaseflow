@@ -125,6 +125,30 @@ class _FakeDb:
                 return updated
         raise LookupError("Notification contact not found for tenant.")
 
+    def delete_notification_contact_suppression(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        contact_id: UUID,
+        reason: str,
+    ) -> None:
+        if reason not in {"bounce", "complaint"}:
+            raise ValueError("Notification contact suppression reason must be bounce or complaint.")
+        contact_exists = any(
+            c.tenant_id == tenant_id and c.contact_id == contact_id for c in self.contacts
+        )
+        if not contact_exists:
+            raise LookupError("Notification contact not found for tenant.")
+        for index, suppression in enumerate(self.suppressions):
+            if (
+                suppression.tenant_id == tenant_id
+                and suppression.contact_id == contact_id
+                and suppression.reason == reason
+            ):
+                del self.suppressions[index]
+                return
+        raise LookupError("Notification contact suppression not found.")
+
 
 def _contact(
     *,
@@ -389,3 +413,107 @@ def test_update_notification_contact_includes_suppression_reasons() -> None:
     )
 
     assert payload["suppression_reasons"] == ["bounce"]
+
+
+def test_remove_suppression_returns_updated_contact() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    db.suppressions = [
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="bounce",
+        ),
+    ]
+    event = _event_with_auth()
+
+    payload = contacts.remove_notification_contact_suppression(
+        event,
+        db,
+        UUID("11111111-1111-1111-1111-111111111111"),
+        "bounce",
+    )
+
+    assert payload == {
+        "contact_id": "11111111-1111-1111-1111-111111111111",
+        "email": "enabled@example.test",
+        "enabled": True,
+        "created_at": "2026-05-05T00:00:00+00:00",
+        "suppression_reasons": [],
+    }
+
+
+def test_remove_suppression_only_removes_targeted_reason() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    db.suppressions = [
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="bounce",
+        ),
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-auth",
+            reason="complaint",
+        ),
+    ]
+    event = _event_with_auth()
+
+    payload = contacts.remove_notification_contact_suppression(
+        event,
+        db,
+        UUID("11111111-1111-1111-1111-111111111111"),
+        "bounce",
+    )
+
+    assert payload["suppression_reasons"] == ["complaint"]
+
+
+def test_remove_suppression_not_found_raises_lookup_error() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    event = _event_with_auth()
+
+    with pytest.raises(LookupError, match="Notification contact suppression not found."):
+        contacts.remove_notification_contact_suppression(
+            event,
+            db,
+            UUID("11111111-1111-1111-1111-111111111111"),
+            "bounce",
+        )
+
+
+def test_remove_suppression_invalid_reason_raises_value_error() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    event = _event_with_auth()
+
+    with pytest.raises(ValueError, match="bounce or complaint"):
+        contacts.remove_notification_contact_suppression(
+            event,
+            db,
+            UUID("11111111-1111-1111-1111-111111111111"),
+            "unknown",
+        )
+
+
+def test_remove_suppression_wrong_tenant_raises_lookup_error() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    db.suppressions = [
+        _suppression(
+            contact_id=UUID("11111111-1111-1111-1111-111111111111"),
+            tenant_id="tenant-other",
+            reason="bounce",
+        ),
+    ]
+    event = _event_with_auth(tenant_id="tenant-auth")
+
+    with pytest.raises(LookupError):
+        contacts.remove_notification_contact_suppression(
+            event,
+            db,
+            UUID("11111111-1111-1111-1111-111111111111"),
+            "bounce",
+        )

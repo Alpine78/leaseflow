@@ -18,6 +18,7 @@ from app.routes.notification_contact_setup import configure_notification_contact
 from app.routes.notification_contacts import (
     create_notification_contact,
     list_notification_contacts,
+    remove_notification_contact_suppression,
     update_notification_contact,
 )
 from app.routes.notification_email_delivery import deliver_notification_emails
@@ -30,6 +31,9 @@ setup_logging()
 LOGGER = get_logger(__name__)
 _LEASE_PATH = re.compile(r"^/leases/(?P<lease_id>[^/]+)$")
 _NOTIFICATION_CONTACT_PATH = re.compile(r"^/notification-contacts/(?P<contact_id>[^/]+)$")
+_NOTIFICATION_CONTACT_SUPPRESSION_PATH = re.compile(
+    r"^/notification-contacts/(?P<contact_id>[^/]+)/suppressions/(?P<reason>[^/]+)$"
+)
 _NOTIFICATION_READ_PATH = re.compile(r"^/notifications/(?P<notification_id>[^/]+)/read$")
 _PROPERTY_PATH = re.compile(r"^/properties/(?P<property_id>[^/]+)$")
 
@@ -88,6 +92,18 @@ def _notification_contact_id(path: str) -> UUID | None:
         raise ValueError("Invalid notification contact ID.") from exc
 
 
+def _notification_contact_suppression(path: str) -> tuple[UUID, str] | None:
+    match = _NOTIFICATION_CONTACT_SUPPRESSION_PATH.fullmatch(path)
+    if match is None:
+        return None
+
+    try:
+        contact_id = UUID(match.group("contact_id"))
+    except ValueError as exc:
+        raise ValueError("Invalid notification contact ID.") from exc
+    return contact_id, match.group("reason")
+
+
 def _property_id(path: str) -> UUID | None:
     match = _PROPERTY_PATH.fullmatch(path)
     if match is None:
@@ -125,6 +141,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         lease_id = _lease_id(path) if method == "PATCH" else None
         notification_contact_id = _notification_contact_id(path) if method == "PATCH" else None
+        notification_contact_suppression_args = (
+            _notification_contact_suppression(path) if method == "DELETE" else None
+        )
         notification_id = _notification_read_id(path) if method == "PATCH" else None
         property_id = _property_id(path) if method == "PATCH" else None
         settings = load_settings()
@@ -155,6 +174,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "Email Complaint Received",
         }:
             return _response(HTTPStatus.OK, process_ses_provider_feedback(event, db, settings))
+        if method == "DELETE" and notification_contact_suppression_args is not None:
+            contact_id, reason = notification_contact_suppression_args
+            return _response(
+                HTTPStatus.OK,
+                remove_notification_contact_suppression(event, db, contact_id, reason),
+            )
         if method == "PATCH" and notification_contact_id is not None:
             return _response(
                 HTTPStatus.OK,
