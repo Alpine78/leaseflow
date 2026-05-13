@@ -208,8 +208,10 @@ sanitized monitoring evidence remain out of scope.
 
 ### Add Production SES Rollout Runbook And Sanitized Evidence Template
 
-Document the controlled production-readiness validation path with safe evidence
-rules. Out of scope: actual production access request or real customer data.
+Completed. Runbook at
+`docs/runbooks/ses-production-delivery-hardening-runbook.md`. Evidence template
+at `docs/runbooks/evidence/ses-production-delivery-hardening-template.md`. Out
+of scope: actual production access request or real customer data.
 
 ### Evaluate SES API Integration Path For Production Delivery
 
