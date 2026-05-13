@@ -326,6 +326,88 @@ class Database:
         self,
         tenant_id: str | None,
     ) -> NotificationEmailDeliveryPreparationResult:
+        if tenant_id:
+            return self._create_missing_notification_email_deliveries_for_tenant(
+                tenant_id=tenant_id,
+            )
+
+        results = [
+            self._create_missing_notification_email_deliveries_for_tenant(tenant_id=item)
+            for item in self.list_notification_email_delivery_tenants()
+        ]
+        return NotificationEmailDeliveryPreparationResult(
+            tenant_id=None,
+            candidate_count=sum(item.candidate_count for item in results),
+            created_count=sum(item.created_count for item in results),
+            duplicate_count=sum(item.duplicate_count for item in results),
+            suppressed_contact_count=sum(item.suppressed_contact_count for item in results),
+        )
+
+    def list_notification_email_delivery_tenants(
+        self,
+        *,
+        max_attempts: int | None = None,
+    ) -> list[str]:
+        preparation_sql = """
+            SELECT DISTINCT n.tenant_id
+            FROM notifications n
+            JOIN notification_contacts c
+              ON c.tenant_id = n.tenant_id
+             AND c.enabled = true
+            WHERE n.type = 'rent_due_soon'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM notification_contact_suppressions s
+                  WHERE s.tenant_id = c.tenant_id
+                    AND s.contact_id = c.contact_id
+                    AND s.reason IN ('bounce', 'complaint')
+              )
+        """
+        params: tuple[object, ...] = ()
+        if max_attempts is None:
+            sql = f"""
+                {preparation_sql}
+                ORDER BY tenant_id
+            """
+        else:
+            sql = f"""
+                SELECT tenant_id
+                FROM (
+                    {preparation_sql}
+                    UNION
+                    SELECT DISTINCT d.tenant_id
+                    FROM notification_email_deliveries d
+                    JOIN notifications n
+                      ON n.tenant_id = d.tenant_id
+                     AND n.notification_id = d.notification_id
+                    JOIN notification_contacts c
+                      ON c.tenant_id = d.tenant_id
+                     AND c.contact_id = d.contact_id
+                    WHERE d.status != 'sent'
+                      AND d.attempt_count < %s
+                      AND c.enabled = true
+                      AND n.type = 'rent_due_soon'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM notification_contact_suppressions s
+                          WHERE s.tenant_id = c.tenant_id
+                            AND s.contact_id = c.contact_id
+                            AND s.reason IN ('bounce', 'complaint')
+                      )
+                ) delivery_tenants
+                ORDER BY tenant_id
+            """
+            params = (max_attempts,)
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [row["tenant_id"] for row in rows]
+
+    def _create_missing_notification_email_deliveries_for_tenant(
+        self,
+        *,
+        tenant_id: str,
+    ) -> NotificationEmailDeliveryPreparationResult:
         select_sql = """
             SELECT n.tenant_id, n.notification_id, c.contact_id
             FROM notifications n
@@ -357,16 +439,13 @@ class Database:
               )
         """
         params: tuple[object, ...]
-        if tenant_id:
-            select_sql += """
-              AND n.tenant_id = %s
-            """
-            suppressed_sql += """
-              AND n.tenant_id = %s
-            """
-            params = (tenant_id,)
-        else:
-            params = ()
+        select_sql += """
+          AND n.tenant_id = %s
+        """
+        suppressed_sql += """
+          AND n.tenant_id = %s
+        """
+        params = (tenant_id,)
 
         insert_sql = """
             INSERT INTO notification_email_deliveries (
@@ -380,21 +459,20 @@ class Database:
         """
 
         created_count = 0
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                candidates = conn.execute(select_sql, params).fetchall()
-                suppressed_row = conn.execute(suppressed_sql, params).fetchone()
-                for candidate in candidates:
-                    created_row = conn.execute(
-                        insert_sql,
-                        (
-                            candidate["tenant_id"],
-                            candidate["notification_id"],
-                            candidate["contact_id"],
-                        ),
-                    ).fetchone()
-                    if created_row:
-                        created_count += 1
+        with self._tenant_transaction(tenant_id) as conn:
+            candidates = conn.execute(select_sql, params).fetchall()
+            suppressed_row = conn.execute(suppressed_sql, params).fetchone()
+            for candidate in candidates:
+                created_row = conn.execute(
+                    insert_sql,
+                    (
+                        candidate["tenant_id"],
+                        candidate["notification_id"],
+                        candidate["contact_id"],
+                    ),
+                ).fetchone()
+                if created_row:
+                    created_count += 1
 
         return NotificationEmailDeliveryPreparationResult(
             tenant_id=tenant_id,
@@ -409,6 +487,32 @@ class Database:
     def list_pending_notification_email_deliveries(
         self,
         tenant_id: str | None,
+        max_attempts: int,
+        limit: int,
+    ) -> list[NotificationEmailDelivery]:
+        if tenant_id:
+            return self._list_pending_notification_email_deliveries_for_tenant(
+                tenant_id=tenant_id,
+                max_attempts=max_attempts,
+                limit=limit,
+            )
+
+        items: list[NotificationEmailDelivery] = []
+        for item in self.list_notification_email_delivery_tenants(max_attempts=max_attempts):
+            items.extend(
+                self._list_pending_notification_email_deliveries_for_tenant(
+                    tenant_id=item,
+                    max_attempts=max_attempts,
+                    limit=limit,
+                )
+            )
+        items.sort(key=lambda item: (item.created_at, item.delivery_id))
+        return items[:limit]
+
+    def _list_pending_notification_email_deliveries_for_tenant(
+        self,
+        *,
+        tenant_id: str,
         max_attempts: int,
         limit: int,
     ) -> list[NotificationEmailDelivery]:
@@ -450,19 +554,16 @@ class Database:
               )
         """
         params: tuple[object, ...]
-        if tenant_id:
-            sql += """
-              AND d.tenant_id = %s
-            """
-            params = (max_attempts, tenant_id, limit)
-        else:
-            params = (max_attempts, limit)
+        sql += """
+          AND d.tenant_id = %s
+        """
+        params = (max_attempts, tenant_id, limit)
         sql += """
             ORDER BY d.created_at ASC, d.delivery_id ASC
             LIMIT %s
         """
 
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+        with self._tenant_transaction(tenant_id) as conn:
             rows = conn.execute(sql, params).fetchall()
         return [self._row_to_notification_email_delivery(row) for row in rows]
 
@@ -674,6 +775,72 @@ class Database:
         as_of_date: date,
         days: int,
     ) -> ReminderScanResult:
+        if tenant_id:
+            return self._create_due_lease_reminder_notifications_for_tenant(
+                tenant_id=tenant_id,
+                as_of_date=as_of_date,
+                days=days,
+            )
+
+        results = [
+            self._create_due_lease_reminder_notifications_for_tenant(
+                tenant_id=item,
+                as_of_date=as_of_date,
+                days=days,
+            )
+            for item in self.list_due_lease_reminder_tenants(
+                as_of_date=as_of_date,
+                days=days,
+            )
+        ]
+        return ReminderScanResult(
+            tenant_id=None,
+            as_of_date=as_of_date,
+            days=days,
+            tenant_count=len(results),
+            candidate_count=sum(item.candidate_count for item in results),
+            created_count=sum(item.created_count for item in results),
+            duplicate_count=sum(item.duplicate_count for item in results),
+        )
+
+    def list_due_lease_reminder_tenants(self, *, as_of_date: date, days: int) -> list[str]:
+        range_end = as_of_date + timedelta(days=days)
+        sql = """
+            SELECT
+                tenant_id,
+                rent_due_day_of_month,
+                start_date,
+                end_date
+            FROM leases
+            WHERE rent_due_day_of_month IS NOT NULL
+              AND start_date <= %s
+              AND end_date >= %s
+            ORDER BY tenant_id
+        """
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            rows = conn.execute(sql, (range_end, as_of_date)).fetchall()
+
+        tenant_ids: set[str] = set()
+        for row in rows:
+            due_date = _next_due_date(
+                as_of_date=as_of_date,
+                due_day_of_month=int(row["rent_due_day_of_month"]),
+            )
+            if due_date > range_end:
+                continue
+            if due_date < row["start_date"] or due_date > row["end_date"]:
+                continue
+            tenant_ids.add(row["tenant_id"])
+
+        return sorted(tenant_ids)
+
+    def _create_due_lease_reminder_notifications_for_tenant(
+        self,
+        *,
+        tenant_id: str,
+        as_of_date: date,
+        days: int,
+    ) -> ReminderScanResult:
         candidates = self._list_due_lease_reminders(
             tenant_id=tenant_id,
             as_of_date=as_of_date,
@@ -694,28 +861,27 @@ class Database:
         """
 
         created_count = 0
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                for candidate in candidates:
-                    created_row = conn.execute(
-                        insert_sql,
-                        (
-                            candidate.tenant_id,
-                            candidate.lease_id,
-                            "rent_due_soon",
-                            "Rent due soon",
-                            _rent_due_soon_message(candidate.days_until_due),
-                            candidate.due_date,
-                        ),
-                    ).fetchone()
-                    if created_row:
-                        created_count += 1
+        with self._tenant_transaction(tenant_id) as conn:
+            for candidate in candidates:
+                created_row = conn.execute(
+                    insert_sql,
+                    (
+                        candidate.tenant_id,
+                        candidate.lease_id,
+                        "rent_due_soon",
+                        "Rent due soon",
+                        _rent_due_soon_message(candidate.days_until_due),
+                        candidate.due_date,
+                    ),
+                ).fetchone()
+                if created_row:
+                    created_count += 1
 
         return ReminderScanResult(
             tenant_id=tenant_id,
             as_of_date=as_of_date,
             days=days,
-            tenant_count=1 if tenant_id else len({item.tenant_id for item in candidates}),
+            tenant_count=1,
             candidate_count=len(candidates),
             created_count=created_count,
             duplicate_count=len(candidates) - created_count,
