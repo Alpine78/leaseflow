@@ -15,6 +15,11 @@ class _FakeDb:
         self.calls: list[dict[str, str]] = []
         self.list_calls: list[str] = []
         self.update_calls: list[dict[str, object]] = []
+        self.owned_property_ids: dict[UUID, str] = {
+            UUID("33333333-3333-3333-3333-333333333333"): "tenant-auth",
+            UUID("44444444-4444-4444-4444-444444444444"): "tenant-from-token",
+            UUID("55555555-5555-5555-5555-555555555555"): "tenant-from-token",
+        }
 
     def create_property(
         self,
@@ -65,6 +70,8 @@ class _FakeDb:
         property_id: UUID,
         updates: dict[str, str],
     ) -> Property:
+        if self.owned_property_ids.get(property_id) != tenant_id:
+            raise LookupError("Property not found for tenant.")
         self.update_calls.append(
             {
                 "tenant_id": tenant_id,
@@ -272,3 +279,16 @@ def test_update_property_requires_jwt_claims() -> None:
             db,
             UUID("99999999-9999-9999-9999-999999999999"),
         )
+
+
+def test_update_property_wrong_tenant_raises_lookup_error() -> None:
+    db = _FakeDb()
+    other_property_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    db.owned_property_ids[other_property_id] = "tenant-other"
+    event = _event_with_auth(tenant_id="tenant-auth", user_id="user-auth")
+    event["body"] = '{"name":"Renamed HQ"}'
+
+    with pytest.raises(LookupError, match="Property not found for tenant."):
+        update_property(event, db, other_property_id)
+
+    assert db.update_calls == []

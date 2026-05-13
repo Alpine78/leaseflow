@@ -43,6 +43,9 @@ class _FakeDb:
     def __init__(self) -> None:
         self.list_calls: list[str] = []
         self.read_calls: list[tuple[str, UUID]] = []
+        self.notification_owners: dict[UUID, str] = {
+            UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"): "tenant-auth",
+        }
 
     def list_notifications(self, tenant_id: str) -> list[_NotificationRecord]:
         self.list_calls.append(tenant_id)
@@ -74,6 +77,8 @@ class _FakeDb:
         tenant_id: str,
         notification_id: UUID,
     ) -> _NotificationRecord:
+        if self.notification_owners.get(notification_id) != tenant_id:
+            raise LookupError("Notification not found for tenant.")
         self.read_calls.append((tenant_id, notification_id))
         return _NotificationRecord(
             notification_id=notification_id,
@@ -200,3 +205,16 @@ def test_mark_notification_read_requires_jwt_claims() -> None:
             db,
             UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         )
+
+
+def test_mark_notification_read_wrong_tenant_raises_lookup_error() -> None:
+    notifications = _notifications_module()
+    db = _FakeDb()
+    other_notification_id = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+    db.notification_owners[other_notification_id] = "tenant-other"
+    event = _event_with_auth(tenant_id="tenant-auth", user_id="user-auth")
+
+    with pytest.raises(LookupError, match="Notification not found for tenant."):
+        notifications.mark_notification_read(event, db, other_notification_id)
+
+    assert db.read_calls == []

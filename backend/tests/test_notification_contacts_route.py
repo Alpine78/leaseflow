@@ -105,16 +105,16 @@ class _FakeDb:
         contact_id: UUID,
         enabled: bool,
     ) -> _ContactRecord:
-        self.update_calls.append(
-            {
-                "tenant_id": tenant_id,
-                "actor_user_id": actor_user_id,
-                "contact_id": contact_id,
-                "enabled": enabled,
-            }
-        )
         for index, contact in enumerate(self.contacts):
             if contact.tenant_id == tenant_id and contact.contact_id == contact_id:
+                self.update_calls.append(
+                    {
+                        "tenant_id": tenant_id,
+                        "actor_user_id": actor_user_id,
+                        "contact_id": contact_id,
+                        "enabled": enabled,
+                    }
+                )
                 updated = _contact(
                     contact_id=contact.contact_id,
                     tenant_id=contact.tenant_id,
@@ -517,3 +517,24 @@ def test_remove_suppression_wrong_tenant_raises_lookup_error() -> None:
             UUID("11111111-1111-1111-1111-111111111111"),
             "bounce",
         )
+
+
+def test_update_notification_contact_wrong_tenant_raises_lookup_error() -> None:
+    contacts = _contacts_module()
+    db = _FakeDb()
+    other_contact_id = UUID("99999999-9999-9999-9999-999999999999")
+    db.contacts.append(
+        _contact(
+            contact_id=other_contact_id,
+            tenant_id="tenant-other",
+            email="other@example.test",
+            enabled=True,
+        )
+    )
+    event = _event_with_auth(tenant_id="tenant-auth")
+    event["body"] = '{"enabled": false}'
+
+    with pytest.raises(LookupError):
+        contacts.update_notification_contact(event, db, other_contact_id)
+
+    assert db.update_calls == []
