@@ -215,10 +215,10 @@ of scope: actual production access request or real customer data.
 
 ### Evaluate SES API Integration Path For Production Delivery
 
-Compare the current SMTP PrivateLink path with SES API options. The decision
-must cover private networking, IAM, idempotency, error mapping, cost, and
-operational complexity. Out of scope: changing the implementation inside the
-planning ticket.
+Completed. Evaluation at `docs/ses-api-integration-path-evaluation.md`.
+Recommendation: retain SES SMTP over PrivateLink as the production path. NAT
+Gateway is more expensive at idle and less appropriate for this network posture.
+No implementation change required.
 
 ## Security Boundaries
 
