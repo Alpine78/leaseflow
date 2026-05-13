@@ -47,6 +47,31 @@ variable "engine_version" {
   default     = "15.17"
 }
 
+variable "backup_retention_period" {
+  type        = number
+  description = "Automated backup retention period in days."
+  default     = 1
+}
+
+variable "deletion_protection" {
+  type        = bool
+  description = "Whether RDS deletion protection is enabled."
+  default     = false
+}
+
+variable "skip_final_snapshot" {
+  type        = bool
+  description = "Whether to skip the final DB snapshot when destroying the instance."
+  default     = true
+}
+
+variable "final_snapshot_identifier" {
+  type        = string
+  description = "Final DB snapshot identifier required when skip_final_snapshot is false."
+  default     = null
+  nullable    = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Common tags."

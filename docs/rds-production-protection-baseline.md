@@ -5,8 +5,9 @@
 Define the RDS protection posture LeaseFlow would need before storing real
 tenant data or running a production-like environment.
 
-This is a design baseline, not an implementation ticket. The current dev
-Terraform behavior remains cost-controlled.
+The shared RDS Terraform module now exposes production-like protection inputs.
+The current dev environment still defaults to a cost-controlled, destroyable
+posture.
 
 Not included in this baseline:
 
@@ -18,7 +19,7 @@ Not included in this baseline:
 
 ## Current Dev Posture
 
-Current Terraform-managed dev RDS settings:
+Default Terraform-managed dev RDS settings:
 
 | Control | Current dev value | Reason |
 | --- | --- | --- |
@@ -31,6 +32,33 @@ Current Terraform-managed dev RDS settings:
 
 This posture is acceptable for short-lived portfolio/dev validation. It is not
 production-ready database protection.
+
+## Implemented Module Controls
+
+The `rds_postgres` module accepts these protection inputs:
+
+| Input | Dev default | Production-like expectation |
+| --- | --- | --- |
+| `backup_retention_period` | `1` | At least `7` when deletion protection is enabled. |
+| `deletion_protection` | `false` | `true` for production-like data. |
+| `skip_final_snapshot` | `true` | `false` when deletion protection is enabled. |
+| `final_snapshot_identifier` | `null` | Required when final snapshots are enabled. |
+
+The module keeps `publicly_accessible = false`, `storage_encrypted = true`, and
+`multi_az = false` for the current low-cost dev shape.
+
+The module validates these combinations:
+
+- `backup_retention_period` must be at least `7` when
+  `deletion_protection = true`.
+- `deletion_protection = true` requires `skip_final_snapshot = false`.
+- `skip_final_snapshot = false` requires a non-empty
+  `final_snapshot_identifier`.
+
+`lifecycle.prevent_destroy` is intentionally not variable-controlled in the
+shared dev module. Terraform lifecycle meta-arguments require literal values, so
+a future dedicated production environment can hardcode `prevent_destroy` without
+breaking dev destroy workflows.
 
 ## Production-Like Baseline
 

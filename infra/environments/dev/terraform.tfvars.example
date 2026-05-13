@@ -9,6 +9,13 @@ db_username       = "leaseflow_admin"
 db_instance_class = "db.t3.micro"
 db_engine_version = "15.17"
 
+# Dev defaults are cost-aware and destroyable. Production-like validation can
+# opt into longer retention, deletion protection, and required final snapshots.
+db_backup_retention_period   = 1
+db_deletion_protection       = false
+db_skip_final_snapshot       = true
+db_final_snapshot_identifier = null
+
 # Terraform generates the DB password and stores it in SSM SecureString at this path.
 lambda_package_file   = "../../../dist/leaseflow-backend.zip"
 db_password_ssm_param = "/leaseflow/dev/db/password"

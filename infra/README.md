@@ -393,7 +393,6 @@ CI runs Terraform checks without AWS credentials.
 - `infra/environments/dev` runs `terraform init -backend=false` and `terraform validate`.
 - Modules with `.tftest.hcl` coverage run `terraform init -backend=false` and `terraform test`.
 - Module tests use mocked providers and do not create AWS resources.
-- `modules/rds_postgres` is excluded until it has `.tftest.hcl` coverage.
 
 ## Dev cost expectation
 
@@ -411,6 +410,25 @@ CI runs Terraform checks without AWS credentials.
 - If the SES SMTP VPC endpoint is enabled for smoke testing, review after the
   test whether it should be disabled again to avoid idle endpoint cost.
 
+## RDS protection controls
+
+- Dev remains cost-aware and destroyable by default:
+  - `db_backup_retention_period = 1`
+  - `db_deletion_protection = false`
+  - `db_skip_final_snapshot = true`
+  - `db_final_snapshot_identifier = null`
+- Production-like validation can opt into longer automated backups, deletion
+  protection, and required final snapshots through the dev Terraform variables.
+- If `db_skip_final_snapshot = false`, set a unique
+  `db_final_snapshot_identifier` before planning destroy. Reusing a static final
+  snapshot name can collide across repeated destroy attempts.
+- If `db_deletion_protection = true`, the module requires at least seven days of
+  backup retention and `db_skip_final_snapshot = false`.
+- `lifecycle.prevent_destroy` is intentionally not variable-controlled in the
+  shared module. Terraform lifecycle meta-arguments require literal values, so a
+  future dedicated production environment should hardcode `prevent_destroy` if
+  it needs that safeguard.
+
 ## Apply and destroy rule
 
 - Use `terraform apply` only when you are ready to test the deployed AWS environment.
@@ -422,7 +440,11 @@ CI runs Terraform checks without AWS credentials.
 - Use the same working copy and Terraform backend config that created the resources.
 - Use the same AWS profile and region that were used during `apply`.
 - Do not delete Terraform state before destroying the environment.
-- The current dev RDS config uses `skip_final_snapshot = true`, so destroying the stack will permanently delete the dev database contents.
+- The default dev RDS config uses `db_skip_final_snapshot = true`, so destroying
+  the stack will permanently delete the dev database contents.
+- If production-like RDS protection variables are enabled, disable deletion
+  protection intentionally and provide/review the final snapshot identifier
+  before applying a destroy plan.
 - If you need to keep portfolio/demo tenant data, run `scripts/dev/export-tenant-data.sh` before destroy and store the ignored export file locally.
 
 ```bash
