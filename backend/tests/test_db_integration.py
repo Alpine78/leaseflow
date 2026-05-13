@@ -148,6 +148,155 @@ def test_audit_logs_rls_with_check_blocks_wrong_tenant_insert(
         _cleanup_test_tenant(integration_settings, other_tenant_id)
 
 
+def test_audit_logs_rls_with_check_blocks_insert_without_tenant_context(
+    integration_settings: Settings,
+) -> None:
+    tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            with pytest.raises(psycopg.Error):
+                conn.execute(
+                    """
+                    INSERT INTO audit_logs (
+                        tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, '{}'::jsonb)
+                    """,
+                    (
+                        tenant_id,
+                        f"user-{uuid4().hex[:12]}",
+                        "rls.test",
+                        "property",
+                        uuid4(),
+                    ),
+                )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_audit_logs_rls_blocks_cross_tenant_update_by_primary_key(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Update Guard HQ {uuid4().hex[:8]}",
+            address=f"Update Guard Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Other Update Guard HQ {uuid4().hex[:8]}",
+            address=f"Other Update Guard Street {uuid4().hex[:8]}",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, other_tenant_id)
+            other_audit_row = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s
+                """,
+                (other_tenant_id, other_property.property_id),
+            ).fetchone()
+
+            assert other_audit_row is not None
+
+            _set_tenant_context(conn, tenant_id)
+            update_result = conn.execute(
+                """
+                UPDATE audit_logs
+                SET metadata = metadata || '{"rls_update":"blocked"}'::jsonb
+                WHERE audit_id = %s
+                """,
+                (other_audit_row["audit_id"],),
+            )
+
+            _set_tenant_context(conn, other_tenant_id)
+            metadata_row = conn.execute(
+                """
+                SELECT metadata
+                FROM audit_logs
+                WHERE audit_id = %s
+                """,
+                (other_audit_row["audit_id"],),
+            ).fetchone()
+
+        assert update_result.rowcount == 0
+        assert metadata_row is not None
+        assert "rls_update" not in metadata_row["metadata"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_audit_logs_rls_blocks_cross_tenant_delete_by_primary_key(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Delete Guard HQ {uuid4().hex[:8]}",
+            address=f"Delete Guard Street {uuid4().hex[:8]}",
+        )
+        other_property = db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Other Delete Guard HQ {uuid4().hex[:8]}",
+            address=f"Other Delete Guard Street {uuid4().hex[:8]}",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, other_tenant_id)
+            other_audit_row = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s
+                """,
+                (other_tenant_id, other_property.property_id),
+            ).fetchone()
+
+            assert other_audit_row is not None
+
+            _set_tenant_context(conn, tenant_id)
+            delete_result = conn.execute(
+                """
+                DELETE FROM audit_logs
+                WHERE audit_id = %s
+                """,
+                (other_audit_row["audit_id"],),
+            )
+
+            _set_tenant_context(conn, other_tenant_id)
+            remaining_row = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE audit_id = %s
+                """,
+                (other_audit_row["audit_id"],),
+            ).fetchone()
+
+        assert delete_result.rowcount == 0
+        assert remaining_row is not None
+        assert remaining_row["audit_id"] == other_audit_row["audit_id"]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
 def test_audit_logs_application_filters_still_work_when_rls_is_disabled(
     integration_settings: Settings,
 ) -> None:
