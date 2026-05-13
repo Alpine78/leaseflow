@@ -6,8 +6,8 @@ This document defines a future PostgreSQL Row-Level Security hardening path for
 LeaseFlow. RLS is defense in depth, not a replacement for the current
 application-layer tenant isolation model.
 
-No RLS policies, migrations, Terraform resources, backend auth redesign, or
-schema changes are implemented by this plan.
+The first incremental RLS policy is implemented for `audit_logs`. Additional
+tenant-owned tables remain future rollout work.
 
 ## Current Tenant Isolation Model
 
@@ -31,12 +31,13 @@ RLS must preserve these rules:
 
 Primary candidates:
 
-- `properties`
-- `leases`
-- `notifications`
-- `notification_contacts`
+- `audit_logs` (implemented first with FORCE RLS)
 - `notification_email_deliveries`
-- `audit_logs`
+- `notification_contacts`
+- `notification_contact_suppressions`
+- `notifications`
+- `leases`
+- `properties`
 
 These tables are tenant-owned and include `tenant_id`. Existing tenant-safe
 foreign keys and uniqueness constraints remain required. RLS must not be used
@@ -102,8 +103,18 @@ Recommended implementation order:
    Completed for the existing reminder scan and email delivery preparation/list
    paths.
 3. Add RLS policies for one low-risk table first, then expand table by table.
+   `audit_logs` is the first implemented table.
 4. Add regression tests that intentionally omit application tenant predicates
    and verify RLS blocks cross-tenant access.
+
+Remaining table rollout order:
+
+1. `notification_email_deliveries`
+2. `notification_contacts`
+3. `notification_contact_suppressions`
+4. `notifications`
+5. `leases`
+6. `properties`
 
 Rollback must be documented in each migration. A safe rollback should be able to
 disable RLS policies without changing application request behavior, because the
@@ -118,7 +129,8 @@ application layer must still enforce tenant filters.
 - Missing tenant context should fail closed. Policies should not silently allow
   access when `app.tenant_id` is unset.
 - Migration/admin roles must be separated from normal application runtime
-  access.
+  access before production-like RLS readiness is claimed. That role split is
+  not implemented by the first `audit_logs` RLS migration.
 - Local integration tests must cover both application filtering and database
   policy enforcement once RLS is implemented.
 

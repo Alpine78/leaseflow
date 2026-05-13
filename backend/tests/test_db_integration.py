@@ -31,6 +31,7 @@ def integration_settings() -> Settings:
 def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
     with psycopg.connect(settings.db_dsn(), row_factory=dict_row) as conn:
         with conn.transaction():
+            _set_tenant_context(conn, tenant_id)
             conn.execute(
                 "DELETE FROM notification_email_deliveries WHERE tenant_id = %s",
                 (tenant_id,),
@@ -44,6 +45,164 @@ def _cleanup_test_tenant(settings: Settings, tenant_id: str) -> None:
             conn.execute("DELETE FROM audit_logs WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM leases WHERE tenant_id = %s", (tenant_id,))
             conn.execute("DELETE FROM properties WHERE tenant_id = %s", (tenant_id,))
+
+
+def _set_tenant_context(conn: psycopg.Connection[dict], tenant_id: str) -> None:
+    conn.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant_id,))
+
+
+def test_audit_logs_rls_blocks_reads_without_tenant_context(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"RLS HQ {uuid4().hex[:8]}",
+            address=f"RLS Street {uuid4().hex[:8]}",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            rows = conn.execute(
+                """
+                SELECT audit_id
+                FROM audit_logs
+                WHERE tenant_id = %s AND entity_id = %s
+                """,
+                (tenant_id, created.property_id),
+            ).fetchall()
+
+        assert rows == []
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+
+
+def test_audit_logs_rls_allows_only_active_tenant_context(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Tenant HQ {uuid4().hex[:8]}",
+            address=f"Tenant Street {uuid4().hex[:8]}",
+        )
+        db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Other HQ {uuid4().hex[:8]}",
+            address=f"Other Street {uuid4().hex[:8]}",
+        )
+
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
+            rows = conn.execute(
+                """
+                SELECT tenant_id
+                FROM audit_logs
+                WHERE tenant_id IN (%s, %s)
+                ORDER BY tenant_id
+                """,
+                (tenant_id, other_tenant_id),
+            ).fetchall()
+
+        assert [row["tenant_id"] for row in rows] == [tenant_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_audit_logs_rls_with_check_blocks_wrong_tenant_insert(
+    integration_settings: Settings,
+) -> None:
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
+            with pytest.raises(psycopg.Error):
+                conn.execute(
+                    """
+                    INSERT INTO audit_logs (
+                        tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, '{}'::jsonb)
+                    """,
+                    (
+                        other_tenant_id,
+                        f"user-{uuid4().hex[:12]}",
+                        "rls.test",
+                        "property",
+                        uuid4(),
+                    ),
+                )
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_audit_logs_application_filters_still_work_when_rls_is_disabled(
+    integration_settings: Settings,
+) -> None:
+    db = Database(integration_settings)
+    tenant_id = f"test-local-{uuid4().hex}"
+    other_tenant_id = f"test-local-{uuid4().hex}"
+
+    try:
+        created = db.create_property(
+            tenant_id=tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Filter HQ {uuid4().hex[:8]}",
+            address=f"Filter Street {uuid4().hex[:8]}",
+        )
+        db.create_property(
+            tenant_id=other_tenant_id,
+            actor_user_id=f"user-{uuid4().hex[:12]}",
+            name=f"Other Filter HQ {uuid4().hex[:8]}",
+            address=f"Other Filter Street {uuid4().hex[:8]}",
+        )
+
+        try:
+            with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+                with conn.transaction():
+                    conn.execute("ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY")
+                    rows = conn.execute(
+                        """
+                        SELECT tenant_id
+                        FROM audit_logs
+                        WHERE tenant_id = %s AND entity_id = %s
+                        """,
+                        (tenant_id, created.property_id),
+                    ).fetchall()
+                    raise RuntimeError(rows)
+        except RuntimeError as exc:
+            rows = exc.args[0]
+
+        assert [row["tenant_id"] for row in rows] == [tenant_id]
+    finally:
+        _cleanup_test_tenant(integration_settings, tenant_id)
+        _cleanup_test_tenant(integration_settings, other_tenant_id)
+
+
+def test_runtime_db_role_does_not_bypass_rls(integration_settings: Settings) -> None:
+    with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+        row = conn.execute(
+            """
+            SELECT rolbypassrls
+            FROM pg_roles
+            WHERE rolname = current_user
+            """
+        ).fetchone()
+
+    assert row is not None
+    assert row["rolbypassrls"] is False
 
 
 def test_create_property_writes_property_and_audit_log(integration_settings: Settings) -> None:
@@ -70,6 +229,7 @@ def test_create_property_writes_property_and_audit_log(integration_settings: Set
                 """,
                 (tenant_id, created.property_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -138,6 +298,7 @@ def test_create_property_rolls_back_when_audit_log_write_fails(
                 """,
                 (tenant_id,),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -228,6 +389,7 @@ def test_update_property_writes_property_change_and_audit_log(
                 """,
                 (tenant_id, created.property_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -321,6 +483,7 @@ def test_update_property_is_idempotent_when_values_are_unchanged(
                 """,
                 (tenant_id, created.property_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -388,6 +551,7 @@ def test_update_property_rolls_back_when_audit_log_write_fails(
                 """,
                 (tenant_id, created.property_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -454,6 +618,7 @@ def test_create_lease_writes_lease_and_audit_log(integration_settings: Settings)
                 """,
                 (tenant_id, created.lease_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -518,6 +683,7 @@ def test_create_lease_rejects_cross_tenant_property_reference(
                 """,
                 (tenant_id, other_tenant_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -584,6 +750,7 @@ def test_create_lease_rolls_back_when_audit_log_write_fails(
                 """,
                 (tenant_id,),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -766,6 +933,7 @@ def test_update_lease_writes_change_audit_and_deletes_future_unread_reminders(
                 """,
                 (tenant_id, created.lease_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT metadata
@@ -879,6 +1047,7 @@ def test_update_lease_is_idempotent_when_values_are_unchanged(
         )
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -952,6 +1121,7 @@ def test_update_lease_resident_name_only_keeps_future_unread_reminders(
         )
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT metadata
@@ -1109,6 +1279,7 @@ def test_update_lease_rolls_back_when_audit_log_write_fails(
                 """,
                 (tenant_id, created.lease_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT audit_id
@@ -1464,6 +1635,7 @@ def test_create_notification_contact_stores_normalized_email_and_audit_log(
                 """,
                 (tenant_id, created.contact_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -1510,6 +1682,7 @@ def test_create_notification_contact_supports_internal_audit_source(
         )
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT actor_user_id, metadata
@@ -1651,6 +1824,7 @@ def test_set_notification_contact_enabled_updates_tenant_contact_and_audit_log(
         enabled_contacts = db.list_notification_contacts(tenant_id=tenant_id, enabled_only=True)
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -1733,6 +1907,7 @@ def test_create_notification_contact_suppression_writes_tenant_scoped_row_and_sa
         listed = db.list_notification_contact_suppressions(tenant_id=tenant_id)
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT tenant_id, actor_user_id, action, entity_type, entity_id, metadata
@@ -1803,6 +1978,7 @@ def test_notification_contact_suppression_duplicate_is_idempotent_without_duplic
                 """,
                 (tenant_id, contact.contact_id),
             ).fetchone()["row_count"]
+            _set_tenant_context(conn, tenant_id)
             audit_count = conn.execute(
                 """
                 SELECT count(*) AS row_count
@@ -2188,6 +2364,7 @@ def test_notification_email_delivery_rows_are_idempotent_and_retry_safe(
         )
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT action, metadata
@@ -2284,6 +2461,7 @@ def test_notification_email_delivery_excludes_disabled_contacts_and_stops_after_
         )
 
         with psycopg.connect(integration_settings.db_dsn(), row_factory=dict_row) as conn:
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT metadata
@@ -2644,6 +2822,7 @@ def test_process_ses_provider_feedback_updates_delivery_and_suppression_idempote
                 """,
                 (tenant_id, contact.contact_id),
             ).fetchall()
+            _set_tenant_context(conn, tenant_id)
             audit_rows = conn.execute(
                 """
                 SELECT action, entity_id, metadata
