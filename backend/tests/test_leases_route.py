@@ -27,9 +27,29 @@ class _LeaseRecord:
     created_at: datetime
 
 
+def _lease(*, lease_id: UUID, tenant_id: str) -> _LeaseRecord:
+    return _LeaseRecord(
+        lease_id=lease_id,
+        tenant_id=tenant_id,
+        property_id=UUID("11111111-1111-1111-1111-111111111111"),
+        resident_name="Alice Example",
+        rent_due_day_of_month=5,
+        start_date=date(2026, 5, 1),
+        end_date=date(2027, 4, 30),
+        created_at=datetime(2026, 4, 7, tzinfo=UTC),
+    )
+
+
+_LEASE_UUID = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+
+
 class _FakeDb:
     def __init__(self) -> None:
         self.create_calls: list[dict[str, object]] = []
+        self.leases: list[_LeaseRecord] = [
+            _lease(lease_id=_LEASE_UUID, tenant_id="tenant-from-token"),
+            _lease(lease_id=_LEASE_UUID, tenant_id="tenant-auth"),
+        ]
         self.list_calls: list[str] = []
         self.update_calls: list[dict[str, object]] = []
 
@@ -87,6 +107,12 @@ class _FakeDb:
         lease_id: UUID,
         updates: dict[str, object],
     ) -> _LeaseRecord:
+        owned = next(
+            (r for r in self.leases if r.tenant_id == tenant_id and r.lease_id == lease_id),
+            None,
+        )
+        if owned is None:
+            raise LookupError("Lease not found for tenant.")
         self.update_calls.append(
             {
                 "tenant_id": tenant_id,
@@ -576,3 +602,19 @@ def test_update_lease_requires_jwt_claims() -> None:
             db,
             UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
         )
+
+
+def test_update_lease_wrong_tenant_raises_lookup_error() -> None:
+    leases = _leases_module()
+    db = _FakeDb()
+    db.leases = [_lease(lease_id=_LEASE_UUID, tenant_id="tenant-other")]
+    event = _event_with_auth(tenant_id="tenant-auth", user_id="user-auth")
+
+    with pytest.raises(LookupError, match="Lease not found for tenant."):
+        leases.update_lease(
+            {**event, "body": '{"resident_name":"Alice Updated"}'},
+            db,
+            _LEASE_UUID,
+        )
+
+    assert db.update_calls == []
