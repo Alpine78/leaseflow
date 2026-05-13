@@ -72,17 +72,22 @@ existing application-level tenant predicates remain mandatory.
 
 ## Internal Job Design
 
-Current internal reminder and email delivery jobs can operate across tenants
-when invoked without a tenant ID. RLS enforcement would block or complicate
-those unscoped reads unless the job path is redesigned.
+Internal reminder and email delivery jobs may still be invoked without an
+explicit tenant ID. The backend now discovers candidate tenant IDs first and
+then processes each tenant through the same transaction-local tenant context
+used by normal tenant-scoped methods.
 
-Preferred future direction:
+Current internal direction:
 
 - discover candidate tenants through an explicit safe internal mechanism.
 - process each tenant inside its own transaction.
 - set `SET LOCAL app.tenant_id` before tenant-owned reads and writes.
 - keep internal event payloads sanitized and avoid browser-triggered scan or
   delivery actions.
+
+The discovery step still performs limited distinct-tenant lookup before RLS
+policies exist. If future RLS policies also cover discovery inputs, this may
+need a separate tenant registry or another explicitly justified discovery path.
 
 Any privileged bypass path must be explicitly justified, tested, and kept out of
 browser/API request handling.
@@ -94,6 +99,8 @@ Recommended implementation order:
 1. Add a backend transaction helper that sets tenant context with `SET LOCAL`.
    Completed for normal tenant-scoped `Database` methods.
 2. Adapt internal reminder and delivery jobs so they can run tenant by tenant.
+   Completed for the existing reminder scan and email delivery preparation/list
+   paths.
 3. Add RLS policies for one low-risk table first, then expand table by table.
 4. Add regression tests that intentionally omit application tenant predicates
    and verify RLS blocks cross-tenant access.
@@ -106,7 +113,8 @@ application layer must still enforce tenant filters.
 
 - Pooled or reused DB sessions can leak tenant context if session-level settings
   are used. Use transaction-local `SET LOCAL` only.
-- Internal all-tenant jobs need redesign before broad RLS enforcement.
+- Tenant discovery still needs review when policies are added to the tables it
+  reads.
 - Missing tenant context should fail closed. Policies should not silently allow
   access when `app.tenant_id` is unset.
 - Migration/admin roles must be separated from normal application runtime
@@ -117,6 +125,6 @@ application layer must still enforce tenant filters.
 ## Follow-Up Tickets
 
 - Add RLS tenant context transaction helper.
-- Add PostgreSQL RLS policies for tenant-owned domain tables.
 - Adapt internal reminder and delivery jobs for RLS.
+- Add PostgreSQL RLS policies for tenant-owned domain tables.
 - Add RLS regression and migration smoke tests.
