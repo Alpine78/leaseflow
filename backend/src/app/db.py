@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import calendar
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
@@ -33,6 +34,20 @@ class Database:
     def __init__(self, settings: Settings) -> None:
         self._dsn = settings.db_dsn()
 
+    @contextmanager
+    def _tenant_transaction(self, tenant_id: str) -> Iterator[Any]:
+        normalized_tenant_id = str(tenant_id or "").strip()
+        if not normalized_tenant_id:
+            raise ValueError("Tenant context is required.")
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                conn.execute(
+                    "SELECT set_config('app.tenant_id', %s, true)",
+                    (normalized_tenant_id,),
+                )
+                yield conn
+
     def create_notification_contact(
         self,
         tenant_id: str,
@@ -56,25 +71,24 @@ class Database:
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
         try:
-            with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-                with conn.transaction():
-                    contact_row = conn.execute(
-                        contact_sql,
-                        (tenant_id, normalized_email, enabled),
-                    ).fetchone()
-                    if not contact_row:
-                        raise RuntimeError("Failed to create notification contact.")
-                    conn.execute(
-                        audit_sql,
-                        (
-                            tenant_id,
-                            actor_user_id,
-                            "notification_contact.create",
-                            "notification_contact",
-                            contact_row["contact_id"],
-                            json.dumps({"source": audit_source, "enabled": enabled}),
-                        ),
-                    )
+            with self._tenant_transaction(tenant_id) as conn:
+                contact_row = conn.execute(
+                    contact_sql,
+                    (tenant_id, normalized_email, enabled),
+                ).fetchone()
+                if not contact_row:
+                    raise RuntimeError("Failed to create notification contact.")
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "notification_contact.create",
+                        "notification_contact",
+                        contact_row["contact_id"],
+                        json.dumps({"source": audit_source, "enabled": enabled}),
+                    ),
+                )
         except psycopg.errors.UniqueViolation as exc:
             raise ValueError("Notification contact already exists for tenant.") from exc
 
@@ -100,7 +114,7 @@ class Database:
         """
         params = (tenant_id,)
 
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+        with self._tenant_transaction(tenant_id) as conn:
             rows = conn.execute(sql, params).fetchall()
         return [self._row_to_notification_contact(row) for row in rows]
 
@@ -123,25 +137,24 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                contact_row = conn.execute(
-                    contact_sql,
-                    (enabled, tenant_id, contact_id),
-                ).fetchone()
-                if contact_row is None:
-                    raise LookupError("Notification contact not found for tenant.")
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "notification_contact.update",
-                        "notification_contact",
-                        contact_id,
-                        json.dumps({"source": audit_source, "enabled": enabled}),
-                    ),
-                )
+        with self._tenant_transaction(tenant_id) as conn:
+            contact_row = conn.execute(
+                contact_sql,
+                (enabled, tenant_id, contact_id),
+            ).fetchone()
+            if contact_row is None:
+                raise LookupError("Notification contact not found for tenant.")
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    actor_user_id,
+                    "notification_contact.update",
+                    "notification_contact",
+                    contact_id,
+                    json.dumps({"source": audit_source, "enabled": enabled}),
+                ),
+            )
 
         return self._row_to_notification_contact(contact_row)
 
@@ -183,40 +196,39 @@ class Database:
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
 
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
-                if contact_row is None:
-                    raise LookupError("Notification contact not found for tenant.")
+        with self._tenant_transaction(tenant_id) as conn:
+            contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
+            if contact_row is None:
+                raise LookupError("Notification contact not found for tenant.")
 
+            suppression_row = conn.execute(
+                insert_sql,
+                (tenant_id, contact_id, normalized_reason),
+            ).fetchone()
+            if suppression_row is not None:
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "notification_contact_suppression.create",
+                        "notification_contact_suppression",
+                        suppression_row["suppression_id"],
+                        json.dumps(
+                            {
+                                "source": audit_source,
+                                "reason": normalized_reason,
+                            }
+                        ),
+                    ),
+                )
+            else:
                 suppression_row = conn.execute(
-                    insert_sql,
+                    select_existing_sql,
                     (tenant_id, contact_id, normalized_reason),
                 ).fetchone()
-                if suppression_row is not None:
-                    conn.execute(
-                        audit_sql,
-                        (
-                            tenant_id,
-                            actor_user_id,
-                            "notification_contact_suppression.create",
-                            "notification_contact_suppression",
-                            suppression_row["suppression_id"],
-                            json.dumps(
-                                {
-                                    "source": audit_source,
-                                    "reason": normalized_reason,
-                                }
-                            ),
-                        ),
-                    )
-                else:
-                    suppression_row = conn.execute(
-                        select_existing_sql,
-                        (tenant_id, contact_id, normalized_reason),
-                    ).fetchone()
-                    if suppression_row is None:
-                        raise RuntimeError("Failed to load notification contact suppression.")
+                if suppression_row is None:
+                    raise RuntimeError("Failed to load notification contact suppression.")
 
         return self._row_to_notification_contact_suppression(suppression_row)
 
@@ -225,25 +237,24 @@ class Database:
         tenant_id: str,
         contact_id: UUID | None = None,
     ) -> list[NotificationContactSuppression]:
-        params: tuple[object, ...]
         if contact_id is not None:
             contact_sql = """
                 SELECT contact_id
                 FROM notification_contacts
                 WHERE tenant_id = %s AND contact_id = %s
             """
-            with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with self._tenant_transaction(tenant_id) as conn:
                 contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
-            if contact_row is None:
-                raise LookupError("Notification contact not found for tenant.")
+                if contact_row is None:
+                    raise LookupError("Notification contact not found for tenant.")
 
-            sql = """
-                SELECT suppression_id, tenant_id, contact_id, reason, created_at
-                FROM notification_contact_suppressions
-                WHERE tenant_id = %s AND contact_id = %s
-                ORDER BY created_at DESC, suppression_id DESC
-            """
-            params = (tenant_id, contact_id)
+                sql = """
+                    SELECT suppression_id, tenant_id, contact_id, reason, created_at
+                    FROM notification_contact_suppressions
+                    WHERE tenant_id = %s AND contact_id = %s
+                    ORDER BY created_at DESC, suppression_id DESC
+                """
+                rows = conn.execute(sql, (tenant_id, contact_id)).fetchall()
         else:
             sql = """
                 SELECT suppression_id, tenant_id, contact_id, reason, created_at
@@ -251,10 +262,8 @@ class Database:
                 WHERE tenant_id = %s
                 ORDER BY created_at DESC, suppression_id DESC
             """
-            params = (tenant_id,)
-
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            rows = conn.execute(sql, params).fetchall()
+            with self._tenant_transaction(tenant_id) as conn:
+                rows = conn.execute(sql, (tenant_id,)).fetchall()
         return [self._row_to_notification_contact_suppression(row) for row in rows]
 
     def delete_notification_contact_suppression(
@@ -288,31 +297,30 @@ class Database:
             WHERE tenant_id = %s AND contact_id = %s AND reason = %s
         """
 
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
-                if contact_row is None:
-                    raise LookupError("Notification contact not found for tenant.")
+        with self._tenant_transaction(tenant_id) as conn:
+            contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
+            if contact_row is None:
+                raise LookupError("Notification contact not found for tenant.")
 
-                suppression_row = conn.execute(
-                    select_suppression_sql,
-                    (tenant_id, contact_id, normalized_reason),
-                ).fetchone()
-                if suppression_row is None:
-                    raise LookupError("Notification contact suppression not found.")
+            suppression_row = conn.execute(
+                select_suppression_sql,
+                (tenant_id, contact_id, normalized_reason),
+            ).fetchone()
+            if suppression_row is None:
+                raise LookupError("Notification contact suppression not found.")
 
-                conn.execute(delete_sql, (tenant_id, contact_id, normalized_reason))
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "notification_contact_suppression.remove",
-                        "notification_contact_suppression",
-                        suppression_row["suppression_id"],
-                        json.dumps({"source": "api", "reason": normalized_reason}),
-                    ),
-                )
+            conn.execute(delete_sql, (tenant_id, contact_id, normalized_reason))
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    actor_user_id,
+                    "notification_contact_suppression.remove",
+                    "notification_contact_suppression",
+                    suppression_row["suppression_id"],
+                    json.dumps({"source": "api", "reason": normalized_reason}),
+                ),
+            )
 
     def create_missing_notification_email_deliveries(
         self,
@@ -482,22 +490,21 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                row = conn.execute(delivery_sql, (tenant_id, delivery_id)).fetchone()
-                if row is None:
-                    raise LookupError("Notification email delivery not found for tenant.")
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        "leaseflow.internal",
-                        "notification_email_delivery.sent",
-                        "notification_email_delivery",
-                        delivery_id,
-                        json.dumps({"source": "internal", "status": "sent"}),
-                    ),
-                )
+        with self._tenant_transaction(tenant_id) as conn:
+            row = conn.execute(delivery_sql, (tenant_id, delivery_id)).fetchone()
+            if row is None:
+                raise LookupError("Notification email delivery not found for tenant.")
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    "leaseflow.internal",
+                    "notification_email_delivery.sent",
+                    "notification_email_delivery",
+                    delivery_id,
+                    json.dumps({"source": "internal", "status": "sent"}),
+                ),
+            )
 
     def mark_notification_email_delivery_failed(
         self,
@@ -523,28 +530,27 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                row = conn.execute(delivery_sql, (error_code, tenant_id, delivery_id)).fetchone()
-                if row is None:
-                    raise LookupError("Notification email delivery not found for tenant.")
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        "leaseflow.internal",
-                        "notification_email_delivery.failed",
-                        "notification_email_delivery",
-                        delivery_id,
-                        json.dumps(
-                            {
-                                "source": "internal",
-                                "status": "failed",
-                                "error_code": error_code,
-                            }
-                        ),
+        with self._tenant_transaction(tenant_id) as conn:
+            row = conn.execute(delivery_sql, (error_code, tenant_id, delivery_id)).fetchone()
+            if row is None:
+                raise LookupError("Notification email delivery not found for tenant.")
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    "leaseflow.internal",
+                    "notification_email_delivery.failed",
+                    "notification_email_delivery",
+                    delivery_id,
+                    json.dumps(
+                        {
+                            "source": "internal",
+                            "status": "failed",
+                            "error_code": error_code,
+                        }
                     ),
-                )
+                ),
+            )
 
     def process_ses_provider_feedback(
         self,
@@ -761,7 +767,7 @@ class Database:
             WHERE n.tenant_id = %s
             ORDER BY n.created_at DESC
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+        with self._tenant_transaction(tenant_id) as conn:
             rows = conn.execute(sql, (tenant_id, tenant_id)).fetchall()
         return [self._row_to_notification(row) for row in rows]
 
@@ -785,17 +791,16 @@ class Database:
                 created_at,
                 read_at
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                row = conn.execute(sql, (tenant_id, notification_id)).fetchone()
-                if row is not None:
-                    row.update(
-                        self._notification_email_delivery_summary_row(
-                            conn,
-                            tenant_id=tenant_id,
-                            notification_id=notification_id,
-                        )
+        with self._tenant_transaction(tenant_id) as conn:
+            row = conn.execute(sql, (tenant_id, notification_id)).fetchone()
+            if row is not None:
+                row.update(
+                    self._notification_email_delivery_summary_row(
+                        conn,
+                        tenant_id=tenant_id,
+                        notification_id=notification_id,
                     )
+                )
 
         if row is None:
             raise LookupError("Notification not found for tenant.")
@@ -847,8 +852,12 @@ class Database:
             ORDER BY tenant_id, created_at DESC
             """
             params = (range_end, as_of_date)
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            rows = conn.execute(sql, params).fetchall()
+        if tenant_id:
+            with self._tenant_transaction(tenant_id) as conn:
+                rows = conn.execute(sql, params).fetchall()
+        else:
+            with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+                rows = conn.execute(sql, params).fetchall()
 
         candidates: list[LeaseReminderCandidate] = []
         for row in rows:
@@ -891,7 +900,7 @@ class Database:
             WHERE tenant_id = %s
             ORDER BY created_at DESC
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+        with self._tenant_transaction(tenant_id) as conn:
             rows = conn.execute(sql, (tenant_id,)).fetchall()
         return [self._row_to_lease(row) for row in rows]
 
@@ -902,7 +911,7 @@ class Database:
             WHERE tenant_id = %s
             ORDER BY created_at DESC
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+        with self._tenant_transaction(tenant_id) as conn:
             rows = conn.execute(sql, (tenant_id,)).fetchall()
         return [self._row_to_property(row) for row in rows]
 
@@ -938,32 +947,31 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                lease_row = conn.execute(
-                    lease_sql,
-                    (
-                        resident_name,
-                        rent_due_day_of_month,
-                        start_date,
-                        end_date,
-                        tenant_id,
-                        property_id,
-                    ),
-                ).fetchone()
-                if not lease_row:
-                    raise ValueError("Property not found for tenant.")
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "lease.create",
-                        "lease",
-                        lease_row["lease_id"],
-                        '{"source":"api"}',
-                    ),
-                )
+        with self._tenant_transaction(tenant_id) as conn:
+            lease_row = conn.execute(
+                lease_sql,
+                (
+                    resident_name,
+                    rent_due_day_of_month,
+                    start_date,
+                    end_date,
+                    tenant_id,
+                    property_id,
+                ),
+            ).fetchone()
+            if not lease_row:
+                raise ValueError("Property not found for tenant.")
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    actor_user_id,
+                    "lease.create",
+                    "lease",
+                    lease_row["lease_id"],
+                    '{"source":"api"}',
+                ),
+            )
         return self._row_to_lease(lease_row)
 
     def update_lease(
@@ -1000,84 +1008,83 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                lease_row = conn.execute(lease_sql, (tenant_id, lease_id)).fetchone()
-                if lease_row is None:
-                    raise LookupError("Lease not found for tenant.")
+        with self._tenant_transaction(tenant_id) as conn:
+            lease_row = conn.execute(lease_sql, (tenant_id, lease_id)).fetchone()
+            if lease_row is None:
+                raise LookupError("Lease not found for tenant.")
 
-                start_date = updates.get("start_date", lease_row["start_date"])
-                end_date = updates.get("end_date", lease_row["end_date"])
-                if end_date < start_date:
-                    raise ValueError("'end_date' must be on or after 'start_date'.")
+            start_date = updates.get("start_date", lease_row["start_date"])
+            end_date = updates.get("end_date", lease_row["end_date"])
+            if end_date < start_date:
+                raise ValueError("'end_date' must be on or after 'start_date'.")
 
-                changed_fields = [
-                    field
-                    for field in (
-                        "resident_name",
-                        "rent_due_day_of_month",
-                        "start_date",
-                        "end_date",
-                    )
-                    if field in updates and updates[field] != lease_row[field]
-                ]
-                if not changed_fields:
-                    return self._row_to_lease(lease_row)
-
-                assignments = SQL(", ").join(
-                    SQL("{} = %s").format(Identifier(field)) for field in changed_fields
+            changed_fields = [
+                field
+                for field in (
+                    "resident_name",
+                    "rent_due_day_of_month",
+                    "start_date",
+                    "end_date",
                 )
-                update_sql = SQL("""
-                    UPDATE leases
-                    SET {assignments}
-                    WHERE tenant_id = %s AND lease_id = %s
-                    RETURNING
-                        lease_id,
-                        tenant_id,
-                        property_id,
-                        resident_name,
-                        rent_due_day_of_month,
-                        start_date,
-                        end_date,
-                        created_at
-                """).format(assignments=assignments)
-                update_params = tuple(updates[field] for field in changed_fields) + (
-                    tenant_id,
+                if field in updates and updates[field] != lease_row[field]
+            ]
+            if not changed_fields:
+                return self._row_to_lease(lease_row)
+
+            assignments = SQL(", ").join(
+                SQL("{} = %s").format(Identifier(field)) for field in changed_fields
+            )
+            update_sql = SQL("""
+                UPDATE leases
+                SET {assignments}
+                WHERE tenant_id = %s AND lease_id = %s
+                RETURNING
                     lease_id,
-                )
-                lease_row = conn.execute(update_sql, update_params).fetchone()
+                    tenant_id,
+                    property_id,
+                    resident_name,
+                    rent_due_day_of_month,
+                    start_date,
+                    end_date,
+                    created_at
+            """).format(assignments=assignments)
+            update_params = tuple(updates[field] for field in changed_fields) + (
+                tenant_id,
+                lease_id,
+            )
+            lease_row = conn.execute(update_sql, update_params).fetchone()
 
-                reminder_fields_changed = any(
-                    field in {"rent_due_day_of_month", "start_date", "end_date"}
-                    for field in changed_fields
+            reminder_fields_changed = any(
+                field in {"rent_due_day_of_month", "start_date", "end_date"}
+                for field in changed_fields
+            )
+            deleted_notification_count = 0
+            if reminder_fields_changed:
+                deleted_notification_count = (
+                    conn.execute(
+                        delete_notifications_sql,
+                        (tenant_id, lease_id, date.today()),
+                    ).rowcount
+                    or 0
                 )
-                deleted_notification_count = 0
-                if reminder_fields_changed:
-                    deleted_notification_count = (
-                        conn.execute(
-                            delete_notifications_sql,
-                            (tenant_id, lease_id, date.today()),
-                        ).rowcount
-                        or 0
-                    )
 
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "lease.update",
-                        "lease",
-                        lease_id,
-                        json.dumps(
-                            {
-                                "source": "api",
-                                "changed_fields": changed_fields,
-                                "deleted_notification_count": deleted_notification_count,
-                            }
-                        ),
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    actor_user_id,
+                    "lease.update",
+                    "lease",
+                    lease_id,
+                    json.dumps(
+                        {
+                            "source": "api",
+                            "changed_fields": changed_fields,
+                            "deleted_notification_count": deleted_notification_count,
+                        }
                     ),
-                )
+                ),
+            )
 
         if lease_row is None:
             raise RuntimeError("Failed to update lease.")
@@ -1102,45 +1109,44 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                property_row = conn.execute(property_sql, (tenant_id, property_id)).fetchone()
-                if property_row is None:
-                    raise LookupError("Property not found for tenant.")
+        with self._tenant_transaction(tenant_id) as conn:
+            property_row = conn.execute(property_sql, (tenant_id, property_id)).fetchone()
+            if property_row is None:
+                raise LookupError("Property not found for tenant.")
 
-                changed_fields = [
-                    field
-                    for field in ("name", "address")
-                    if field in updates and updates[field] != property_row[field]
-                ]
-                if not changed_fields:
-                    return self._row_to_property(property_row)
+            changed_fields = [
+                field
+                for field in ("name", "address")
+                if field in updates and updates[field] != property_row[field]
+            ]
+            if not changed_fields:
+                return self._row_to_property(property_row)
 
-                assignments = SQL(", ").join(
-                    SQL("{} = %s").format(Identifier(field)) for field in changed_fields
-                )
-                update_sql = SQL("""
-                    UPDATE properties
-                    SET {assignments}
-                    WHERE tenant_id = %s AND property_id = %s
-                    RETURNING property_id, tenant_id, name, address, created_at
-                """).format(assignments=assignments)
-                update_params = tuple(updates[field] for field in changed_fields) + (
+            assignments = SQL(", ").join(
+                SQL("{} = %s").format(Identifier(field)) for field in changed_fields
+            )
+            update_sql = SQL("""
+                UPDATE properties
+                SET {assignments}
+                WHERE tenant_id = %s AND property_id = %s
+                RETURNING property_id, tenant_id, name, address, created_at
+            """).format(assignments=assignments)
+            update_params = tuple(updates[field] for field in changed_fields) + (
+                tenant_id,
+                property_id,
+            )
+            property_row = conn.execute(update_sql, update_params).fetchone()
+            conn.execute(
+                audit_sql,
+                (
                     tenant_id,
+                    actor_user_id,
+                    "property.update",
+                    "property",
                     property_id,
-                )
-                property_row = conn.execute(update_sql, update_params).fetchone()
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "property.update",
-                        "property",
-                        property_id,
-                        json.dumps({"source": "api", "changed_fields": changed_fields}),
-                    ),
-                )
+                    json.dumps({"source": "api", "changed_fields": changed_fields}),
+                ),
+            )
 
         if property_row is None:
             raise RuntimeError("Failed to update property.")
@@ -1164,22 +1170,21 @@ class Database:
                 tenant_id, actor_user_id, action, entity_type, entity_id, metadata
             ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
         """
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
-            with conn.transaction():
-                property_row = conn.execute(property_sql, (tenant_id, name, address)).fetchone()
-                if not property_row:
-                    raise RuntimeError("Failed to create property.")
-                conn.execute(
-                    audit_sql,
-                    (
-                        tenant_id,
-                        actor_user_id,
-                        "property.create",
-                        "property",
-                        property_row["property_id"],
-                        '{"source":"api"}',
-                    ),
-                )
+        with self._tenant_transaction(tenant_id) as conn:
+            property_row = conn.execute(property_sql, (tenant_id, name, address)).fetchone()
+            if not property_row:
+                raise RuntimeError("Failed to create property.")
+            conn.execute(
+                audit_sql,
+                (
+                    tenant_id,
+                    actor_user_id,
+                    "property.create",
+                    "property",
+                    property_row["property_id"],
+                    '{"source":"api"}',
+                ),
+            )
         return self._row_to_property(property_row)
 
     @staticmethod
