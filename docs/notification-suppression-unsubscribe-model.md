@@ -134,8 +134,10 @@ diagnostics.
 
 ### Evaluate SES Subscription Management For Optional Email Types
 
-Evaluate SES contact list/topic subscription management only if LeaseFlow adds
-optional, digest, or marketing-like message types.
+Evaluated in `docs/notification-subscription-preference-evaluation.md`.
+Decision: defer until a concrete optional notification type is scoped. The
+`enabled` flag covers full opt-out; no per-type preference model is justified
+while only `rent_due_soon` exists.
 
 ## Security And Cost Boundaries
 
