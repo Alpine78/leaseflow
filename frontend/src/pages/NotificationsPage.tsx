@@ -70,6 +70,8 @@ export function NotificationsPage() {
     notificationContacts,
     notifications,
     readingNotificationId,
+    removeContactSuppression,
+    removingSuppressionKey,
     updatingContactId,
     updateNotificationContact,
   } = useNotificationsPageState();
@@ -151,10 +153,32 @@ export function NotificationsPage() {
                     {contact.enabled ? "Enabled" : "Disabled"}
                   </span>
                   {contact.suppression_reasons?.includes("bounce") && (
-                    <span className="status-pill status-pill-unread">Suppressed: bounce</span>
+                    <span className="status-pill status-pill-unread">
+                      Suppressed: bounce
+                      <button
+                        aria-label={`Remove bounce suppression for ${contact.email}`}
+                        className="ghost-button resource-edit-button"
+                        disabled={removingSuppressionKey === `${contact.contact_id}:bounce`}
+                        onClick={() => void removeContactSuppression(contact.contact_id, "bounce")}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </span>
                   )}
                   {contact.suppression_reasons?.includes("complaint") && (
-                    <span className="status-pill status-pill-unread">Suppressed: complaint</span>
+                    <span className="status-pill status-pill-unread">
+                      Suppressed: complaint
+                      <button
+                        aria-label={`Remove complaint suppression for ${contact.email}`}
+                        className="ghost-button resource-edit-button"
+                        disabled={removingSuppressionKey === `${contact.contact_id}:complaint`}
+                        onClick={() => void removeContactSuppression(contact.contact_id, "complaint")}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </span>
                   )}
                   <button
                     aria-label={`${contact.enabled ? "Disable" : "Enable"} ${contact.email}`}

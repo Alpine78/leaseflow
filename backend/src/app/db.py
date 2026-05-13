@@ -257,6 +257,63 @@ class Database:
             rows = conn.execute(sql, params).fetchall()
         return [self._row_to_notification_contact_suppression(row) for row in rows]
 
+    def delete_notification_contact_suppression(
+        self,
+        tenant_id: str,
+        actor_user_id: str,
+        contact_id: UUID,
+        reason: str,
+    ) -> None:
+        normalized_reason = reason.strip().lower()
+        if normalized_reason not in _NOTIFICATION_CONTACT_SUPPRESSION_REASONS:
+            raise ValueError("Notification contact suppression reason must be bounce or complaint.")
+
+        contact_sql = """
+            SELECT contact_id
+            FROM notification_contacts
+            WHERE tenant_id = %s AND contact_id = %s
+        """
+        delete_sql = """
+            DELETE FROM notification_contact_suppressions
+            WHERE tenant_id = %s AND contact_id = %s AND reason = %s
+        """
+        audit_sql = """
+            INSERT INTO audit_logs (
+                tenant_id, actor_user_id, action, entity_type, entity_id, metadata
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb)
+        """
+        select_suppression_sql = """
+            SELECT suppression_id
+            FROM notification_contact_suppressions
+            WHERE tenant_id = %s AND contact_id = %s AND reason = %s
+        """
+
+        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+            with conn.transaction():
+                contact_row = conn.execute(contact_sql, (tenant_id, contact_id)).fetchone()
+                if contact_row is None:
+                    raise LookupError("Notification contact not found for tenant.")
+
+                suppression_row = conn.execute(
+                    select_suppression_sql,
+                    (tenant_id, contact_id, normalized_reason),
+                ).fetchone()
+                if suppression_row is None:
+                    raise LookupError("Notification contact suppression not found.")
+
+                conn.execute(delete_sql, (tenant_id, contact_id, normalized_reason))
+                conn.execute(
+                    audit_sql,
+                    (
+                        tenant_id,
+                        actor_user_id,
+                        "notification_contact_suppression.remove",
+                        "notification_contact_suppression",
+                        suppression_row["suppression_id"],
+                        json.dumps({"source": "api", "reason": normalized_reason}),
+                    ),
+                )
+
     def create_missing_notification_email_deliveries(
         self,
         tenant_id: str | None,

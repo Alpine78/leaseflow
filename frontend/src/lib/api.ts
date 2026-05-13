@@ -201,6 +201,12 @@ export function createApiClient({ config, onUnauthorized, session }: ApiClientOp
         method: "PATCH",
       });
     },
+    removeNotificationContactSuppression(contactId: string, reason: string) {
+      return request<NotificationContact>(
+        `/notification-contacts/${encodeURIComponent(contactId)}/suppressions/${encodeURIComponent(reason)}`,
+        { method: "DELETE" }
+      );
+    },
     updateNotificationContact(contactId: string, input: UpdateNotificationContactInput) {
       return request<NotificationContact>(
         `/notification-contacts/${encodeURIComponent(contactId)}`,

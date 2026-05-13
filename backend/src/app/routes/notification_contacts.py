@@ -77,6 +77,30 @@ def update_notification_contact(
     return notification_contact_to_dict(updated, [s.reason for s in suppressions])
 
 
+def remove_notification_contact_suppression(
+    event: dict[str, Any],
+    db: Database,
+    contact_id: UUID,
+    reason: str,
+) -> dict[str, Any]:
+    auth = extract_auth_context(event)
+    db.delete_notification_contact_suppression(
+        tenant_id=auth.tenant_id,
+        actor_user_id=auth.user_id,
+        contact_id=contact_id,
+        reason=reason,
+    )
+    contact = db.list_notification_contacts(tenant_id=auth.tenant_id)
+    contact_item = next((c for c in contact if c.contact_id == contact_id), None)
+    if contact_item is None:
+        raise LookupError("Notification contact not found for tenant.")
+    suppressions = db.list_notification_contact_suppressions(
+        tenant_id=auth.tenant_id,
+        contact_id=contact_id,
+    )
+    return notification_contact_to_dict(contact_item, [s.reason for s in suppressions])
+
+
 def notification_contact_to_dict(
     item: NotificationContact, suppression_reasons: list[str]
 ) -> dict[str, Any]:

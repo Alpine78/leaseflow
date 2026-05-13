@@ -68,6 +68,40 @@ api_post_json() {
   fi
 }
 
+api_patch_json() {
+  local route="$1"
+  local payload="$2"
+  local status_code
+
+  status_code="$(
+    curl -sS \
+      -X PATCH \
+      -H "Authorization: Bearer ${ID_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "${payload}" \
+      -o /dev/null \
+      -w "%{http_code}" \
+      "${API_URL}${route}"
+  )"
+
+  if [[ "${status_code}" != "200" ]]; then
+    die "PATCH ${route} failed with HTTP ${status_code}."
+  fi
+}
+
+write_contact_payload() {
+  local payload_file="$1"
+  local email="$2"
+
+  python3 - "${payload_file}" "${email}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "w", encoding="utf-8") as payload_file:
+    json.dump({"email": sys.argv[2]}, payload_file)
+PY
+}
+
 write_property_payload() {
   local payload_file="$1"
   local name="$2"
@@ -162,12 +196,22 @@ PROPERTY_ONE_PAYLOAD="${TMP_DIR}/property-one.json"
 PROPERTY_ONE_RESPONSE="${TMP_DIR}/property-one-response.json"
 PROPERTY_TWO_PAYLOAD="${TMP_DIR}/property-two.json"
 PROPERTY_TWO_RESPONSE="${TMP_DIR}/property-two-response.json"
+PROPERTY_THREE_PAYLOAD="${TMP_DIR}/property-three.json"
+PROPERTY_THREE_RESPONSE="${TMP_DIR}/property-three-response.json"
 LEASE_ONE_PAYLOAD="${TMP_DIR}/lease-one.json"
 LEASE_ONE_RESPONSE="${TMP_DIR}/lease-one-response.json"
 LEASE_TWO_PAYLOAD="${TMP_DIR}/lease-two.json"
 LEASE_TWO_RESPONSE="${TMP_DIR}/lease-two-response.json"
+LEASE_THREE_PAYLOAD="${TMP_DIR}/lease-three.json"
+LEASE_THREE_RESPONSE="${TMP_DIR}/lease-three-response.json"
 REMINDER_SCAN_PAYLOAD="${TMP_DIR}/reminder-scan.json"
 REMINDER_SCAN_RESPONSE="${TMP_DIR}/reminder-scan-response.json"
+CONTACT_ONE_PAYLOAD="${TMP_DIR}/contact-one.json"
+CONTACT_ONE_RESPONSE="${TMP_DIR}/contact-one-response.json"
+CONTACT_TWO_PAYLOAD="${TMP_DIR}/contact-two.json"
+CONTACT_TWO_RESPONSE="${TMP_DIR}/contact-two-response.json"
+CONTACT_THREE_PAYLOAD="${TMP_DIR}/contact-three.json"
+CONTACT_THREE_RESPONSE="${TMP_DIR}/contact-three-response.json"
 
 write_property_payload "${PROPERTY_ONE_PAYLOAD}" "Demo Harbor Flats" "Demo Harbor Street 12"
 api_post_json "/properties" "${PROPERTY_ONE_PAYLOAD}" "${PROPERTY_ONE_RESPONSE}"
@@ -176,6 +220,10 @@ PROPERTY_ONE_ID="$(json_field "${PROPERTY_ONE_RESPONSE}" "property_id")"
 write_property_payload "${PROPERTY_TWO_PAYLOAD}" "Demo Forest Homes" "Demo Forest Road 8"
 api_post_json "/properties" "${PROPERTY_TWO_PAYLOAD}" "${PROPERTY_TWO_RESPONSE}"
 PROPERTY_TWO_ID="$(json_field "${PROPERTY_TWO_RESPONSE}" "property_id")"
+
+write_property_payload "${PROPERTY_THREE_PAYLOAD}" "Demo City Studio" "Demo City Lane 3B"
+api_post_json "/properties" "${PROPERTY_THREE_PAYLOAD}" "${PROPERTY_THREE_RESPONSE}"
+PROPERTY_THREE_ID="$(json_field "${PROPERTY_THREE_RESPONSE}" "property_id")"
 
 write_lease_payload \
   "${LEASE_ONE_PAYLOAD}" \
@@ -194,6 +242,21 @@ write_lease_payload \
   "${TODAY}" \
   "${END_DATE}"
 api_post_json "/leases" "${LEASE_TWO_PAYLOAD}" "${LEASE_TWO_RESPONSE}"
+
+PAST_DUE_DAY="$(python3 - "${RENT_DUE_DAY}" <<'PY'
+import sys
+day = int(sys.argv[1])
+print(28 if day <= 15 else 3)
+PY
+)"
+write_lease_payload \
+  "${LEASE_THREE_PAYLOAD}" \
+  "${PROPERTY_THREE_ID}" \
+  "Demo Resident Three" \
+  "${PAST_DUE_DAY}" \
+  "${START_DATE}" \
+  "${END_DATE}"
+api_post_json "/leases" "${LEASE_THREE_PAYLOAD}" "${LEASE_THREE_RESPONSE}"
 
 python3 - "${REMINDER_SCAN_PAYLOAD}" "${SEED_TENANT}" "${TODAY}" <<'PY'
 import json
@@ -249,8 +312,39 @@ if status_code != 200:
     sys.exit(1)
 PY
 
+# Notification contacts: active, disabled, and one reserved for suppression testing.
+info "Creating notification contacts"
+
+write_contact_payload "${CONTACT_ONE_PAYLOAD}" "demo-notify-alpha-${SEED_STAMP}@example.com"
+api_post_json "/notification-contacts" "${CONTACT_ONE_PAYLOAD}" "${CONTACT_ONE_RESPONSE}"
+CONTACT_ONE_ID="$(json_field "${CONTACT_ONE_RESPONSE}" "contact_id")"
+
+write_contact_payload "${CONTACT_TWO_PAYLOAD}" "demo-notify-beta-${SEED_STAMP}@example.com"
+api_post_json "/notification-contacts" "${CONTACT_TWO_PAYLOAD}" "${CONTACT_TWO_RESPONSE}"
+CONTACT_TWO_ID="$(json_field "${CONTACT_TWO_RESPONSE}" "contact_id")"
+api_patch_json "/notification-contacts/${CONTACT_TWO_ID}" '{"enabled": false}'
+
+write_contact_payload "${CONTACT_THREE_PAYLOAD}" "demo-notify-gamma-${SEED_STAMP}@example.com"
+api_post_json "/notification-contacts" "${CONTACT_THREE_PAYLOAD}" "${CONTACT_THREE_RESPONSE}"
+CONTACT_THREE_ID="$(json_field "${CONTACT_THREE_RESPONSE}" "contact_id")"
+
 printf 'EMAIL=%s\n' "${SEED_EMAIL}"
 printf 'PASSWORD=%s\n' "${SEED_PASSWORD}"
-printf 'PROPERTY_CREATED_COUNT=%s\n' "2"
-printf 'LEASE_CREATED_COUNT=%s\n' "2"
+printf 'TENANT_ID=%s\n' "${SEED_TENANT}"
+printf 'PROPERTY_CREATED_COUNT=%s\n' "3"
+printf 'LEASE_CREATED_COUNT=%s\n' "3"
+printf 'CONTACT_CREATED_COUNT=%s\n' "3"
+printf 'CONTACT_ALPHA_ID=%s\n' "${CONTACT_ONE_ID}"
+printf 'CONTACT_BETA_ID=%s (disabled)\n' "${CONTACT_TWO_ID}"
+printf 'CONTACT_GAMMA_ID=%s\n' "${CONTACT_THREE_ID}"
 echo "Seed data is synthetic and disposable. Do not commit or paste credentials into evidence."
+cat <<HINT
+
+To test suppression removal (ticket #215), seed a bounce suppression for
+CONTACT_GAMMA after enabling the delivery worker and running a delivery cycle
+so that a correlation token exists in notification_email_deliveries. Then
+invoke the Lambda with a synthetic SES feedback event referencing that token.
+Alternatively, insert directly via psql if you have DB access:
+  INSERT INTO notification_contact_suppressions (tenant_id, contact_id, reason)
+  VALUES ('${SEED_TENANT}', '${CONTACT_THREE_ID}', 'bounce');
+HINT
