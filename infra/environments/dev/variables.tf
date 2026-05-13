@@ -58,6 +58,31 @@ variable "db_engine_version" {
   default     = "15.17"
 }
 
+variable "db_backup_retention_period" {
+  type        = number
+  description = "RDS automated backup retention period in days."
+  default     = 1
+}
+
+variable "db_deletion_protection" {
+  type        = bool
+  description = "Whether RDS deletion protection is enabled."
+  default     = false
+}
+
+variable "db_skip_final_snapshot" {
+  type        = bool
+  description = "Whether to skip the final DB snapshot when destroying the RDS instance."
+  default     = true
+}
+
+variable "db_final_snapshot_identifier" {
+  type        = string
+  description = "Final DB snapshot identifier required when db_skip_final_snapshot is false."
+  default     = null
+  nullable    = true
+}
+
 variable "lambda_package_file" {
   type        = string
   description = "Path to Lambda deployment zip."

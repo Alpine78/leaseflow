@@ -68,16 +68,20 @@ resource "aws_ssm_parameter" "db_password" {
 module "rds_postgres" {
   source = "../../modules/rds_postgres"
 
-  name_prefix           = local.name_prefix
-  private_subnet_ids    = module.network.private_subnet_ids
-  rds_security_group_id = module.network.rds_security_group_id
-  db_name               = var.db_name
-  db_username           = var.db_username
-  db_password           = random_password.db_master.result
-  instance_class        = var.db_instance_class
-  allocated_storage     = var.db_allocated_storage
-  engine_version        = var.db_engine_version
-  tags                  = local.common_tags
+  name_prefix               = local.name_prefix
+  private_subnet_ids        = module.network.private_subnet_ids
+  rds_security_group_id     = module.network.rds_security_group_id
+  db_name                   = var.db_name
+  db_username               = var.db_username
+  db_password               = random_password.db_master.result
+  instance_class            = var.db_instance_class
+  allocated_storage         = var.db_allocated_storage
+  engine_version            = var.db_engine_version
+  backup_retention_period   = var.db_backup_retention_period
+  deletion_protection       = var.db_deletion_protection
+  skip_final_snapshot       = var.db_skip_final_snapshot
+  final_snapshot_identifier = var.db_final_snapshot_identifier
+  tags                      = local.common_tags
 }
 
 module "cognito" {

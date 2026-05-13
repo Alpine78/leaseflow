@@ -48,6 +48,21 @@ output "rds_endpoint" {
   value       = module.rds_postgres.endpoint
 }
 
+output "rds_backup_retention_period" {
+  description = "Configured RDS automated backup retention period in days."
+  value       = module.rds_postgres.backup_retention_period
+}
+
+output "rds_deletion_protection" {
+  description = "Whether RDS deletion protection is enabled."
+  value       = module.rds_postgres.deletion_protection
+}
+
+output "rds_skip_final_snapshot" {
+  description = "Whether RDS final snapshot creation is skipped on destroy."
+  value       = module.rds_postgres.skip_final_snapshot
+}
+
 output "reminder_scan_schedule_name" {
   description = "Reminder scan schedule name."
   value       = module.reminder_scheduler.schedule_name

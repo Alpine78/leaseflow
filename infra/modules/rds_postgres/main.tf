@@ -25,10 +25,33 @@ resource "aws_db_instance" "this" {
   publicly_accessible    = false
   multi_az               = false
 
-  backup_retention_period = 1
-  skip_final_snapshot     = true
-  deletion_protection     = false
-  apply_immediately       = true
+  backup_retention_period   = var.backup_retention_period
+  skip_final_snapshot       = var.skip_final_snapshot
+  final_snapshot_identifier = var.final_snapshot_identifier
+  deletion_protection       = var.deletion_protection
+  apply_immediately         = true
+
+  lifecycle {
+    precondition {
+      condition     = var.backup_retention_period >= 1
+      error_message = "backup_retention_period must be at least 1."
+    }
+
+    precondition {
+      condition     = !var.deletion_protection || var.backup_retention_period >= 7
+      error_message = "deletion_protection requires backup_retention_period to be at least 7."
+    }
+
+    precondition {
+      condition     = var.skip_final_snapshot || try(length(trimspace(var.final_snapshot_identifier)), 0) > 0
+      error_message = "final_snapshot_identifier is required when skip_final_snapshot is false."
+    }
+
+    precondition {
+      condition     = !var.deletion_protection || !var.skip_final_snapshot
+      error_message = "deletion_protection requires skip_final_snapshot to be false."
+    }
+  }
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-postgres" })
 }

@@ -15,6 +15,8 @@ This is an operator-run dev procedure, not an automated disaster recovery platfo
 - Public access: disabled.
 - Multi-AZ: disabled for dev cost control.
 - Final snapshot on destroy: disabled for dev cost control.
+- Production-like protection variables exist, but this runbook assumes the
+  default destroyable dev posture unless stated otherwise.
 
 ## Guardrails
 
@@ -54,7 +56,12 @@ Backup retention review triggers:
 
 Current decision:
 
-- Keep dev `backup_retention_period = 1` for cost control.
+- Keep dev `db_backup_retention_period = 1` for cost control.
+- Keep dev `db_deletion_protection = false` and
+  `db_skip_final_snapshot = true` unless production-like validation is
+  explicitly needed.
+- If `db_skip_final_snapshot = false`, provide a unique
+  `db_final_snapshot_identifier` before planning any destroy.
 - Do not add Multi-AZ, cross-region replication, AWS Backup, or production DR
   automation in this dev runbook.
 - Increase retention only when the recoverability benefit is explicitly accepted
