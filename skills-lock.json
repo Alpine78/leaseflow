@@ -4,26 +4,31 @@
     "python-design-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
-      "computedHash": "b2ef661bb1c88fad08bc9fd38677dc302b750599260710daaf8a9e0a85fbcf04"
+      "skillPath": "plugins/python-development/skills/python-design-patterns/SKILL.md",
+      "computedHash": "8646a52fb34f1b88954aa84c86d5de04fbda1f415e509045c7f3ffff5886ded4"
     },
     "terraform": {
       "source": "mindrally/skills",
       "sourceType": "github",
+      "skillPath": "terraform/SKILL.md",
       "computedHash": "91cac682c33fd65b1494825b23b3be026980e16459f68a7c54cb2d5eb65a0b2e"
     },
     "terraform-test": {
       "source": "hashicorp/agent-skills",
       "sourceType": "github",
-      "computedHash": "97491ab0b0c7fc401dad91d50da624cac6c9b2a3f75fd1ef020a7d9e916d30f5"
+      "skillPath": "terraform/code-generation/skills/terraform-test/SKILL.md",
+      "computedHash": "ff097a62725c55be6035987f0acf259140c9e122a13814ea86f453710b8a2145"
     },
     "test-driven-development": {
       "source": "obra/superpowers",
       "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
       "computedHash": "126f1ebf6ccd414f42544f6e83d8cc5adb089e1108eaffb7c400701e37eecd9f"
     },
     "verification-before-completion": {
       "source": "obra/superpowers",
       "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
       "computedHash": "9b446f0c7fe1cfb560b1d34439523b1a76d5f177290007b2c053a1c749a4a8ba"
     }
   }
