@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,7 +22,7 @@ class Settings:
     db_name: str
     db_user: str
     db_password: str | None
-    db_password_ssm_param: str | None
+    db_password_secret_arn: str | None
     notification_email_delivery_enabled: bool
     notification_email_sender: str
     notification_email_smtp_host: str
@@ -35,10 +36,14 @@ class Settings:
     def resolve_db_password(self) -> str:
         if self.db_password:
             return self.db_password
-        if not self.db_password_ssm_param:
-            raise ConfigError("Set DB_PASSWORD or DB_PASSWORD_SSM_PARAM.")
+        if not self.db_password_secret_arn:
+            raise ConfigError("Set DB_PASSWORD or DB_PASSWORD_SECRET_ARN.")
+        return self._resolve_secrets_manager_secret(self.db_password_secret_arn)
 
-        return self._resolve_ssm_parameter(self.db_password_ssm_param)
+    def _resolve_secrets_manager_secret(self, secret_arn: str) -> str:
+        client = boto3.client("secretsmanager", region_name=self.aws_region)
+        response = client.get_secret_value(SecretId=secret_arn)
+        return json.loads(response["SecretString"])["password"]
 
     def resolve_notification_email_smtp_credentials(self) -> tuple[str, str]:
         if (
@@ -61,10 +66,6 @@ class Settings:
                 self.notification_email_smtp_password_ssm_param,
             ),
         )
-
-    def _resolve_ssm_parameter(self, name: str) -> str:
-        ssm_client = boto3.client("ssm", region_name=self.aws_region)
-        return _resolve_ssm_parameter(ssm_client, name)
 
     def db_dsn(self) -> str:
         password = self.resolve_db_password()
@@ -123,7 +124,7 @@ def load_settings() -> Settings:
         db_name=_env("DB_NAME", required=True),
         db_user=_env("DB_USER", required=True),
         db_password=os.getenv("DB_PASSWORD"),
-        db_password_ssm_param=os.getenv("DB_PASSWORD_SSM_PARAM"),
+        db_password_secret_arn=os.getenv("DB_PASSWORD_SECRET_ARN"),
         notification_email_delivery_enabled=_env_bool(
             "NOTIFICATION_EMAIL_DELIVERY_ENABLED",
             False,

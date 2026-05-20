@@ -79,9 +79,9 @@ variable "db_user" {
   description = "Database user."
 }
 
-variable "db_password_ssm_param" {
+variable "db_password_secret_arn" {
   type        = string
-  description = "SSM parameter path for DB password. Example: /leaseflow/dev/db/password"
+  description = "ARN of the Secrets Manager secret containing the RDS master user password."
 }
 
 variable "notification_email_delivery_enabled" {

@@ -32,3 +32,8 @@ output "kms_vpc_endpoint_id" {
   value       = aws_vpc_endpoint.kms.id
   description = "KMS interface VPC endpoint ID."
 }
+
+output "secretsmanager_vpc_endpoint_id" {
+  value       = aws_vpc_endpoint.secretsmanager.id
+  description = "Secrets Manager interface VPC endpoint ID."
+}

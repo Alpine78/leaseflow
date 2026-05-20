@@ -133,12 +133,6 @@ variable "cognito_hosted_ui_domain_prefix" {
   description = "Globally unique Cognito managed Hosted UI domain prefix for the dev frontend auth flow."
 }
 
-variable "db_password_ssm_param" {
-  type        = string
-  description = "SSM parameter path for generated runtime DB password."
-  default     = "/leaseflow/dev/db/password"
-}
-
 variable "reminder_scan_schedule_expression" {
   type        = string
   description = "EventBridge Scheduler expression for the daily reminder scan."

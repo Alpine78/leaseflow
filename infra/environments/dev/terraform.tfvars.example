@@ -16,9 +16,7 @@ db_deletion_protection       = false
 db_skip_final_snapshot       = true
 db_final_snapshot_identifier = null
 
-# Terraform generates the DB password and stores it in SSM SecureString at this path.
-lambda_package_file   = "../../../dist/leaseflow-backend.zip"
-db_password_ssm_param = "/leaseflow/dev/db/password"
+lambda_package_file = "../../../dist/leaseflow-backend.zip"
 
 # Required. Must be globally unique within Cognito managed domains.
 cognito_hosted_ui_domain_prefix = "replace-with-a-unique-dev-prefix"
