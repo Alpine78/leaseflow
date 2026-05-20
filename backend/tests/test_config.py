@@ -19,7 +19,9 @@ def _settings(**overrides: object) -> config.Settings:
         "db_name": "leaseflow",
         "db_user": "leaseflow_app",
         "db_password": "direct-password",
-        "db_password_ssm_param": "/leaseflow/dev/db/password",
+        "db_password_secret_arn": (
+            "arn:aws:secretsmanager:eu-north-1:123456789012:secret:rds-master"
+        ),
         "notification_email_delivery_enabled": False,
         "notification_email_sender": "",
         "notification_email_smtp_host": "email-smtp.eu-north-1.amazonaws.com",
@@ -45,7 +47,7 @@ def _set_valid_load_settings_env(
         "DB_PORT": "6543",
         "DB_NAME": "leaseflow",
         "DB_USER": "leaseflow_app",
-        "DB_PASSWORD_SSM_PARAM": "/leaseflow/dev/db/password",
+        "DB_PASSWORD_SECRET_ARN": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:rds-master",
     }
     for name, value in values.items():
         if name == missing:
@@ -77,34 +79,38 @@ def test_resolve_db_password_returns_direct_password_without_ssm(
     boto_client.assert_not_called()
 
 
-def test_resolve_db_password_loads_value_from_ssm(monkeypatch: pytest.MonkeyPatch) -> None:
-    ssm_client = Mock()
-    ssm_client.get_parameter.return_value = {"Parameter": {"Value": "ssm-password"}}
-    boto_client = Mock(return_value=ssm_client)
+def test_resolve_db_password_loads_value_from_secrets_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import json
+
+    secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:rds-master"
+    sm_client = Mock()
+    sm_client.get_secret_value.return_value = {
+        "SecretString": json.dumps({"password": "sm-password", "username": "admin"})
+    }
+    boto_client = Mock(return_value=sm_client)
     monkeypatch.setattr(config.boto3, "client", boto_client)
 
     settings = _settings(
         aws_region="eu-west-1",
         db_password=None,
-        db_password_ssm_param="/leaseflow/dev/db/password",
+        db_password_secret_arn=secret_arn,
     )
 
-    assert settings.resolve_db_password() == "ssm-password"
-    boto_client.assert_called_once_with("ssm", region_name="eu-west-1")
-    ssm_client.get_parameter.assert_called_once_with(
-        Name="/leaseflow/dev/db/password",
-        WithDecryption=True,
-    )
+    assert settings.resolve_db_password() == "sm-password"
+    boto_client.assert_called_once_with("secretsmanager", region_name="eu-west-1")
+    sm_client.get_secret_value.assert_called_once_with(SecretId=secret_arn)
 
 
 def test_resolve_db_password_raises_when_no_password_source_is_configured() -> None:
-    settings = _settings(db_password=None, db_password_ssm_param=None)
+    settings = _settings(db_password=None, db_password_secret_arn=None)
 
-    with pytest.raises(config.ConfigError, match="Set DB_PASSWORD or DB_PASSWORD_SSM_PARAM."):
+    with pytest.raises(config.ConfigError, match="Set DB_PASSWORD or DB_PASSWORD_SECRET_ARN."):
         settings.resolve_db_password()
 
 
-def test_load_settings_reads_ssm_password_configuration_from_environment(
+def test_load_settings_reads_secret_arn_password_configuration_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with _fresh_load_settings_cache():
@@ -120,7 +126,10 @@ def test_load_settings_reads_ssm_password_configuration_from_environment(
         assert settings.db_name == "leaseflow"
         assert settings.db_user == "leaseflow_app"
         assert settings.db_password is None
-        assert settings.db_password_ssm_param == "/leaseflow/dev/db/password"
+        assert (
+            settings.db_password_secret_arn
+            == "arn:aws:secretsmanager:eu-west-1:123456789012:secret:rds-master"
+        )
         assert settings.notification_email_delivery_enabled is False
         assert settings.notification_email_sender == ""
         assert settings.notification_email_smtp_host == "email-smtp.eu-west-1.amazonaws.com"

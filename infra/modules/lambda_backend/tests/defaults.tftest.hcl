@@ -31,38 +31,23 @@ variables {
   db_port                  = 5432
   db_name                  = "leaseflow"
   db_user                  = "leaseflow_admin"
-  db_password_ssm_param    = "/leaseflow/dev/db/password"
+  db_password_secret_arn   = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:leaseflow-dev-rds-master"
   tags = {
     Project = "leaseflow"
   }
 }
 
-run "scopes_runtime_secret_permissions_to_the_db_password_parameter" {
+run "scopes_runtime_secret_permissions_to_the_db_password_secret" {
   command = plan
 
   assert {
-    condition     = local.lambda_policy.Statement[2].Action[0] == "ssm:GetParameter"
-    error_message = "Lambda policy should allow reading the DB password parameter from SSM."
+    condition     = local.lambda_policy.Statement[2].Action[0] == "secretsmanager:GetSecretValue"
+    error_message = "Lambda policy should allow reading the DB password secret from Secrets Manager."
   }
 
   assert {
-    condition     = local.lambda_policy.Statement[2].Resource == "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/db/password"
-    error_message = "SSM access should be scoped to the DB password parameter ARN."
-  }
-
-  assert {
-    condition     = local.lambda_policy.Statement[3].Action[0] == "kms:Decrypt"
-    error_message = "Lambda policy should allow KMS decrypt for SecureString resolution."
-  }
-
-  assert {
-    condition     = local.lambda_policy.Statement[3].Resource == "arn:aws:kms:eu-north-1:123456789012:key/11111111-2222-3333-4444-555555555555"
-    error_message = "KMS decrypt should be scoped to the AWS-managed key backing alias/aws/ssm."
-  }
-
-  assert {
-    condition     = local.lambda_policy.Statement[3].Condition.StringEquals["kms:EncryptionContext:PARAMETER_ARN"] == "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/db/password"
-    error_message = "KMS decrypt should be limited to the DB password parameter encryption context."
+    condition     = local.lambda_policy.Statement[2].Resource == "arn:aws:secretsmanager:eu-north-1:123456789012:secret:leaseflow-dev-rds-master"
+    error_message = "Secrets Manager access should be scoped to the RDS master user secret ARN."
   }
 }
 
@@ -122,7 +107,7 @@ run "scopes_notification_email_smtp_secret_permissions_to_configured_parameters"
 
   assert {
     condition = contains(
-      local.lambda_policy.Statement[4].Action,
+      local.lambda_policy.Statement[3].Action,
       "ssm:GetParameter",
     )
     error_message = "Lambda policy should allow reading configured SMTP credential parameters."
@@ -133,13 +118,13 @@ run "scopes_notification_email_smtp_secret_permissions_to_configured_parameters"
       for arn in [
         "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/notification-email/smtp/username",
         "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/notification-email/smtp/password",
-      ] : contains(local.lambda_policy.Statement[4].Resource, arn)
+      ] : contains(local.lambda_policy.Statement[3].Resource, arn)
     ])
     error_message = "SMTP SSM access should be scoped to the configured credential parameter ARNs."
   }
 
   assert {
-    condition     = local.lambda_policy.Statement[5].Action[0] == "kms:Decrypt"
+    condition     = local.lambda_policy.Statement[4].Action[0] == "kms:Decrypt"
     error_message = "Lambda policy should allow KMS decrypt for SMTP SecureString resolution."
   }
 
@@ -149,7 +134,7 @@ run "scopes_notification_email_smtp_secret_permissions_to_configured_parameters"
         "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/notification-email/smtp/username",
         "arn:aws:ssm:eu-north-1:123456789012:parameter/leaseflow/dev/notification-email/smtp/password",
         ] : contains(
-        local.lambda_policy.Statement[5].Condition["ForAnyValue:StringEquals"]["kms:EncryptionContext:PARAMETER_ARN"],
+        local.lambda_policy.Statement[4].Condition["ForAnyValue:StringEquals"]["kms:EncryptionContext:PARAMETER_ARN"],
         arn,
       )
     ])

@@ -31,19 +31,15 @@ chain redesign.
 |-----|---------|----------|-----------|------------|
 | `CloudWatchLogs` | `logs:CreateLogStream`, `logs:PutLogEvents` | `<log_group_arn>:*` | — | Well-scoped. Specific log group ARN, no wildcards. |
 | `VpcNetworkingForLambda` | `ec2:CreateNetworkInterface`, `ec2:DescribeNetworkInterfaces`, `ec2:DeleteNetworkInterface`, `ec2:AssignPrivateIpAddresses`, `ec2:UnassignPrivateIpAddresses` | `*` | — | **Broadest statement.** AWS requires `Resource: "*"` for `Describe*` and for ENI create/delete at launch time. See note below. |
-| `ReadDbPasswordParameter` | `ssm:GetParameter` | Specific parameter ARN | — | Well-scoped. Single named parameter. |
-| `DecryptDbPasswordParameter` | `kms:Decrypt` | Specific KMS key ARN | `kms:EncryptionContext:PARAMETER_ARN` equals parameter ARN | Well-scoped. Encryption context condition prevents key reuse for other parameters. |
+| `ReadDbPasswordSecret` | `secretsmanager:GetSecretValue` | Specific Secrets Manager secret ARN | — | Well-scoped. Single secret ARN (RDS master user secret). AWS-managed key; no explicit `kms:Decrypt` needed. |
 | `ReadNotificationEmailSmtpCredentialParameters` | `ssm:GetParameter` | Two specific parameter ARNs | — | Well-scoped. Only added when SMTP is configured (`length > 0`). |
 | `DecryptNotificationEmailSmtpCredentialParameters` | `kms:Decrypt` | Specific KMS key ARN | `ForAnyValue:StringEquals kms:EncryptionContext:PARAMETER_ARN` over both parameter ARNs | Well-scoped. Same KMS key; context conditions prevent decrypt of other parameters. |
 
 **Note on `VpcNetworkingForLambda` — required wildcard:**
-AWS Lambda ENI management requires `Resource: "*"` for `ec2:DescribeNetworkInterfaces`
-because the Lambda service creates the ENI before the ARN is known to the caller.
-`ec2:CreateNetworkInterface` also cannot be pre-scoped to a specific ENI ARN for the
-same reason. However, a `Condition` block using `ec2:SubnetID` and `ec2:VpcID` keys
-**can** be added to `CreateNetworkInterface` to limit creation to the specific subnets
-and VPC that Lambda uses. `DescribeNetworkInterfaces` does not support resource-level
-conditions; the wildcard is unavoidable. See narrowing opportunity #1 below.
+AWS Lambda ENI management requires `Resource: "*"` for all five actions. The Lambda
+service validates the execution role during `CreateFunction` without VPC/subnet context,
+so `ec2:Vpc`/`ec2:Subnet` conditions on `CreateNetworkInterface` would deny the role at
+creation time. See narrowing opportunity #1 below for the full investigation.
 
 ---
 

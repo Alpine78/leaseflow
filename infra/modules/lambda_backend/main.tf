@@ -5,7 +5,6 @@ data "aws_kms_alias" "ssm" {
 data "aws_region" "current" {}
 
 locals {
-  db_password_parameter_arn = "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.db_password_ssm_param}"
   notification_email_smtp_parameter_names = compact([
     var.notification_email_smtp_username_ssm_param,
     var.notification_email_smtp_password_ssm_param
@@ -69,21 +68,10 @@ locals {
           Resource = "*"
         },
         {
-          Sid      = "ReadDbPasswordParameter"
+          Sid      = "ReadDbPasswordSecret"
           Effect   = "Allow"
-          Action   = ["ssm:GetParameter"]
-          Resource = local.db_password_parameter_arn
-        },
-        {
-          Sid      = "DecryptDbPasswordParameter"
-          Effect   = "Allow"
-          Action   = ["kms:Decrypt"]
-          Resource = data.aws_kms_alias.ssm.target_key_arn
-          Condition = {
-            StringEquals = {
-              "kms:EncryptionContext:PARAMETER_ARN" = local.db_password_parameter_arn
-            }
-          }
+          Action   = ["secretsmanager:GetSecretValue"]
+          Resource = var.db_password_secret_arn
         }
       ],
       local.notification_email_smtp_policy_statements
@@ -142,13 +130,13 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      APP_ENV               = var.environment
-      LOG_LEVEL             = var.log_level
-      DB_HOST               = var.db_host
-      DB_PORT               = tostring(var.db_port)
-      DB_NAME               = var.db_name
-      DB_USER               = var.db_user
-      DB_PASSWORD_SSM_PARAM = var.db_password_ssm_param
+      APP_ENV                = var.environment
+      LOG_LEVEL              = var.log_level
+      DB_HOST                = var.db_host
+      DB_PORT                = tostring(var.db_port)
+      DB_NAME                = var.db_name
+      DB_USER                = var.db_user
+      DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
 
       NOTIFICATION_EMAIL_DELIVERY_ENABLED        = tostring(var.notification_email_delivery_enabled)
       NOTIFICATION_EMAIL_SENDER                  = var.notification_email_sender

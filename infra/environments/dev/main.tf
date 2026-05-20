@@ -51,20 +51,6 @@ module "github_frontend_deploy_role" {
   tags                        = local.common_tags
 }
 
-resource "random_password" "db_master" {
-  length  = 32
-  special = false
-}
-
-resource "aws_ssm_parameter" "db_password" {
-  name        = var.db_password_ssm_param
-  description = "Runtime DB password for ${local.name_prefix}."
-  type        = "SecureString"
-  value       = random_password.db_master.result
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-db-password" })
-}
-
 module "rds_postgres" {
   source = "../../modules/rds_postgres"
 
@@ -73,7 +59,6 @@ module "rds_postgres" {
   rds_security_group_id     = module.network.rds_security_group_id
   db_name                   = var.db_name
   db_username               = var.db_username
-  db_password               = random_password.db_master.result
   instance_class            = var.db_instance_class
   allocated_storage         = var.db_allocated_storage
   engine_version            = var.db_engine_version
@@ -109,7 +94,7 @@ module "lambda_backend" {
   db_port                                    = module.rds_postgres.port
   db_name                                    = var.db_name
   db_user                                    = var.db_username
-  db_password_ssm_param                      = var.db_password_ssm_param
+  db_password_secret_arn                     = module.rds_postgres.master_user_secret_arn
   notification_email_delivery_enabled        = var.notification_email_delivery_enabled
   notification_email_sender                  = var.notification_email_sender
   notification_email_smtp_host               = var.notification_email_smtp_host
@@ -224,4 +209,12 @@ module "api_http" {
   cognito_user_pool_id        = module.cognito.user_pool_id
   cognito_user_pool_client_id = module.cognito.user_pool_client_id
   tags                        = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_rotation" "rds_master" {
+  secret_id = module.rds_postgres.master_user_secret_arn
+
+  rotation_rules {
+    automatically_after_days = 30
+  }
 }

@@ -23,12 +23,6 @@ variable "db_username" {
   description = "Master username."
 }
 
-variable "db_password" {
-  type        = string
-  description = "Master password."
-  sensitive   = true
-}
-
 variable "instance_class" {
   type        = string
   description = "RDS instance class."
