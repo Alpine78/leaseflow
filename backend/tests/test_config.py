@@ -124,7 +124,10 @@ def test_load_settings_reads_secret_arn_password_configuration_from_environment(
         assert settings.db_name == "leaseflow"
         assert settings.db_user == "leaseflow_app"
         assert settings.db_password is None
-        assert settings.db_password_secret_arn == "arn:aws:secretsmanager:eu-west-1:123456789012:secret:rds-master"
+        assert (
+            settings.db_password_secret_arn
+            == "arn:aws:secretsmanager:eu-west-1:123456789012:secret:rds-master"
+        )
         assert settings.notification_email_delivery_enabled is False
         assert settings.notification_email_sender == ""
         assert settings.notification_email_smtp_host == "email-smtp.eu-west-1.amazonaws.com"

@@ -130,12 +130,12 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      APP_ENV               = var.environment
-      LOG_LEVEL             = var.log_level
-      DB_HOST               = var.db_host
-      DB_PORT               = tostring(var.db_port)
-      DB_NAME               = var.db_name
-      DB_USER               = var.db_user
+      APP_ENV                = var.environment
+      LOG_LEVEL              = var.log_level
+      DB_HOST                = var.db_host
+      DB_PORT                = tostring(var.db_port)
+      DB_NAME                = var.db_name
+      DB_USER                = var.db_user
       DB_PASSWORD_SECRET_ARN = var.db_password_secret_arn
 
       NOTIFICATION_EMAIL_DELIVERY_ENABLED        = tostring(var.notification_email_delivery_enabled)
