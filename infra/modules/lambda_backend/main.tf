@@ -51,6 +51,12 @@ locals {
           Resource = "${aws_cloudwatch_log_group.this.arn}:*"
         },
         {
+          # Resource "*" is required for all five actions: Lambda's IAM role
+          # validation during CreateFunction does not pass VPC/subnet context keys,
+          # so ec2:Vpc/ec2:Subnet conditions on CreateNetworkInterface would deny
+          # the role at function-creation time. The remaining four actions do not
+          # support resource-level conditions at all. This wildcard is unavoidable
+          # for VPC-attached Lambda; see docs/iam-least-privilege-review.md.
           Sid    = "VpcNetworkingForLambda"
           Effect = "Allow"
           Action = [
