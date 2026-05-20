@@ -19,7 +19,9 @@ def _settings(**overrides: object) -> config.Settings:
         "db_name": "leaseflow",
         "db_user": "leaseflow_app",
         "db_password": "direct-password",
-        "db_password_secret_arn": "arn:aws:secretsmanager:eu-north-1:123456789012:secret:rds-master",
+        "db_password_secret_arn": (
+            "arn:aws:secretsmanager:eu-north-1:123456789012:secret:rds-master"
+        ),
         "notification_email_delivery_enabled": False,
         "notification_email_sender": "",
         "notification_email_smtp_host": "email-smtp.eu-north-1.amazonaws.com",
