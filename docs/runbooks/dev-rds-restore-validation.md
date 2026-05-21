@@ -6,6 +6,11 @@ Validate that the Terraform-managed dev RDS PostgreSQL instance can be restored 
 
 This is an operator-run dev procedure, not an automated disaster recovery platform.
 
+Production-like recovery targets are defined separately in
+`docs/rto-rpo-targets.md`: RTO 4 hours and RPO 24 hours. This dev runbook
+validates restore mechanics; production-like validation must also measure and
+record whether the restore workflow meets those targets.
+
 ## Current Dev Assumptions
 
 - Source DB instance: `leaseflow-dev-postgres`.
@@ -66,6 +71,8 @@ Current decision:
   automation in this dev runbook.
 - Increase retention only when the recoverability benefit is explicitly accepted
   against the added storage cost.
+- For production-like validation, use the RTO/RPO targets in
+  `docs/rto-rpo-targets.md` and record pass/fail against them.
 
 ## Step 1: Capture Source Backup Readiness
 
@@ -218,6 +225,8 @@ Expected evidence:
 - Restored DB remains private and encrypted.
 - Restore metadata is captured.
 - Temporary restore DB is deleted after validation.
+- Production-like runs also record whether the 4-hour RTO and 24-hour RPO were
+  met.
 
 ## Evidence to Capture
 
