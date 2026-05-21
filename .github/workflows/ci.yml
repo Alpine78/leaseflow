@@ -112,6 +112,7 @@ jobs:
           - infra/modules/network
           - infra/modules/reminder_scheduler
           - infra/modules/ses_email_foundation
+          - infra/modules/synthetic_health_check
 
     steps:
       - name: Check out repository

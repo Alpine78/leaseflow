@@ -22,7 +22,7 @@ class _MigrationPaths:
 def run_db_migrations(settings: Settings) -> dict[str, str | None]:
     dsn = settings.db_dsn()
     previous_revision = _current_revision(dsn)
-    _upgrade_to_head(sqlalchemy_url=_sqlalchemy_url(dsn), paths=_resolve_migration_paths())
+    _upgrade_to_head(dsn=dsn, paths=_resolve_migration_paths())
     current_revision = _current_revision(dsn)
     if not current_revision:
         raise RuntimeError("Alembic did not report a current revision after upgrade.")
@@ -75,8 +75,10 @@ def _current_revision(dsn: str) -> str | None:
     return str(row[0])
 
 
-def _upgrade_to_head(*, sqlalchemy_url: str, paths: _MigrationPaths) -> None:
+def _upgrade_to_head(*, dsn: str, paths: _MigrationPaths) -> None:
     config = Config(str(paths.alembic_ini))
     config.set_main_option("script_location", str(paths.migrations_dir))
-    config.set_main_option("sqlalchemy.url", sqlalchemy_url)
+    # Alembic stores this through ConfigParser, so URL-encoded percent signs
+    # must be escaped before the migration env reads sqlalchemy.url.
+    config.set_main_option("sqlalchemy.url", _sqlalchemy_url(dsn).replace("%", "%%"))
     command.upgrade(config, "head")

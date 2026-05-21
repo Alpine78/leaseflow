@@ -157,6 +157,18 @@ variable "reminder_scan_enabled" {
   default     = true
 }
 
+variable "synthetic_health_check_schedule_enabled" {
+  type        = bool
+  description = "Whether the synthetic API health check EventBridge Scheduler is enabled."
+  default     = true
+}
+
+variable "synthetic_health_check_schedule_expression" {
+  type        = string
+  description = "EventBridge Scheduler expression for the synthetic API health check."
+  default     = "rate(15 minutes)"
+}
+
 variable "baseline_alarm_notification_email" {
   type        = string
   description = "Optional email endpoint subscribed to dev baseline alarm SNS notifications."

@@ -218,3 +218,17 @@ resource "aws_secretsmanager_secret_rotation" "rds_master" {
     automatically_after_days = 30
   }
 }
+
+module "synthetic_health_check" {
+  source = "../../modules/synthetic_health_check"
+
+  name_prefix         = local.name_prefix
+  user_pool_id        = module.cognito.user_pool_id
+  user_pool_client_id = module.cognito.user_pool_client_id
+  api_url             = module.api_http.stage_invoke_url
+  environment         = var.environment
+  schedule_enabled    = var.synthetic_health_check_schedule_enabled
+  alarm_action_arns   = [aws_sns_topic.baseline_alarm_notifications.arn]
+  schedule_expression = var.synthetic_health_check_schedule_expression
+  tags                = local.common_tags
+}
