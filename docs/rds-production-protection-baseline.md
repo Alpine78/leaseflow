@@ -62,6 +62,10 @@ breaking dev destroy workflows.
 
 ## Production-Like Baseline
 
+Recovery targets are defined in `docs/rto-rpo-targets.md`: RTO 4 hours and RPO
+24 hours. The baseline below is the minimum RDS posture expected to support
+those targets at the planning level.
+
 | Control | Production-like baseline | Cost impact | Why |
 | --- | --- | --- | --- |
 | Public access | Keep disabled. | None | Public RDS access is not an acceptable shortcut. |
@@ -80,9 +84,10 @@ These are project assumptions, not AWS service guarantees:
   recovery.
 - Dev RPO: bounded by the current one-day backup retention and latest
   restorable time.
-- Production-like RTO and RPO must be defined before go-live.
-- Backup retention must be increased when recovery expectations exceed the dev
-  one-day window.
+- Production-like RTO: 4 hours.
+- Production-like RPO: 24 hours.
+- Backup retention must stay at least `7` days for production-like use so the
+  24-hour RPO has restore-window margin.
 - Restore validation evidence must be kept for production-like readiness claims.
 
 ## Decision Rules
@@ -114,6 +119,7 @@ For production-like use, restore validation must include:
 - source DB identifier
 - latest restorable time
 - restore start and completion time
+- pass/fail against the 4-hour RTO and 24-hour RPO targets
 - restored DB privacy and encryption posture
 - migration/schema validation through a private path
 - cleanup confirmation or documented reason for retention

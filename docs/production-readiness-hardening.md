@@ -79,7 +79,9 @@ Target posture:
 - Explicit backup retention aligned with recovery expectations.
 - Deletion protection and final snapshot behavior reviewed for production-like use.
 - Multi-AZ tradeoff reviewed against availability needs and cost.
-- Restore objectives and evidence cadence defined before real tenant data exists.
+- Production-like recovery objectives are defined in
+  `docs/rto-rpo-targets.md`: RTO 4 hours and RPO 24 hours.
+- Restore evidence must prove those targets before production-readiness claims.
 - Production-like defaults are defined in
   `docs/rds-production-protection-baseline.md`.
 
@@ -225,12 +227,15 @@ Current state:
 
 - Dev RDS restore validation runbook and evidence exist.
 - Restore validation cadence is documented for MVP development.
+- Production-like RTO/RPO targets are defined in `docs/rto-rpo-targets.md`.
 - Private data-level validation path is documented, but not automated.
 
 Target posture:
 
-- Define RTO and RPO before production use.
-- Align backup retention and restore validation cadence with those objectives.
+- Validate production-like restore against the 4-hour RTO and 24-hour RPO
+  before real tenant data or production-readiness claims.
+- Keep backup retention and restore validation cadence aligned with those
+  objectives.
 - Add a private read-only data validation path if evidence needs to be executable.
 
 Cost impact: medium.
