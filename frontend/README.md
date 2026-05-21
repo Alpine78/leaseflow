@@ -14,6 +14,7 @@ automatically use a PostgreSQL database running in WSL.
 
 - Cognito Hosted UI sign in and sign out
 - OAuth authorization code flow with PKCE
+- optional Cognito Hosted UI software-token TOTP MFA support
 - protected browser routes
 - authenticated dashboard summary
 - properties list, create, and update
@@ -178,7 +179,9 @@ printf 'DEMO_PASSWORD=%s\n' "$DEMO_PASSWORD"
 Do not commit or paste the temporary email, password, tenant value, JWTs, or
 session storage values into evidence. Cognito passwords cannot be retrieved
 later; if you lose the password, set a new one with `admin-set-user-password`.
-The browser frontend must still use Hosted UI login, not admin auth APIs.
+The browser frontend must still use Hosted UI login, not admin auth APIs. Use
+`docs/runbooks/cognito-totp-mfa-enrollment-recovery.md` when validating TOTP MFA
+or recovering an MFA-locked dev account.
 
 ## Run
 
@@ -361,6 +364,8 @@ npm run build
 ## Security notes
 
 - Browser auth uses Cognito Hosted UI, not admin auth APIs.
+- Cognito software-token TOTP MFA is enabled in optional mode. LeaseFlow does
+  not implement a custom in-app TOTP enrollment UI.
 - Protected API calls use the Cognito `id_token` because the backend depends on
   `custom:tenant_id`.
 - Hosted UI requests `openid email profile` so readable custom attributes can

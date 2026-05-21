@@ -31,6 +31,9 @@ The dev stack includes browser auth, browser CORS, and a hosted SPA path for
 the real frontend.
 
 - Cognito app client is configured for Hosted UI OAuth authorization code flow.
+- Cognito User Pool enables optional software-token TOTP MFA. SMS MFA,
+  WebAuthn/passkeys, and admin/operator-role-required MFA are not part of the
+  current dev stack.
 - Cognito uses a managed domain prefix that you must set explicitly in
   `terraform.tfvars`.
 - API Gateway HTTP API allows browser calls only from approved origins.
@@ -50,6 +53,8 @@ the real frontend.
 - The existing `demo-client` remains a separate local demo/operator tool.
 - Use `frontend/README.md` for browser `.env.local`, Hosted UI troubleshooting,
   and temporary Cognito demo user setup.
+- Use `docs/runbooks/cognito-totp-mfa-enrollment-recovery.md` for MFA
+  validation and MFA-locked account recovery.
 
 ## SES email foundation
 
