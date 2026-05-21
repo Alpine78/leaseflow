@@ -193,12 +193,16 @@ Current state:
 - Deployed smoke test runbook exists.
 - One deployed smoke test evidence note exists.
 - Local demo client can exercise the MVP path manually.
-- No scheduled synthetic check exists.
+- Scheduled synthetic health check implemented (Lambda + EventBridge Scheduler,
+  every 15 minutes). Hits GET /health (unauthenticated) and GET /properties
+  (authenticated via dedicated synthetic Cognito user). Failures publish to the
+  baseline alarm SNS topic. Cost: ~$0.003/month (Lambda free tier) vs ~$3.46/month
+  for CloudWatch Synthetics Canary at the same cadence.
 
 Target posture:
 
-- Decide whether production-like environments need scheduled synthetic checks.
-- Keep synthetic checks tenant-safe and free of sensitive evidence.
+- Keep synthetic checks tenant-safe and free of sensitive evidence (synthetic
+  Cognito user uses @leaseflow.internal email and a dedicated tenant UUID).
 - Separate demo tooling from continuous monitoring.
 
 Cost impact: low to medium.
