@@ -29,6 +29,6 @@ output "skip_final_snapshot" {
 }
 
 output "master_user_secret_arn" {
-  value       = aws_db_instance.this.master_user_secret[0].secret_arn
+  value       = try(aws_db_instance.this.master_user_secret[0].secret_arn, "")
   description = "ARN of the Secrets Manager secret for the RDS master user password."
 }
