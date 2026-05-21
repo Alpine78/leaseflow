@@ -1,10 +1,12 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../app/AuthContext";
 
 export function LandingPage() {
   const auth = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
 
   if (auth.isAuthenticated) {
@@ -24,47 +26,41 @@ export function LandingPage() {
       setError(null);
       await auth.signIn(returnPath);
     } catch (errorValue) {
-      setError(errorValue instanceof Error ? errorValue.message : "Could not start sign-in.");
+      setError(errorValue instanceof Error ? errorValue.message : t("landing.error"));
     }
   }
 
   return (
     <main className="landing-page">
       <section className="hero-card">
-        <p className="eyebrow">LeaseFlow frontend MVP</p>
-        <h1 className="display-title">From Hosted UI to tenant-safe CRUD.</h1>
-        <p className="hero-copy">
-          This browser slice talks directly to the deployed LeaseFlow API. Cognito
-          signs the user in, API Gateway enforces JWT auth, and the backend derives
-          tenant context from validated claims rather than request bodies.
-        </p>
+        <p className="eyebrow">{t("landing.eyebrow")}</p>
+        <h1 className="display-title">{t("landing.title")}</h1>
+        <p className="hero-copy">{t("landing.heroCopy")}</p>
         <div className="hero-actions">
           <button className="primary-button" onClick={handleSignIn} type="button">
-            Sign in with Cognito
+            {t("landing.signIn")}
           </button>
-          <p className="supporting-copy">
-            Local-first browser slice. Hosted deployment comes later.
-          </p>
+          <p className="supporting-copy">{t("landing.supportingCopy")}</p>
         </div>
         {error ? <p className="error-text">{error}</p> : null}
       </section>
 
       <section className="hero-grid">
         <article className="info-card">
-          <h2>In scope now</h2>
+          <h2>{t("landing.inScope.title")}</h2>
           <ul className="info-list">
-            <li>Hosted UI sign in and sign out</li>
-            <li>Operational dashboard summaries</li>
-            <li>Properties and leases workflows</li>
-            <li>Reminder and notification status</li>
+            <li>{t("landing.inScope.item1")}</li>
+            <li>{t("landing.inScope.item2")}</li>
+            <li>{t("landing.inScope.item3")}</li>
+            <li>{t("landing.inScope.item4")}</li>
           </ul>
         </article>
         <article className="info-card">
-          <h2>Guardrails</h2>
+          <h2>{t("landing.guardrails.title")}</h2>
           <ul className="info-list">
-            <li>No admin auth APIs in the browser</li>
-            <li>No client-trusted tenant context</li>
-            <li>No proxy server or BFF layer</li>
+            <li>{t("landing.guardrails.item1")}</li>
+            <li>{t("landing.guardrails.item2")}</li>
+            <li>{t("landing.guardrails.item3")}</li>
           </ul>
         </article>
       </section>

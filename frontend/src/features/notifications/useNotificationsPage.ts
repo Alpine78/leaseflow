@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthContext";
 import {
@@ -34,6 +35,7 @@ type NotificationsPageState = {
 export function useNotificationsPageState(): NotificationsPageState {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const [dueReminders, setDueReminders] = useState<LeaseReminderCandidate[]>([]);
   const [notificationContacts, setNotificationContacts] = useState<NotificationContact[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -80,7 +82,7 @@ export function useNotificationsPageState(): NotificationsPageState {
         setError(
           errorValue instanceof ApiError
             ? errorValue.message
-            : "Could not load notifications."
+            : i18n.t("notifications.fallbackLoadError")
         );
       } finally {
         if (!cancelled) {
@@ -94,7 +96,7 @@ export function useNotificationsPageState(): NotificationsPageState {
     return () => {
       cancelled = true;
     };
-  }, [auth.markSessionExpired, auth.session, navigate]);
+  }, [auth.markSessionExpired, auth.session, i18n, navigate]);
 
   async function markNotificationRead(notificationId: string) {
     if (!auth.session) {
@@ -127,7 +129,7 @@ export function useNotificationsPageState(): NotificationsPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not mark notification as read."
+          : i18n.t("notifications.fallbackMarkReadError")
       );
       throw errorValue;
     } finally {
@@ -159,7 +161,7 @@ export function useNotificationsPageState(): NotificationsPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not create notification contact."
+          : i18n.t("notifications.fallbackContactCreateError")
       );
       throw errorValue;
     }
@@ -193,7 +195,7 @@ export function useNotificationsPageState(): NotificationsPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not update notification contact."
+          : i18n.t("notifications.fallbackContactUpdateError")
       );
       throw errorValue;
     } finally {
@@ -226,7 +228,7 @@ export function useNotificationsPageState(): NotificationsPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not remove notification contact suppression."
+          : i18n.t("notifications.fallbackRemoveSuppressionError")
       );
       throw errorValue;
     } finally {

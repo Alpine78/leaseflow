@@ -1,19 +1,22 @@
 import { useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { useNotificationsPageState } from "../features/notifications/useNotificationsPage";
+import { activeDateLocale } from "../i18n";
 import type {
   NotificationContact,
   NotificationEmailDeliverySummary,
   NotificationItem,
 } from "../lib/api";
 
-function formatDaysUntilDue(days: number) {
+function formatDaysUntilDue(days: number, t: TFunction) {
   if (days === 0) {
-    return "today";
+    return t("notifications.timeDistance.today");
   }
   if (days === 1) {
-    return "1 day from now";
+    return t("notifications.timeDistance.oneDay");
   }
-  return `${days} days from now`;
+  return t("notifications.timeDistance.days", { count: days });
 }
 
 const EMPTY_DELIVERY_SUMMARY: NotificationEmailDeliverySummary = {
@@ -30,37 +33,50 @@ function notificationDeliverySummary(notification: NotificationItem) {
   return notification.delivery_summary ?? EMPTY_DELIVERY_SUMMARY;
 }
 
-function emailDeliveryLabel(summary: NotificationEmailDeliverySummary) {
+function emailDeliveryLabel(
+  summary: NotificationEmailDeliverySummary,
+  t: TFunction
+) {
   if (summary.total_count === 0) {
-    return "Not prepared";
+    return t("notifications.delivery.notPrepared");
   }
   if (summary.sent_count === summary.total_count) {
-    return "Sent";
+    return t("notifications.delivery.sent");
   }
   if (summary.failed_count === summary.total_count) {
-    return "Failed";
+    return t("notifications.delivery.failed");
   }
   if (summary.pending_count === summary.total_count) {
-    return "Pending";
+    return t("notifications.delivery.pending");
   }
-  return "Mixed";
+  return t("notifications.delivery.mixed");
 }
 
-function emailDeliveryCounts(summary: NotificationEmailDeliverySummary) {
+function emailDeliveryCounts(
+  summary: NotificationEmailDeliverySummary,
+  t: TFunction
+) {
   const parts = [
-    summary.sent_count > 0 ? `${summary.sent_count} sent` : null,
-    summary.failed_count > 0 ? `${summary.failed_count} failed` : null,
-    summary.pending_count > 0 ? `${summary.pending_count} pending` : null,
+    summary.sent_count > 0
+      ? t("notifications.delivery.sentCount", { count: summary.sent_count })
+      : null,
+    summary.failed_count > 0
+      ? t("notifications.delivery.failedCount", { count: summary.failed_count })
+      : null,
+    summary.pending_count > 0
+      ? t("notifications.delivery.pendingCount", { count: summary.pending_count })
+      : null,
   ].filter(Boolean);
 
   if (parts.length === 0) {
-    return `${summary.total_count} delivery rows`;
+    return t("notifications.delivery.countsEmpty", { count: summary.total_count });
   }
 
   return parts.join(" | ");
 }
 
 export function NotificationsPage() {
+  const { t } = useTranslation();
   const {
     createNotificationContact,
     dueReminders,
@@ -112,31 +128,31 @@ export function NotificationsPage() {
     <section className="page-grid notifications-grid">
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Email recipients</p>
-          <h2 className="section-title">Notification contacts.</h2>
+          <p className="eyebrow">{t("notifications.emailRecipients")}</p>
+          <h2 className="section-title">{t("notifications.sectionContactsTitle")}</h2>
         </div>
         <form className="stack-form" onSubmit={handleCreateContact}>
           <label className="field-label" htmlFor="notification-contact-email">
-            Contact email
+            {t("notifications.contactEmail")}
           </label>
           <input
             id="notification-contact-email"
             name="email"
             onChange={(event) => setContactEmail(event.target.value)}
-            placeholder="recipient@example.com"
+            placeholder={t("notifications.contactPlaceholder")}
             type="email"
             value={contactEmail}
           />
           <button className="primary-button" disabled={!contactEmail.trim()} type="submit">
-            Add contact
+            {t("notifications.addContact")}
           </button>
         </form>
         {isLoading ? (
-          <p className="supporting-copy">Loading notification contacts...</p>
+          <p className="supporting-copy">{t("notifications.contacts.loading")}</p>
         ) : notificationContacts.length === 0 ? (
           <div className="empty-state">
-            <h3>No notification contacts yet</h3>
-            <p>Add an enabled recipient before running SES delivery smoke.</p>
+            <h3>{t("notifications.contacts.emptyTitle")}</h3>
+            <p>{t("notifications.contacts.emptyBody")}</p>
           </div>
         ) : (
           <ul className="resource-list">
@@ -145,49 +161,63 @@ export function NotificationsPage() {
                 <div>
                   <p className="resource-title">{contact.email}</p>
                   <p className="resource-meta">
-                    Created {new Date(contact.created_at).toLocaleDateString("en-GB")}
+                    {t("notifications.notifications.created", {
+                      date: new Date(contact.created_at).toLocaleDateString(activeDateLocale()),
+                    })}
                   </p>
                 </div>
                 <div className="resource-actions">
                   <span className={contact.enabled ? "status-pill" : "status-pill status-pill-unread"}>
-                    {contact.enabled ? "Enabled" : "Disabled"}
+                    {contact.enabled
+                      ? t("notifications.contacts.enabled")
+                      : t("notifications.contacts.disabled")}
                   </span>
                   {contact.suppression_reasons?.includes("bounce") && (
                     <span className="status-pill status-pill-unread">
-                      Suppressed: bounce
+                      {t("notifications.contacts.suppressBounce")}
                       <button
-                        aria-label={`Remove bounce suppression for ${contact.email}`}
+                        aria-label={t("notifications.contacts.removeBounceSuppression", {
+                          email: contact.email,
+                        })}
                         className="ghost-button resource-edit-button"
                         disabled={removingSuppressionKey === `${contact.contact_id}:bounce`}
                         onClick={() => void removeContactSuppression(contact.contact_id, "bounce")}
                         type="button"
                       >
-                        Remove
+                        {t("notifications.contacts.remove")}
                       </button>
                     </span>
                   )}
                   {contact.suppression_reasons?.includes("complaint") && (
                     <span className="status-pill status-pill-unread">
-                      Suppressed: complaint
+                      {t("notifications.contacts.suppressComplaint")}
                       <button
-                        aria-label={`Remove complaint suppression for ${contact.email}`}
+                        aria-label={t("notifications.contacts.removeComplaintSuppression", {
+                          email: contact.email,
+                        })}
                         className="ghost-button resource-edit-button"
                         disabled={removingSuppressionKey === `${contact.contact_id}:complaint`}
                         onClick={() => void removeContactSuppression(contact.contact_id, "complaint")}
                         type="button"
                       >
-                        Remove
+                        {t("notifications.contacts.remove")}
                       </button>
                     </span>
                   )}
                   <button
-                    aria-label={`${contact.enabled ? "Disable" : "Enable"} ${contact.email}`}
+                    aria-label={
+                      contact.enabled
+                        ? t("notifications.contacts.toggleDisable", { email: contact.email })
+                        : t("notifications.contacts.toggleEnable", { email: contact.email })
+                    }
                     className="ghost-button resource-edit-button"
                     disabled={updatingContactId === contact.contact_id}
                     onClick={() => void handleToggleContact(contact)}
                     type="button"
                   >
-                    {contact.enabled ? "Disable" : "Enable"}
+                    {contact.enabled
+                      ? t("notifications.contacts.toggleDisableShort")
+                      : t("notifications.contacts.toggleEnableShort")}
                   </button>
                 </div>
               </li>
@@ -198,15 +228,15 @@ export function NotificationsPage() {
 
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Due reminders</p>
-          <h2 className="section-title">Rent coming due soon.</h2>
+          <p className="eyebrow">{t("notifications.sections.dueReminders")}</p>
+          <h2 className="section-title">{t("notifications.dueReminders.title")}</h2>
         </div>
         {isLoading ? (
-          <p className="supporting-copy">Loading reminders...</p>
+          <p className="supporting-copy">{t("notifications.dueReminders.loading")}</p>
         ) : dueReminders.length === 0 ? (
           <div className="empty-state">
-            <h3>No rent due soon</h3>
-            <p>The backend default 7-day reminder window has no matching leases.</p>
+            <h3>{t("notifications.dueReminders.emptyTitle")}</h3>
+            <p>{t("notifications.dueReminders.emptyBody")}</p>
           </div>
         ) : (
           <ul className="resource-list">
@@ -215,15 +245,22 @@ export function NotificationsPage() {
                 <div>
                   <p className="resource-title">{reminder.resident_name}</p>
                   <p className="resource-subtitle">
-                    Due {reminder.due_date} | {formatDaysUntilDue(reminder.days_until_due)}
+                    {t("notifications.dueReminders.dueLine", {
+                      date: reminder.due_date,
+                      distance: formatDaysUntilDue(reminder.days_until_due, t),
+                    })}
                   </p>
                 </div>
                 <div className="resource-actions">
                   <code className="resource-meta">
-                    rent due day {reminder.rent_due_day_of_month}
+                    {t("notifications.dueReminders.rentDueDay", {
+                      day: reminder.rent_due_day_of_month,
+                    })}
                   </code>
                   <code className="resource-meta">
-                    property {reminder.property_id.slice(0, 8)}
+                    {t("notifications.propertyShort", {
+                      id: reminder.property_id.slice(0, 8),
+                    })}
                   </code>
                 </div>
               </li>
@@ -234,15 +271,15 @@ export function NotificationsPage() {
 
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Notifications</p>
-          <h2 className="section-title">Persisted tenant notifications.</h2>
+          <p className="eyebrow">{t("notifications.sections.notifications")}</p>
+          <h2 className="section-title">{t("notifications.notifications.title")}</h2>
         </div>
         {isLoading ? (
-          <p className="supporting-copy">Loading notifications...</p>
+          <p className="supporting-copy">{t("notifications.notifications.loading")}</p>
         ) : notifications.length === 0 ? (
           <div className="empty-state">
-            <h3>No persisted notifications yet</h3>
-            <p>Notification rows appear here after backend reminder processing creates them.</p>
+            <h3>{t("notifications.notifications.emptyTitle")}</h3>
+            <p>{t("notifications.notifications.emptyBody")}</p>
           </div>
         ) : (
           <ul className="resource-list">
@@ -256,40 +293,58 @@ export function NotificationsPage() {
                     <div className="notification-title-row">
                       <p className="resource-title">{notification.title}</p>
                       <span className={isRead ? "status-pill" : "status-pill status-pill-unread"}>
-                        {isRead ? "Read" : "Unread"}
+                        {isRead
+                          ? t("notifications.notifications.read")
+                          : t("notifications.notifications.unread")}
                       </span>
                     </div>
                     <p className="resource-subtitle">{notification.message}</p>
                     <p className="resource-meta">
-                      Due {notification.due_date} | Created{" "}
-                      {new Date(notification.created_at).toLocaleDateString("en-GB")}
+                      {t("notifications.notifications.dueCreated", {
+                        createdDate: new Date(notification.created_at).toLocaleDateString(
+                          activeDateLocale()
+                        ),
+                        dueDate: notification.due_date,
+                      })}
                     </p>
                     <p className="resource-meta">
-                      Email delivery: {emailDeliveryLabel(deliverySummary)}
+                      {t("notifications.delivery.label", {
+                        status: emailDeliveryLabel(deliverySummary, t),
+                      })}
                     </p>
                     {deliverySummary.total_count > 0 ? (
-                      <p className="resource-meta">{emailDeliveryCounts(deliverySummary)}</p>
+                      <p className="resource-meta">
+                        {emailDeliveryCounts(deliverySummary, t)}
+                      </p>
                     ) : null}
                     {deliverySummary.last_error_code ? (
                       <p className="resource-meta">
-                        Last failure: {deliverySummary.last_error_code}
+                        {t("notifications.delivery.lastFailure", {
+                          code: deliverySummary.last_error_code,
+                        })}
                       </p>
                     ) : null}
                   </div>
                   <div className="resource-actions">
                     {isRead ? (
                       <time className="resource-meta" dateTime={notification.read_at ?? undefined}>
-                        Read {new Date(notification.read_at ?? "").toLocaleDateString("en-GB")}
+                        {t("notifications.notifications.readDate", {
+                          date: new Date(notification.read_at ?? "").toLocaleDateString(
+                            activeDateLocale()
+                          ),
+                        })}
                       </time>
                     ) : (
                       <button
-                        aria-label={`Mark ${notification.title} read`}
+                        aria-label={t("notifications.markReadLabel", {
+                          title: notification.title,
+                        })}
                         className="ghost-button resource-edit-button"
                         disabled={readingNotificationId === notification.notification_id}
                         onClick={() => void handleMarkRead(notification)}
                         type="button"
                       >
-                        Mark read
+                        {t("notifications.markRead")}
                       </button>
                     )}
                   </div>

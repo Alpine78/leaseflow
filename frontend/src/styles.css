@@ -254,6 +254,11 @@ button {
   justify-content: space-between;
   gap: 1rem;
   align-items: start;
+  min-width: 0;
+}
+
+.resource-card > div {
+  min-width: 0;
 }
 
 .resource-actions {
@@ -272,6 +277,13 @@ button {
   margin: 0 0 0.35rem;
   font-weight: 700;
   color: var(--ink-strong);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.resource-subtitle {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .notification-title-row {
@@ -339,6 +351,39 @@ button {
   gap: 1.5rem;
   align-items: start;
   margin-bottom: 1rem;
+}
+
+.shell-actions,
+.language-switcher {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.shell-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.language-switcher {
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.language-button {
+  min-width: 42px;
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.language-button-active {
+  background: var(--primary);
+  color: #f5f8f5;
 }
 
 .shell-nav {

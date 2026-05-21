@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useLeasesPageState } from "../features/leases/useLeasesPage";
 import type { Lease } from "../lib/api";
 
@@ -26,6 +27,7 @@ function createInitialLeaseForm(propertyId = ""): LeaseForm {
 }
 
 export function LeasesPage() {
+  const { t } = useTranslation();
   const { createLease, error, isLoading, isSubmitting, leases, properties, updateLease } =
     useLeasesPageState();
   const [form, setForm] = useState<LeaseForm>(() => createInitialLeaseForm());
@@ -37,7 +39,9 @@ export function LeasesPage() {
     form.propertyId || (hasProperties ? properties[0].property_id : "");
   const linkedPropertyName =
     properties.find((property) => property.property_id === form.propertyId)?.name ||
-    (form.propertyId ? `property ${form.propertyId.slice(0, 8)}` : "Unknown property");
+    (form.propertyId
+      ? t("leases.placeholderProperty", { id: form.propertyId.slice(0, 8) })
+      : t("leases.unknownProperty"));
   const canSubmit = hasProperties || isEditing;
 
   function resetForm(propertyId = selectedPropertyId) {
@@ -89,16 +93,18 @@ export function LeasesPage() {
     <section className="page-grid">
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Leases</p>
-          <h2 className="section-title">Attach live residents to real properties.</h2>
+          <p className="eyebrow">{t("appShell.nav.leases")}</p>
+          <h2 className="section-title">{t("leases.title")}</h2>
         </div>
         <form className="stack-form" onSubmit={handleSubmit}>
           {isEditing ? (
-            <p className="supporting-copy">Linked property: {linkedPropertyName}</p>
+            <p className="supporting-copy">
+              {t("leases.linkedProperty", { name: linkedPropertyName })}
+            </p>
           ) : (
             <>
               <label className="field-label" htmlFor="lease-property">
-                Property
+                {t("leases.property")}
               </label>
               <select
                 disabled={!hasProperties}
@@ -108,7 +114,7 @@ export function LeasesPage() {
                 }
                 value={selectedPropertyId}
               >
-                {hasProperties ? null : <option value="">Create a property first</option>}
+                {hasProperties ? null : <option value="">{t("leases.createFirstProperty")}</option>}
                 {properties.map((property) => (
                   <option key={property.property_id} value={property.property_id}>
                     {property.name}
@@ -119,7 +125,7 @@ export function LeasesPage() {
           )}
 
           <label className="field-label" htmlFor="lease-resident-name">
-            Resident name
+            {t("leases.residentName")}
           </label>
           <input
             disabled={!canSubmit}
@@ -127,7 +133,7 @@ export function LeasesPage() {
             onChange={(event) =>
               setForm((current) => ({ ...current, residentName: event.target.value }))
             }
-            placeholder="Kaisa Tenant"
+            placeholder={t("leases.residentNamePlaceholder")}
             required
             value={form.residentName}
           />
@@ -135,7 +141,7 @@ export function LeasesPage() {
           <div className="two-column-fields">
             <div>
               <label className="field-label" htmlFor="lease-rent-day">
-                Rent due day
+                {t("leases.rentDueDay")}
               </label>
               <input
                 disabled={!canSubmit}
@@ -155,7 +161,7 @@ export function LeasesPage() {
             </div>
             <div>
               <label className="field-label" htmlFor="lease-start-date">
-                Start date
+                {t("leases.startDate")}
               </label>
               <input
                 disabled={!canSubmit}
@@ -171,7 +177,7 @@ export function LeasesPage() {
           </div>
 
           <label className="field-label" htmlFor="lease-end-date">
-            End date
+            {t("leases.endDate")}
           </label>
           <input
             disabled={!canSubmit}
@@ -185,36 +191,35 @@ export function LeasesPage() {
           />
 
           <button className="primary-button" disabled={!canSubmit || isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : isEditing ? "Update lease" : "Create lease"}
+            {isSubmitting
+              ? t("properties.saving")
+              : isEditing
+                ? t("leases.updateLease")
+                : t("leases.createLease")}
           </button>
           {isEditing ? (
             <button className="ghost-button" onClick={() => resetForm()} type="button">
-              Cancel edit
+              {t("leases.cancelEdit")}
             </button>
           ) : null}
         </form>
         {!hasProperties && !isEditing ? (
-          <p className="supporting-copy">
-            Lease creation stays disabled until the tenant has at least one property.
-          </p>
+          <p className="supporting-copy">{t("leases.formDisabled")}</p>
         ) : null}
         {error ? <p className="error-text">{error}</p> : null}
       </article>
 
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Current list</p>
-          <h2 className="section-title">Tenant-scoped lease portfolio.</h2>
+          <p className="eyebrow">{t("leases.currentList")}</p>
+          <h2 className="section-title">{t("leases.listTitle")}</h2>
         </div>
         {isLoading ? (
-          <p className="supporting-copy">Loading leases...</p>
+          <p className="supporting-copy">{t("leases.loading")}</p>
         ) : leases.length === 0 ? (
           <div className="empty-state">
-            <h3>No leases yet</h3>
-            <p>
-              Once a property exists, you can create the first lease from the form on
-              this page.
-            </p>
+            <h3>{t("leases.empty.title")}</h3>
+            <p>{t("leases.empty.body")}</p>
           </div>
         ) : (
           <ul className="resource-list">
@@ -223,18 +228,24 @@ export function LeasesPage() {
                 <div>
                   <p className="resource-title">{lease.resident_name}</p>
                   <p className="resource-subtitle">
-                    Due day {lease.rent_due_day_of_month} | {lease.start_date} to {lease.end_date}
+                    {t("leases.dueDay", {
+                      day: lease.rent_due_day_of_month,
+                      endDate: lease.end_date,
+                      startDate: lease.start_date,
+                    })}
                   </p>
                 </div>
                 <div className="resource-actions">
-                  <code className="resource-meta">property {lease.property_id.slice(0, 8)}</code>
+                  <code className="resource-meta">
+                    {t("leases.placeholderProperty", { id: lease.property_id.slice(0, 8) })}
+                  </code>
                   <button
-                    aria-label={`Edit ${lease.resident_name}`}
+                    aria-label={t("leases.editLabel", { name: lease.resident_name })}
                     className="ghost-button resource-edit-button"
                     onClick={() => startEdit(lease)}
                     type="button"
                   >
-                    Edit
+                    {t("leases.edit")}
                   </button>
                 </div>
               </li>

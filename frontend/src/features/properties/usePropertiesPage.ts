@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthContext";
 import {
@@ -23,6 +24,7 @@ type PropertiesPageState = {
 export function usePropertiesPageState(): PropertiesPageState {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,7 +61,7 @@ export function usePropertiesPageState(): PropertiesPageState {
         setError(
           errorValue instanceof ApiError
             ? errorValue.message
-            : "Could not load properties."
+            : i18n.t("properties.fallbackLoadError")
         );
       } finally {
         if (!cancelled) {
@@ -73,7 +75,7 @@ export function usePropertiesPageState(): PropertiesPageState {
     return () => {
       cancelled = true;
     };
-  }, [auth.markSessionExpired, auth.session, navigate]);
+  }, [auth.markSessionExpired, auth.session, i18n, navigate]);
 
   async function createProperty(input: CreatePropertyInput) {
     if (!auth.session) {
@@ -100,7 +102,7 @@ export function usePropertiesPageState(): PropertiesPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not create the property."
+          : i18n.t("properties.fallbackCreateError")
       );
       throw errorValue;
     } finally {
@@ -137,7 +139,7 @@ export function usePropertiesPageState(): PropertiesPageState {
       setError(
         errorValue instanceof ApiError
           ? errorValue.message
-          : "Could not update the property."
+          : i18n.t("properties.fallbackUpdateError")
       );
       throw errorValue;
     } finally {

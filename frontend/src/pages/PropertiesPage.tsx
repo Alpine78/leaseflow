@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { activeDateLocale } from "../i18n";
 import { usePropertiesPageState } from "../features/properties/usePropertiesPage";
 import type { Property } from "../lib/api";
 
@@ -13,6 +15,7 @@ const INITIAL_FORM: PropertyForm = {
 };
 
 export function PropertiesPage() {
+  const { t } = useTranslation();
   const { createProperty, error, isLoading, isSubmitting, properties, updateProperty } =
     usePropertiesPageState();
   const [form, setForm] = useState<PropertyForm>(INITIAL_FORM);
@@ -56,62 +59,60 @@ export function PropertiesPage() {
     <section className="page-grid">
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Properties</p>
-          <h2 className="section-title">Capture the physical portfolio first.</h2>
+          <p className="eyebrow">{t("appShell.nav.properties")}</p>
+          <h2 className="section-title">{t("properties.title")}</h2>
         </div>
         <form className="stack-form" onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="property-name">
-            Name
+            {t("properties.name")}
           </label>
           <input
             id="property-name"
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="North Yard Block A"
+            placeholder={t("properties.namePlaceholder")}
             required
             value={form.name}
           />
           <label className="field-label" htmlFor="property-address">
-            Address
+            {t("properties.address")}
           </label>
           <input
             id="property-address"
             onChange={(event) =>
               setForm((current) => ({ ...current, address: event.target.value }))
             }
-            placeholder="Fjordinkatu 12, Helsinki"
+            placeholder={t("properties.addressPlaceholder")}
             required
             value={form.address}
           />
           <button className="primary-button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Saving..." : isEditing ? "Update property" : "Create property"}
+            {isSubmitting
+              ? t("properties.saving")
+              : isEditing
+                ? t("properties.updateProperty")
+                : t("properties.createProperty")}
           </button>
           {isEditing ? (
             <button className="ghost-button" onClick={resetForm} type="button">
-              Cancel edit
+              {t("properties.cancelEdit")}
             </button>
           ) : null}
         </form>
-        <p className="supporting-copy">
-          The browser never sends `tenant_id`. Tenant context comes from the
-          Cognito ID token the backend validates.
-        </p>
+        <p className="supporting-copy">{t("properties.tenantNote")}</p>
         {error ? <p className="error-text">{error}</p> : null}
       </article>
 
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Current list</p>
-          <h2 className="section-title">Tenant-scoped property inventory.</h2>
+          <p className="eyebrow">{t("properties.currentList")}</p>
+          <h2 className="section-title">{t("properties.listTitle")}</h2>
         </div>
         {isLoading ? (
-          <p className="supporting-copy">Loading properties...</p>
+          <p className="supporting-copy">{t("properties.loading")}</p>
         ) : properties.length === 0 ? (
           <div className="empty-state">
-            <h3>No properties yet</h3>
-            <p>
-              Create the first property here. Lease creation depends on a property
-              existing first.
-            </p>
+            <h3>{t("properties.empty.title")}</h3>
+            <p>{t("properties.empty.body")}</p>
           </div>
         ) : (
           <ul className="resource-list">
@@ -123,15 +124,15 @@ export function PropertiesPage() {
                 </div>
                 <div className="resource-actions">
                   <time className="resource-meta" dateTime={property.created_at}>
-                    {new Date(property.created_at).toLocaleDateString("en-GB")}
+                    {new Date(property.created_at).toLocaleDateString(activeDateLocale())}
                   </time>
                   <button
-                    aria-label={`Edit ${property.name}`}
+                    aria-label={t("properties.editLabel", { name: property.name })}
                     className="ghost-button resource-edit-button"
                     onClick={() => startEdit(property)}
                     type="button"
                   >
-                    Edit
+                    {t("properties.edit")}
                   </button>
                 </div>
               </li>

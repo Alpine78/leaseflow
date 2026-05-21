@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 
 export function AuthCallbackPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function AuthCallbackPage() {
           setError(
             errorValue instanceof Error
               ? errorValue.message
-              : "Could not complete browser sign-in."
+              : t("authCallback.fallbackError")
           );
         }
       }
@@ -32,13 +34,13 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [auth, navigate]);
+  }, [auth, navigate, t]);
 
   return (
     <main className="callback-page">
       <section className="callback-card">
-        <p className="eyebrow">Completing sign-in</p>
-        <h1 className="section-title">Handing the browser session back to LeaseFlow.</h1>
+        <p className="eyebrow">{t("authCallback.eyebrow")}</p>
+        <h1 className="section-title">{t("authCallback.title")}</h1>
         {error ? (
           <>
             <p className="error-text">{error}</p>
@@ -47,11 +49,11 @@ export function AuthCallbackPage() {
               onClick={() => auth.signIn("/dashboard")}
               type="button"
             >
-              Try sign-in again
+              {t("authCallback.retry")}
             </button>
           </>
         ) : (
-          <p className="supporting-copy">Exchanging the authorization code with Cognito.</p>
+          <p className="supporting-copy">{t("authCallback.supportingCopy")}</p>
         )}
       </section>
     </main>

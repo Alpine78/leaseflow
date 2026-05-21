@@ -15,6 +15,7 @@ automatically use a PostgreSQL database running in WSL.
 - Cognito Hosted UI sign in and sign out
 - OAuth authorization code flow with PKCE
 - optional Cognito Hosted UI software-token TOTP MFA support
+- English/Finnish language switcher with persisted browser preference
 - protected browser routes
 - authenticated dashboard summary
 - properties list, create, and update
@@ -24,6 +25,20 @@ automatically use a PostgreSQL database running in WSL.
 
 This slice does not include notification creation, email delivery, custom
 domains, or production-ready deploy automation.
+
+## Internationalization
+
+The frontend uses `i18next` and `react-i18next` with bundled English and Finnish
+translation resources under `src/i18n/`. English is the default locale. The
+language switcher in the authenticated app shell writes the selected locale to
+`localStorage` using `leaseflow.locale`, so the preference persists across
+browser sessions.
+
+Translations are bundled directly in the Vite app. There are no runtime
+translation-file HTTP requests, no browser language auto-detection, and no
+backend/server-side error translation in this slice. Bundle size increases by
+the two small locale files plus the `i18next` and `react-i18next` runtime
+dependencies.
 
 ## Prerequisites
 
