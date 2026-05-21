@@ -52,7 +52,9 @@ Mitigations:
 - Validate JWT signature, issuer, audience, expiry, and required claims on every protected request.
 - Derive user identity and tenant context from validated token claims, not from client-supplied fields.
 - For tenant-scoped HTTP API calls, use the Cognito ID token so the backend receives `custom:tenant_id`.
-- Require strong password policy and support MFA in Cognito as the account base matures.
+- Require a strong password policy and enable optional Cognito software-token
+  TOTP MFA through Hosted UI. Role-required MFA remains a future control until
+  admin/operator roles exist.
 - Use short-lived tokens and avoid long-lived static credentials for workloads.
 
 ### Tampering
@@ -220,7 +222,9 @@ The MVP does not require a full incident management platform, but it does requir
 
 - PostgreSQL Row Level Security for defense-in-depth tenant enforcement,
   following `docs/postgresql-rls-tenant-isolation-hardening.md`
-- Cognito MFA rollout for higher-risk roles
+- Cognito MFA is available as optional Hosted UI software-token TOTP. Requiring
+  MFA for higher-risk admin/operator roles remains future work because those
+  roles do not exist yet.
 - Production SES delivery hardening for persisted tenant notifications,
   following `docs/ses-production-delivery-hardening.md`.
 - Backup retention review when recovery expectations outgrow the one-day dev window

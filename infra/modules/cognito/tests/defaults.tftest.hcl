@@ -16,6 +16,21 @@ run "exposes_tenant_id_claim_for_api_auth" {
   command = apply
 
   assert {
+    condition     = aws_cognito_user_pool.this.mfa_configuration == "OPTIONAL"
+    error_message = "User pool should offer optional MFA so users can enroll TOTP without requiring MFA for every dev sign-in."
+  }
+
+  assert {
+    condition     = aws_cognito_user_pool.this.software_token_mfa_configuration[0].enabled == true
+    error_message = "User pool should enable TOTP software-token MFA."
+  }
+
+  assert {
+    condition     = try(length(aws_cognito_user_pool.this.sms_configuration), 0) == 0
+    error_message = "User pool should not configure SMS MFA."
+  }
+
+  assert {
     condition = length([
       for attribute in aws_cognito_user_pool.this.schema : attribute
       if attribute.name == "tenant_id"

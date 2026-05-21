@@ -29,7 +29,11 @@ locals {
 resource "aws_cognito_user_pool" "this" {
   name = "${var.name_prefix}-user-pool"
 
-  mfa_configuration = "OFF"
+  mfa_configuration = "OPTIONAL"
+
+  software_token_mfa_configuration {
+    enabled = true
+  }
 
   password_policy {
     minimum_length    = 12
