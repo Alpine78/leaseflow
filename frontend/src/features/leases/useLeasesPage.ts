@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthContext";
 import {
@@ -25,6 +26,7 @@ type LeasesPageState = {
 export function useLeasesPageState(): LeasesPageState {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const [leases, setLeases] = useState<Lease[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +66,7 @@ export function useLeasesPageState(): LeasesPageState {
           return;
         }
         setError(
-          errorValue instanceof ApiError ? errorValue.message : "Could not load leases."
+          errorValue instanceof ApiError ? errorValue.message : i18n.t("leases.fallbackLoadError")
         );
       } finally {
         if (!cancelled) {
@@ -78,7 +80,7 @@ export function useLeasesPageState(): LeasesPageState {
     return () => {
       cancelled = true;
     };
-  }, [auth.markSessionExpired, auth.session, navigate]);
+  }, [auth.markSessionExpired, auth.session, i18n, navigate]);
 
   async function createLease(input: CreateLeaseInput) {
     if (!auth.session) {
@@ -103,7 +105,7 @@ export function useLeasesPageState(): LeasesPageState {
         return;
       }
       setError(
-        errorValue instanceof ApiError ? errorValue.message : "Could not create the lease."
+        errorValue instanceof ApiError ? errorValue.message : i18n.t("leases.fallbackCreateError")
       );
       throw errorValue;
     } finally {
@@ -136,7 +138,7 @@ export function useLeasesPageState(): LeasesPageState {
         return;
       }
       setError(
-        errorValue instanceof ApiError ? errorValue.message : "Could not update the lease."
+        errorValue instanceof ApiError ? errorValue.message : i18n.t("leases.fallbackUpdateError")
       );
       throw errorValue;
     } finally {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../app/AuthContext";
 import { ApiError, createApiClient, UnauthorizedApiError } from "../../lib/api";
@@ -27,6 +28,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 export function useDashboardPageState(): DashboardPageState {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export function useDashboardPageState(): DashboardPageState {
         setError(
           errorValue instanceof ApiError
             ? errorValue.message
-            : "Could not load dashboard."
+            : i18n.t("dashboard.fallbackError")
         );
       } finally {
         if (!cancelled) {
@@ -89,7 +91,7 @@ export function useDashboardPageState(): DashboardPageState {
     return () => {
       cancelled = true;
     };
-  }, [auth.markSessionExpired, auth.session, navigate]);
+  }, [auth.markSessionExpired, auth.session, i18n, navigate]);
 
   return {
     error,

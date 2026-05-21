@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../i18n";
 import { DashboardPage } from "./DashboardPage";
 
 const mockedUseDashboardPageState = vi.fn();
@@ -72,6 +73,23 @@ describe("DashboardPage", () => {
     expect(screen.getByText("4 leases")).toBeInTheDocument();
     expect(screen.getByText("2 due soon")).toBeInTheDocument();
     expect(screen.getByText("1 unread")).toBeInTheDocument();
+  });
+
+  it("renders Finnish dashboard copy when Finnish is active", async () => {
+    await i18n.changeLanguage("fi");
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Kiinteistöportfolion yleiskuva")).toBeInTheDocument();
+    expect(screen.getByText("0 kohdetta")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Hallinnoi kohteita" })).toHaveAttribute(
+      "href",
+      "/properties"
+    );
   });
 
   it("renders the existing error message path", () => {

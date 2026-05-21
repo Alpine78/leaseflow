@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AuthContext, type AuthContextValue } from "./AuthContext";
@@ -49,5 +49,32 @@ describe("AppShell", () => {
       "href",
       "/notifications"
     );
+  });
+
+  it("switches language without reloading the shell", () => {
+    render(
+      <AuthContext.Provider value={createAuthValue()}>
+        <MemoryRouter>
+          <AppShell>
+            <div>Secure content</div>
+          </AppShell>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "FI" }));
+
+    expect(screen.getByRole("link", { name: "Yhteenveto" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("leaseflow.locale")).toBe("fi");
+
+    fireEvent.click(screen.getByRole("button", { name: "EN" }));
+
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
   });
 });

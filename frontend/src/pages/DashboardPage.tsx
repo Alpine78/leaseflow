@@ -1,56 +1,51 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useDashboardPageState } from "../features/dashboard/useDashboardPage";
 
 type SummaryCardProps = {
-  count: number;
-  label: string;
+  summaryText: string;
   supportingText: string;
 };
 
-function SummaryCard({ count, label, supportingText }: SummaryCardProps) {
+function SummaryCard({ summaryText, supportingText }: SummaryCardProps) {
   return (
     <article className="summary-card">
-      <p className="summary-count">
-        {count} {label}
-      </p>
+      <p className="summary-count">{summaryText}</p>
       <p className="resource-subtitle">{supportingText}</p>
     </article>
   );
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const { error, isLoading, summary } = useDashboardPageState();
 
   return (
     <section className="dashboard-layout">
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Dashboard</p>
-          <h2 className="section-title">Portfolio overview</h2>
+          <p className="eyebrow">{t("dashboard.eyebrow")}</p>
+          <h2 className="section-title">{t("dashboard.title")}</h2>
         </div>
         {isLoading ? (
-          <p className="supporting-copy">Loading dashboard...</p>
+          <p className="supporting-copy">{t("dashboard.loading")}</p>
         ) : (
           <div className="summary-grid">
             <SummaryCard
-              count={summary.propertyCount}
-              label="properties"
-              supportingText="Tenant-owned rental units currently captured."
+              summaryText={t("dashboard.cards.properties", { count: summary.propertyCount })}
+              supportingText={t("dashboard.cards.propertiesSupporting")}
             />
             <SummaryCard
-              count={summary.leaseCount}
-              label="leases"
-              supportingText="Active lease records linked to properties."
+              summaryText={t("dashboard.cards.leases", { count: summary.leaseCount })}
+              supportingText={t("dashboard.cards.leasesSupporting")}
             />
             <SummaryCard
-              count={summary.dueReminderCount}
-              label="due soon"
-              supportingText="Lease reminder candidates in the default window."
+              summaryText={t("dashboard.cards.dueSoon", { count: summary.dueReminderCount })}
+              supportingText={t("dashboard.cards.dueSoonSupporting")}
             />
             <SummaryCard
-              count={summary.unreadNotificationCount}
-              label="unread"
-              supportingText="Persisted notifications still awaiting acknowledgement."
+              summaryText={t("dashboard.cards.unread", { count: summary.unreadNotificationCount })}
+              supportingText={t("dashboard.cards.unreadSupporting")}
             />
           </div>
         )}
@@ -59,18 +54,18 @@ export function DashboardPage() {
 
       <article className="panel-card">
         <div className="section-heading">
-          <p className="eyebrow">Next actions</p>
-          <h2 className="section-title">Open the working areas.</h2>
+          <p className="eyebrow">{t("dashboard.nextActionsEyebrow")}</p>
+          <h2 className="section-title">{t("dashboard.nextActionsTitle")}</h2>
         </div>
         <div className="dashboard-actions">
           <Link className="primary-button dashboard-action-link" to="/properties">
-            Manage properties
+            {t("dashboard.actions.properties")}
           </Link>
           <Link className="ghost-button dashboard-action-link" to="/leases">
-            Manage leases
+            {t("dashboard.actions.leases")}
           </Link>
           <Link className="ghost-button dashboard-action-link" to="/notifications">
-            Review notifications
+            {t("dashboard.actions.notifications")}
           </Link>
         </div>
       </article>
